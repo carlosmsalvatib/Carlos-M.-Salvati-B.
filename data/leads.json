@@ -1,0 +1,41 @@
+[
+  {
+    "id": "lead-1789474811581",
+    "timestamp": "2026-09-15T12:20:11.581Z",
+    "fullName": "Carlos Mendoza",
+    "email": "carlos@ejemplo.com",
+    "phone": "+584147187596",
+    "profileInterest": "inversionista",
+    "message": "Interesado en adquirir 3 lotes para aprovechar el descuento especial de inversionistas.",
+    "lotPreference": "",
+    "modelPreference": "",
+    "source": "formulario",
+    "status": "nuevo"
+  },
+  {
+    "id": "lead-101",
+    "timestamp": "2026-09-14T12:15:55.819Z",
+    "fullName": "Ing. Carlos Mendoza",
+    "email": "carlos.mendoza@ejemplo.com",
+    "phone": "+58 424 7654321",
+    "profileInterest": "inversionista",
+    "message": "Interesado en adquirir 3 lotes de la manzana B para desarrollo agroturístico.",
+    "lotPreference": "B2-09, B2-10, B2-11",
+    "modelPreference": "modelo-b",
+    "source": "formulario",
+    "status": "en_seguimiento"
+  },
+  {
+    "id": "lead-102",
+    "timestamp": "2026-09-15T00:15:55.819Z",
+    "fullName": "Dra. María Elena Rivas",
+    "email": "maria.rivas@ejemplo.com",
+    "phone": "+58 412 1234567",
+    "profileInterest": "hogar",
+    "message": "Deseo construir una casa de campo con el Modelo A de 90m². ¿Tienen visita este sábado?",
+    "lotPreference": "A2-02",
+    "modelPreference": "modelo-a",
+    "source": "simulador",
+    "status": "nuevo"
+  }
+]

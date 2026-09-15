@@ -1,0 +1,6 @@
+{
+  "name": "Mis Delirios Ranch",
+  "description": "Complejo Urbanístico Agroproductivo y Turístico Mis Delirios Ranch en Cordero, Táchira - Landing Page con CMS integrado",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

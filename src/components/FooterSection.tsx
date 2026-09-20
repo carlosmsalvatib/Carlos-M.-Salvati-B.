@@ -5,14 +5,36 @@ import { ArrowUp, MapPin, Phone, Mail, ShieldCheck } from 'lucide-react';
 interface FooterSectionProps {
   content: CmsContent;
   onOpenCms: () => void;
+  onNavigate?: (pageId: string) => void;
 }
 
-export const FooterSection: React.FC<FooterSectionProps> = ({ content, onOpenCms }) => {
+export const FooterSection: React.FC<FooterSectionProps> = ({ content, onOpenCms, onNavigate }) => {
   const { footer, site } = content;
   if (!footer.active) return null;
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const navPages = [
+    { id: 'inicio', label: 'Inicio' },
+    { id: 'propuesta', label: 'Propuesta de Valor' },
+    { id: 'plan-maestro', label: 'Plan Maestro & Lotes' },
+    { id: 'modelos', label: 'Modelos de Vivienda' },
+    { id: 'ubicacion', label: 'Ubicación & Entorno' },
+    { id: 'perfiles', label: 'Perfiles de Inversión' },
+    { id: 'financiamiento', label: 'Simulador Financiamiento' },
+    { id: 'sostenibilidad', label: 'Sostenibilidad & Bulevar' },
+    { id: 'contacto', label: 'Contacto & Cotización' },
+  ];
+
+  const handleLinkClick = (pageId: string) => {
+    if (onNavigate) {
+      onNavigate(pageId);
+    } else {
+      const el = document.getElementById(pageId);
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   return (
@@ -51,26 +73,26 @@ export const FooterSection: React.FC<FooterSectionProps> = ({ content, onOpenCms
             </div>
           </div>
 
-          {/* Quick Links */}
+          {/* Quick Links with Multi-Page Navigation */}
           <div className="lg:col-span-3 space-y-3">
-            <h4 className="font-serif font-bold text-white text-base">Enlaces Rápidos</h4>
-            <ul className="space-y-2 text-xs sm:text-sm">
-              {footer.quickLinks.map((link, idx) => (
-                <li key={idx}>
-                  <a
-                    href={link.href}
-                    className="text-stone-400 hover:text-amber-400 transition-colors"
+            <h4 className="font-serif font-bold text-white text-base">Páginas del Proyecto</h4>
+            <ul className="space-y-1.5 text-xs sm:text-sm">
+              {navPages.map((page) => (
+                <li key={page.id}>
+                  <button
+                    onClick={() => handleLinkClick(page.id)}
+                    className="text-stone-400 hover:text-amber-400 transition-colors text-left"
                   >
-                    {link.label}
-                  </a>
+                    {page.label}
+                  </button>
                 </li>
               ))}
-              <li>
+              <li className="pt-2">
                 <button
                   onClick={onOpenCms}
-                  className="text-amber-400 hover:text-amber-300 font-medium transition-colors"
+                  className="text-amber-400 hover:text-amber-300 font-semibold transition-colors flex items-center gap-1"
                 >
-                  Panel Administrativo (CMS)
+                  <span>Accesos CMS Administrativo</span>
                 </button>
               </li>
             </ul>
@@ -99,14 +121,12 @@ export const FooterSection: React.FC<FooterSectionProps> = ({ content, onOpenCms
           </div>
         </div>
 
-        {/* Bottom Bar with Back to Top */}
+        {/* Bottom Bar */}
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-stone-500">
-          <p>© {footer.copyrightYear} Mis Delirios Ranch. Todos los derechos reservados.</p>
-
+          <p>© {new Date().getFullYear()} {site.projectName}. Todos los derechos reservados.</p>
           <button
             onClick={scrollToTop}
-            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-stone-800 hover:bg-stone-700 text-stone-300 hover:text-white transition-colors"
-            id="btn-scroll-top"
+            className="inline-flex items-center gap-1 text-stone-400 hover:text-amber-400 transition-colors"
           >
             <span>Volver arriba</span>
             <ArrowUp className="w-3.5 h-3.5" />

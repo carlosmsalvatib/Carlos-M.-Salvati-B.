@@ -1,0 +1,68 @@
+[
+  {
+    "id": "user-1",
+    "username": "csalvati",
+    "name": "Carlos Salvati",
+    "email": "salvaticarlos@gmail.com",
+    "level": 1,
+    "levelName": "Superusuario",
+    "password": "password123",
+    "active": true,
+    "createdAt": "2026-09-20T22:45:08.430Z"
+  },
+  {
+    "id": "user-2",
+    "username": "apalacio",
+    "name": "Audy Palacio",
+    "email": "audypalacio@gmail.com",
+    "level": 1,
+    "levelName": "Superusuario",
+    "password": "password123",
+    "active": true,
+    "createdAt": "2026-09-20T22:45:08.430Z"
+  },
+  {
+    "id": "user-3",
+    "username": "admin",
+    "name": "Administrador General",
+    "email": "admin@misdeliriosranch.com",
+    "level": 2,
+    "levelName": "Administrador",
+    "password": "delirios2025",
+    "active": true,
+    "createdAt": "2026-09-20T22:45:08.430Z"
+  },
+  {
+    "id": "user-4",
+    "username": "editor",
+    "name": "Editor de Contenidos",
+    "email": "editor@misdeliriosranch.com",
+    "level": 3,
+    "levelName": "Editor",
+    "password": "delirios2025",
+    "active": true,
+    "createdAt": "2026-09-20T22:45:08.430Z"
+  },
+  {
+    "id": "user-5",
+    "username": "ventas",
+    "name": "Asesor de Ventas",
+    "email": "ventas@misdeliriosranch.com",
+    "level": 4,
+    "levelName": "Vendedor",
+    "password": "delirios2025",
+    "active": true,
+    "createdAt": "2026-09-20T22:45:08.430Z"
+  },
+  {
+    "id": "user-6",
+    "username": "invitado",
+    "name": "Invitado / Auditor",
+    "email": "invitado@misdeliriosranch.com",
+    "level": 5,
+    "levelName": "Invitado",
+    "password": "delirios2025",
+    "active": true,
+    "createdAt": "2026-09-20T22:45:08.430Z"
+  }
+]

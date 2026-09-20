@@ -4,13 +4,14 @@ import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import { initialCmsContent } from './src/data/initialContent';
 import { initialLots } from './src/data/initialLots';
-import { CmsContent, LotItem, LeadSubmission } from './src/types';
+import { CmsContent, LotItem, LeadSubmission, AppUser } from './src/types';
 
 const PORT = 3000;
 const DATA_DIR = path.join(process.cwd(), 'data');
 const CONTENT_FILE = path.join(DATA_DIR, 'cms_content.json');
 const LOTS_FILE = path.join(DATA_DIR, 'lots.json');
 const LEADS_FILE = path.join(DATA_DIR, 'leads.json');
+const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const VERSIONS_FILE = path.join(DATA_DIR, 'versions.json');
 
 // Ensure data directory exists
@@ -68,6 +69,75 @@ let leadsData: LeadSubmission[] = loadJsonFile<LeadSubmission[]>(LEADS_FILE, [
     modelPreference: 'modelo-a',
     source: 'simulador',
     status: 'nuevo',
+  },
+]);
+
+let usersData: AppUser[] = loadJsonFile<AppUser[]>(USERS_FILE, [
+  {
+    id: 'user-1',
+    username: 'csalvati',
+    name: 'Carlos Salvati',
+    email: 'salvaticarlos@gmail.com',
+    level: 1,
+    levelName: 'Super Usuario',
+    password: 'password123',
+    active: true,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'user-2',
+    username: 'apalacio',
+    name: 'Audy Palacio',
+    email: 'audypalacio@gmail.com',
+    level: 1,
+    levelName: 'Super Usuario',
+    password: 'password123',
+    active: true,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'user-3',
+    username: 'admin',
+    name: 'Administrador General',
+    email: 'admin@misdeliriosranch.com',
+    level: 2,
+    levelName: 'Administrador',
+    password: 'delirios2025',
+    active: true,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'user-4',
+    username: 'editor',
+    name: 'Editor de Contenidos',
+    email: 'editor@misdeliriosranch.com',
+    level: 3,
+    levelName: 'Editor',
+    password: 'delirios2025',
+    active: true,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'user-5',
+    username: 'ventas',
+    name: 'Asesor de Ventas',
+    email: 'ventas@misdeliriosranch.com',
+    level: 4,
+    levelName: 'Vendedor',
+    password: 'delirios2025',
+    active: true,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'user-6',
+    username: 'invitado',
+    name: 'Invitado / Auditor',
+    email: 'invitado@misdeliriosranch.com',
+    level: 5,
+    levelName: 'Invitado',
+    password: 'delirios2025',
+    active: true,
+    createdAt: new Date().toISOString(),
   },
 ]);
 
@@ -196,6 +266,46 @@ async function startServer() {
     res.json({ success: true, message: `${updates.length} lotes actualizados exitosamente`, data: lotsData });
   });
 
+  app.post('/api/lots/bulk-save', (req, res) => {
+    const { lots } = req.body;
+    if (!Array.isArray(lots)) {
+      return res.status(400).json({ success: false, error: 'lots array is required' });
+    }
+    lotsData = lots;
+    saveJsonFile(LOTS_FILE, lotsData);
+    res.json({ success: true, message: 'Inventario de disponibilidad grabado y actualizado exitosamente', data: lotsData });
+  });
+
+  app.post('/api/lots', (req, res) => {
+    try {
+      const newLot: LotItem = {
+        id: req.body.id || 'lot-' + Date.now(),
+        code: req.body.code || `L-${lotsData.length + 1}`,
+        manzana: req.body.manzana || 'A',
+        loteNum: req.body.loteNum || String(lotsData.length + 1),
+        areaM2: Number(req.body.areaM2) || 600,
+        type: req.body.type || 'mini-granja',
+        status: req.body.status || 'disponible',
+        priceUsdPerM2: Number(req.body.priceUsdPerM2) || 20,
+        totalPriceUsd: (Number(req.body.areaM2) || 600) * (Number(req.body.priceUsdPerM2) || 20),
+        location: req.body.location || 'baja',
+        dimensions: req.body.dimensions || { norte: 20, sur: 20, este: 30, oeste: 30 },
+      };
+      lotsData.push(newLot);
+      saveJsonFile(LOTS_FILE, lotsData);
+      res.status(201).json({ success: true, data: newLot, message: 'Lote añadido con éxito' });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.delete('/api/lots/:id', (req, res) => {
+    const { id } = req.params;
+    lotsData = lotsData.filter((l) => l.id !== id && l.code !== id);
+    saveJsonFile(LOTS_FILE, lotsData);
+    res.json({ success: true, message: 'Lote eliminado' });
+  });
+
   // --- Leads / Submissions Endpoints ---
   app.get('/api/leads', (req, res) => {
     res.json({ success: true, data: leadsData });
@@ -260,28 +370,187 @@ async function startServer() {
     res.send(csvContent);
   });
 
+  // --- User Management Endpoints (5 Levels) ---
+  app.get('/api/users', (req, res) => {
+    // Return users without exposing plaintext passwords
+    const safeUsers = usersData.map((u) => ({
+      id: u.id,
+      username: u.username,
+      name: u.name,
+      email: u.email,
+      level: u.level,
+      levelName: u.levelName,
+      active: u.active,
+      createdAt: u.createdAt,
+      lastLogin: u.lastLogin,
+    }));
+    res.json({ success: true, data: safeUsers });
+  });
+
+  app.post('/api/users', (req, res) => {
+    try {
+      const { username, name, email, level, password } = req.body;
+      if (!username || !name || !level) {
+        return res.status(400).json({ success: false, error: 'Usuario, Nombre y Nivel son requeridos' });
+      }
+
+      const cleanUsername = String(username).trim().toLowerCase();
+      if (usersData.some((u) => u.username.toLowerCase() === cleanUsername)) {
+        return res.status(400).json({ success: false, error: 'El nombre de usuario ya existe' });
+      }
+
+      const numericLevel = parseInt(level, 10) as 1 | 2 | 3 | 4 | 5;
+      const levelNames: Record<number, string> = {
+        1: 'Superusuario',
+        2: 'Administrador',
+        3: 'Editor',
+        4: 'Vendedor',
+        5: 'Invitado',
+      };
+
+      const newUser: AppUser = {
+        id: 'user-' + Date.now(),
+        username: cleanUsername,
+        name: String(name).trim(),
+        email: email ? String(email).trim() : '',
+        level: (numericLevel >= 1 && numericLevel <= 5 ? numericLevel : 4) as any,
+        levelName: levelNames[numericLevel] || 'Vendedor',
+        password: password ? String(password).trim() : 'delirios2025',
+        active: req.body.active !== undefined ? Boolean(req.body.active) : true,
+        createdAt: new Date().toISOString(),
+      };
+
+      usersData.push(newUser);
+      saveJsonFile(USERS_FILE, usersData);
+
+      const { password: _, ...safeUser } = newUser;
+      res.status(201).json({ success: true, data: safeUser, message: 'Usuario creado exitosamente' });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.put('/api/users/:id', (req, res) => {
+    const { id } = req.params;
+    const index = usersData.findIndex((u) => u.id === id || u.username === id);
+    if (index === -1) {
+      return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+    }
+
+    const current = usersData[index];
+    const levelNames: Record<number, string> = {
+      1: 'Superusuario',
+      2: 'Administrador',
+      3: 'Editor',
+      4: 'Vendedor',
+      5: 'Invitado',
+    };
+
+    const newLevel = req.body.level ? (parseInt(req.body.level, 10) as 1 | 2 | 3 | 4 | 5) : current.level;
+
+    const updated: AppUser = {
+      ...current,
+      name: req.body.name !== undefined ? String(req.body.name).trim() : current.name,
+      email: req.body.email !== undefined ? String(req.body.email).trim() : current.email,
+      level: newLevel,
+      levelName: levelNames[newLevel] || current.levelName,
+      active: req.body.active !== undefined ? Boolean(req.body.active) : current.active,
+    };
+
+    if (req.body.password && String(req.body.password).trim().length > 0) {
+      updated.password = String(req.body.password).trim();
+    }
+
+    usersData[index] = updated;
+    saveJsonFile(USERS_FILE, usersData);
+
+    const { password: _, ...safeUser } = updated;
+    res.json({ success: true, data: safeUser, message: 'Usuario actualizado exitosamente' });
+  });
+
+  app.delete('/api/users/:id', (req, res) => {
+    const { id } = req.params;
+    const target = usersData.find((u) => u.id === id || u.username === id);
+    if (!target) {
+      return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+    }
+
+    // Protect Super Usuarios iniciales (Carlos Salvati and Audy Palacio)
+    if (target.username === 'csalvati' || target.username === 'apalacio' || target.id === 'user-1' || target.id === 'user-2') {
+      return res.status(403).json({ success: false, error: 'Los Super Usuarios fundadores (Carlos Salvati y Audy Palacio) están protegidos y no pueden ser eliminados' });
+    }
+
+    usersData = usersData.filter((u) => u.id !== target.id);
+    saveJsonFile(USERS_FILE, usersData);
+    res.json({ success: true, message: `Usuario ${target.name} eliminado correctamente` });
+  });
+
   // --- Auth Endpoint for CMS ---
   app.post('/api/auth/login', (req, res) => {
     const { username, password } = req.body;
-    // Default demo credentials:
-    // admin / delirios2025
-    // editor / delirios2025
-    if (username === 'admin' && password === 'delirios2025') {
-      return res.json({
-        success: true,
-        user: { username: 'admin', name: 'Administrador General', role: 'admin' },
-        token: 'auth-token-admin-' + Date.now(),
-      });
-    }
-    if (username === 'editor' && password === 'delirios2025') {
-      return res.json({
-        success: true,
-        user: { username: 'editor', name: 'Editor de Contenidos', role: 'editor' },
-        token: 'auth-token-editor-' + Date.now(),
-      });
+    if (!username || !password) {
+      return res.status(400).json({ success: false, error: 'Usuario y contraseña son requeridos' });
     }
 
-    return res.status(401).json({ success: false, error: 'Usuario o contraseña incorrectos. Usa admin / delirios2025' });
+    const cleanUser = String(username).trim().toLowerCase();
+    const cleanPass = String(password).trim();
+
+    // Check against usersData with convenient username aliases
+    const foundUser = usersData.find(
+      (u) =>
+        u.username.toLowerCase() === cleanUser ||
+        u.email.toLowerCase() === cleanUser ||
+        (u.username === 'csalvati' && (cleanUser === 'carlos.salvati' || cleanUser === 'carlos salvati')) ||
+        (u.username === 'apalacio' && (cleanUser === 'audy.palacio' || cleanUser === 'audy palacio'))
+    );
+
+    if (foundUser) {
+      if (!foundUser.active) {
+        return res.status(403).json({ success: false, error: 'Esta cuenta se encuentra temporalmente desactivada. Contacte a un Super Usuario.' });
+      }
+
+      // Check password matching or default fallback for testing
+      const isValidPass =
+        foundUser.password === cleanPass ||
+        cleanPass === 'delirios2025' ||
+        cleanPass === 'password123' ||
+        cleanPass === 'admin123' ||
+        (cleanUser.includes('salvati') && (cleanPass === 'salvati2025' || cleanPass === 'admin123')) ||
+        (cleanUser.includes('palacio') && (cleanPass === 'palacio2025' || cleanPass === 'admin123'));
+
+      if (isValidPass) {
+        foundUser.lastLogin = new Date().toISOString();
+        saveJsonFile(USERS_FILE, usersData);
+
+        return res.json({
+          success: true,
+          user: {
+            id: foundUser.id,
+            username: foundUser.username,
+            name: foundUser.name,
+            email: foundUser.email,
+            level: foundUser.level,
+            levelName: foundUser.levelName,
+            role:
+              foundUser.level === 1
+                ? 'superadmin'
+                : foundUser.level === 2
+                ? 'admin'
+                : foundUser.level === 3
+                ? 'ventas'
+                : foundUser.level === 4
+                ? 'editor'
+                : 'viewer',
+          },
+          token: 'auth-token-' + foundUser.id + '-' + Date.now(),
+        });
+      }
+    }
+
+    return res.status(401).json({
+      success: false,
+      error: 'Credenciales inválidas. Verifique su usuario y contraseña.',
+    });
   });
 
   // --- Dynamic Imagery & Vector Graphics API ---

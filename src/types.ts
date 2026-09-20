@@ -2,6 +2,42 @@ export type LotStatus = 'disponible' | 'reservado' | 'vendido' | 'no-disponible'
 export type LotLocation = 'alta' | 'baja';
 export type LotType = 'mini-granja' | 'residencial' | 'comercial' | 'galpon';
 
+export type UserLevel = 1 | 2 | 3 | 4 | 5;
+
+export interface AppUser {
+  id: string;
+  username: string;
+  name: string;
+  email: string;
+  level: UserLevel;
+  levelName: string;
+  password?: string;
+  active: boolean;
+  createdAt: string;
+  lastLogin?: string;
+}
+
+export interface MasterPlanBlueprint {
+  id: string;
+  title: string;
+  subtitle?: string;
+  imageUrl: string;
+  sector: string;
+  description?: string;
+}
+
+export interface PropuestaVideo {
+  id: string;
+  title: string;
+  videoUrl: string;
+  url?: string;
+  posterUrl?: string;
+  thumbnailUrl?: string;
+  description?: string;
+  duration?: string;
+  videoType?: string;
+}
+
 export interface LotItem {
   id: string;
   code: string;
@@ -11,8 +47,10 @@ export interface LotItem {
   type: LotType;
   status: LotStatus;
   priceUsdPerM2: number;
+  pricePerM2Usd?: number;
   totalPriceUsd: number;
   location: LotLocation;
+  features?: string[];
   dimensions?: {
     norte?: number;
     sur?: number;
@@ -137,6 +175,8 @@ export interface CmsContent {
     description: string;
     imageUrl: string;
     imageAlt: string;
+    videos?: PropuestaVideo[];
+    selectedVideoId?: string;
     benefits: {
       id: string;
       title: string;
@@ -197,6 +237,7 @@ export interface CmsContent {
     totalLots: number;
     planImageUrl: string;
     planPdfUrl: string;
+    blueprints?: MasterPlanBlueprint[];
     primaryCtaText: string;
     secondaryCtaText: string;
     active: boolean;

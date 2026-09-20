@@ -1,22 +1,87 @@
 import React, { useState } from 'react';
-import { CmsContent, LotItem, LotStatus } from '../types';
-import { Layers, ZoomIn, Search, CheckCircle2, Clock, XCircle, Download, ArrowRight, X, Sparkles, Filter } from 'lucide-react';
+import { CmsContent, LotItem, LotStatus, MasterPlanBlueprint } from '../types';
+import {
+  Layers,
+  ZoomIn,
+  Search,
+  CheckCircle2,
+  Clock,
+  XCircle,
+  Download,
+  ArrowRight,
+  X,
+  Sparkles,
+  Filter,
+  ChevronLeft,
+  ChevronRight,
+  Maximize2,
+  Compass,
+  FileText,
+} from 'lucide-react';
 
 interface MasterPlanSectionProps {
   content: CmsContent;
   lots: LotItem[];
   onSelectLotForQuote: (lot: LotItem) => void;
+  onOpenImageViewer?: (images: string[], index?: number, title?: string, subtitle?: string) => void;
+  onNavigate?: (page: string) => void;
 }
 
-export const MasterPlanSection: React.FC<MasterPlanSectionProps> = ({ content, lots, onSelectLotForQuote }) => {
+export const MasterPlanSection: React.FC<MasterPlanSectionProps> = ({
+  content,
+  lots,
+  onSelectLotForQuote,
+  onOpenImageViewer,
+  onNavigate,
+}) => {
   const { masterPlan } = content;
   if (!masterPlan.active) return null;
 
+  const blueprints: MasterPlanBlueprint[] =
+    masterPlan.blueprints && masterPlan.blueprints.length > 0
+      ? masterPlan.blueprints
+      : [
+          {
+            id: 'plano-general',
+            title: 'Plano General de Lotificación Integral (57 Lotes)',
+            subtitle: 'Lote 1 (Colinas) + Lote 2 (Ranch) con vialidad de 8 a 10m',
+            imageUrl: masterPlan.planImageUrl || '/api/images/blueprint-masterplan',
+            sector: 'General Complejo',
+            description: 'Distribución macro con áreas comunales, accesos principales desde la Trasandina y linderos con el Río Torbes.',
+          },
+          {
+            id: 'plano-sector-1',
+            title: 'Sector 1: Colinas de Mis Delirios (Manzana A1)',
+            subtitle: '14 Lotes exclusivos en terraza alta con vistas panorámicas',
+            imageUrl: '/api/images/blueprint-masterplan',
+            sector: 'Parte Alta',
+            description: 'Superficie de 37.252,62 m² distribuida en 14 parcelas residenciales de baja densidad.',
+          },
+          {
+            id: 'plano-sector-2',
+            title: 'Sector 2: Mis Delirios Ranch (Manzanas A2 a G)',
+            subtitle: '43 Lotes tipo mini-granjas desde 600 m²',
+            imageUrl: '/api/images/blueprint-masterplan',
+            sector: 'Parte Baja',
+            description: 'Superficie de 90.721,22 m² con integración directa al bulevar comunal y áreas agroturísticas.',
+          },
+          {
+            id: 'plano-bulevar',
+            title: 'Plano del Bulevar de la Guadua y Espacios Comunitarios',
+            subtitle: 'Más de 14.600 m² de áreas públicas cedidas',
+            imageUrl: '/api/images/bulevar-guadua',
+            sector: 'Áreas Públicas',
+            description: 'Equipamiento comunal: plazas, parques infantiles, canchas deportivas multiusos y salón comunal.',
+          },
+        ];
+
+  const [currentBlueprintIndex, setCurrentBlueprintIndex] = useState<number>(0);
   const [filterStatus, setFilterStatus] = useState<string>('todos');
   const [filterLocation, setFilterLocation] = useState<string>('todos');
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [isZoomModalOpen, setIsZoomModalOpen] = useState(false);
   const [selectedLotDetail, setSelectedLotDetail] = useState<LotItem | null>(null);
+
+  const activeBlueprint = blueprints[currentBlueprintIndex] || blueprints[0];
 
   // Filter lots
   const filteredLots = lots.filter((lot) => {
@@ -24,7 +89,8 @@ export const MasterPlanSection: React.FC<MasterPlanSectionProps> = ({ content, l
     const matchesLocation = filterLocation === 'todos' || lot.location === filterLocation;
     const matchesSearch =
       lot.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lot.manzana.toLowerCase().includes(searchTerm.toLowerCase());
+      lot.manzana.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      String(lot.areaM2).includes(searchTerm);
     return matchesStatus && matchesLocation && matchesSearch;
   });
 
@@ -32,6 +98,26 @@ export const MasterPlanSection: React.FC<MasterPlanSectionProps> = ({ content, l
   const availableCount = lots.filter((l) => l.status === 'disponible').length;
   const reservedCount = lots.filter((l) => l.status === 'reservado').length;
   const soldCount = lots.filter((l) => l.status === 'vendido').length;
+
+  const handlePrevBlueprint = () => {
+    setCurrentBlueprintIndex((prev) => (prev - 1 + blueprints.length) % blueprints.length);
+  };
+
+  const handleNextBlueprint = () => {
+    setCurrentBlueprintIndex((prev) => (prev + 1) % blueprints.length);
+  };
+
+  const handleOpenBlueprintZoom = () => {
+    if (onOpenImageViewer) {
+      const blueprintUrls = blueprints.map((b) => b.imageUrl);
+      onOpenImageViewer(
+        blueprintUrls,
+        currentBlueprintIndex,
+        activeBlueprint.title,
+        activeBlueprint.subtitle || activeBlueprint.description
+      );
+    }
+  };
 
   const getStatusBadge = (status: LotStatus) => {
     switch (status) {
@@ -66,13 +152,13 @@ export const MasterPlanSection: React.FC<MasterPlanSectionProps> = ({ content, l
   };
 
   return (
-    <section id="plan-maestro" className="py-20 bg-stone-50 text-stone-800 border-b border-stone-200">
+    <section id="plan-maestro" className="py-16 sm:py-20 bg-stone-50 text-stone-800 border-b border-stone-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto mb-16">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-semibold mb-3">
+        <div className="text-center max-w-3xl mx-auto mb-12 sm:mb-16">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-semibold mb-3 border border-emerald-200">
             <Layers className="w-3.5 h-3.5 text-emerald-700" />
-            <span>Urbanismo Planificado</span>
+            <span>Urbanismo Planificado & Planos Oficiales</span>
           </div>
           <h2 className="font-serif text-3xl sm:text-4xl font-bold text-stone-900 tracking-tight mb-4" id="masterplan-title">
             {masterPlan.title || 'Distribución del Plan Maestro: 57 Soluciones Habitacionales'}
@@ -119,314 +205,290 @@ export const MasterPlanSection: React.FC<MasterPlanSectionProps> = ({ content, l
           </div>
         </div>
 
-        {/* Master Plan Blueprint Visualizer with Zoom Capability */}
-        <div className="bg-stone-900 rounded-2xl p-4 sm:p-6 border border-stone-800 shadow-xl mb-12">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-4 border-b border-stone-800">
-            <div className="flex items-center gap-3">
-              <span className="text-white font-serif font-bold text-lg">Plano Arquitectónico y Lotificación</span>
-              <span className="text-xs text-stone-400">Escala 1:2000 Oficial</span>
+        {/* ARCHITECTURAL BLUEPRINTS VISUALIZER WITH DIRECTIONAL NAVIGATION & ZOOM */}
+        <div className="bg-stone-900 rounded-2xl p-4 sm:p-6 border border-stone-800 shadow-2xl mb-16">
+          {/* Visualizer Header */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-stone-800">
+            <div>
+              <div className="flex items-center gap-2.5">
+                <span className="text-white font-serif font-bold text-lg sm:text-xl">
+                  {activeBlueprint.title}
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/30">
+                  {activeBlueprint.sector || 'Planos CMS'}
+                </span>
+              </div>
+              <p className="text-xs text-stone-400 mt-1">
+                {activeBlueprint.subtitle || activeBlueprint.description}
+              </p>
             </div>
-            <button
-              onClick={() => setIsZoomModalOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-stone-800 hover:bg-stone-700 text-amber-300 border border-stone-700 transition-colors shadow-sm"
-              id="btn-open-blueprint-zoom"
+
+            <div className="flex items-center gap-2 self-stretch sm:self-auto justify-end">
+              <button
+                onClick={handleOpenBlueprintZoom}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-stone-800 hover:bg-stone-700 text-amber-300 border border-stone-700 transition-all shadow-sm"
+                id="btn-open-blueprint-zoom"
+                title="Ver amplificado a pantalla completa"
+              >
+                <ZoomIn className="w-4 h-4" />
+                <span>Ampliar Plano</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Blueprint Selector Tabs */}
+          <div className="flex items-center gap-2 py-3 overflow-x-auto border-b border-stone-800/80 scrollbar-none">
+            {blueprints.map((bp, idx) => (
+              <button
+                key={bp.id || idx}
+                onClick={() => setCurrentBlueprintIndex(idx)}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all flex items-center gap-2 ${
+                  idx === currentBlueprintIndex
+                    ? 'bg-amber-500 text-stone-950 font-bold shadow-md'
+                    : 'bg-stone-800/60 text-stone-300 hover:bg-stone-800 hover:text-white border border-stone-700/50'
+                }`}
+              >
+                <Compass className="w-3.5 h-3.5" />
+                <span>{bp.title.split('(')[0].trim()}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Blueprint Image Stage with Directional Arrows */}
+          <div className="relative mt-4 rounded-xl overflow-hidden group bg-stone-950 flex items-center justify-center min-h-[320px] sm:min-h-[460px]">
+            {/* Directional Arrow: Previous */}
+            {blueprints.length > 1 && (
+              <button
+                onClick={handlePrevBlueprint}
+                className="absolute left-3 sm:left-5 z-20 p-3 rounded-full bg-stone-900/80 hover:bg-amber-500 hover:text-stone-950 text-white border border-stone-700 transition-all shadow-xl hover:scale-110 focus:outline-none"
+                title="Plano anterior"
+                id="btn-blueprint-prev"
+              >
+                <ChevronLeft className="w-6 h-6" />
+              </button>
+            )}
+
+            {/* Clickable Image to Amplified Mode */}
+            <div
+              className="relative w-full h-full flex items-center justify-center cursor-pointer"
+              onClick={handleOpenBlueprintZoom}
             >
-              <ZoomIn className="w-4 h-4" />
-              <span>Ampliar Plano en Alta Resolución</span>
-            </button>
+              <img
+                src={activeBlueprint.imageUrl}
+                alt={activeBlueprint.title}
+                className="w-full max-h-[500px] object-contain transition-transform duration-300 group-hover:scale-101"
+                referrerPolicy="no-referrer"
+              />
+
+              {/* Hover Badge */}
+              <div className="absolute top-4 right-4 p-2 rounded-lg bg-black/70 text-white group-hover:bg-amber-500 group-hover:text-stone-950 transition-colors shadow-lg flex items-center gap-1.5 text-xs font-bold">
+                <Maximize2 className="w-4 h-4" />
+                <span className="hidden sm:inline">Click para Ampliar</span>
+              </div>
+            </div>
+
+            {/* Directional Arrow: Next */}
+            {blueprints.length > 1 && (
+              <button
+                onClick={handleNextBlueprint}
+                className="absolute right-3 sm:right-5 z-20 p-3 rounded-full bg-stone-900/80 hover:bg-amber-500 hover:text-stone-950 text-white border border-stone-700 transition-all shadow-xl hover:scale-110 focus:outline-none"
+                title="Plano siguiente"
+                id="btn-blueprint-next"
+              >
+                <ChevronRight className="w-6 h-6" />
+              </button>
+            )}
+
+            {/* Counter Overlay */}
+            {blueprints.length > 1 && (
+              <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 px-3 py-1 rounded-full bg-black/70 text-stone-300 text-xs font-mono border border-stone-700">
+                Plano {currentBlueprintIndex + 1} de {blueprints.length}
+              </div>
+            )}
           </div>
 
-          <div className="relative mt-4 rounded-xl overflow-hidden cursor-pointer group bg-stone-950 flex items-center justify-center" onClick={() => setIsZoomModalOpen(true)}>
-            <img
-              src={masterPlan.planImageUrl || '/api/images/blueprint-masterplan'}
-              alt="Plano de lotificación oficial Mis Delirios Ranch"
-              className="w-full max-h-[480px] object-contain transition-transform duration-300 group-hover:scale-101"
-              referrerPolicy="no-referrer"
-            />
-            <div className="absolute inset-0 bg-stone-950/20 group-hover:bg-transparent transition-colors flex items-center justify-center">
-              <span className="opacity-0 group-hover:opacity-100 transition-opacity px-4 py-2 rounded-lg bg-stone-900/90 text-amber-300 text-xs font-semibold backdrop-blur-sm border border-amber-400/40">
-                Haz clic para ver en pantalla completa
-              </span>
-            </div>
-          </div>
-
-          {/* Availability Legend & Stats Counter */}
-          <div className="flex flex-wrap items-center justify-between gap-4 mt-4 pt-4 border-t border-stone-800 text-xs text-stone-300">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded-full bg-emerald-500"></span>
-                <span>Disponibles: <strong className="text-white font-bold">{availableCount}</strong></span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded-full bg-amber-500"></span>
-                <span>Reservados: <strong className="text-white font-bold">{reservedCount}</strong></span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded-full bg-rose-500"></span>
-                <span>Vendidos: <strong className="text-white font-bold">{soldCount}</strong></span>
-              </div>
-            </div>
-            <div className="text-amber-400 font-medium">
-              Preventa Etapa 1 · Valor garantizado: 20 USD/m²
-            </div>
+          <div className="mt-4 flex flex-col sm:flex-row items-center justify-between text-xs text-stone-400 gap-2">
+            <span>
+              * Planos certificados por Arq. Indira Contreras (C.I.V. 165.492) y Promotor Dr. Néstor E. Depablos Mora.
+            </span>
+            <span className="text-amber-400">
+              Navega con flechas o haz click sobre el plano para ampliar con zoom.
+            </span>
           </div>
         </div>
 
-        {/* Interactive Lots Filter & Searchable Catalog Table */}
-        <div className="bg-white rounded-2xl border border-stone-200 shadow-sm p-6 mb-8">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
+        {/* LIVE REAL-TIME AVAILABILITY INVENTORY CATALOG */}
+        <div className="bg-white rounded-2xl border border-stone-200/90 shadow-lg p-6 sm:p-8" id="catalogo-disponibilidad">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-stone-200">
             <div>
-              <h3 className="font-serif text-xl font-bold text-stone-900">Catálogo de Disponibilidad en Tiempo Real</h3>
-              <p className="text-xs text-stone-500">Selecciona cualquier lote para consultar sus dimensiones, linderos y simular tu financiamiento.</p>
+              <div className="flex items-center gap-2">
+                <h3 className="font-serif text-2xl font-bold text-stone-900">
+                  Catálogo y Disponibilidad de Lotes en Vivo
+                </h3>
+                <span className="flex h-2.5 w-2.5 relative">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                </span>
+              </div>
+              <p className="text-sm text-stone-600 mt-1">
+                Consulta en tiempo real la disponibilidad, dimensiones y precios calculados a $20 USD/m²
+              </p>
             </div>
 
-            {/* Filter controls */}
-            <div className="flex flex-wrap items-center gap-2.5">
-              {/* Search */}
-              <div className="relative min-w-[160px]">
-                <Search className="w-4 h-4 text-stone-400 absolute left-3 top-2.5" />
-                <input
-                  type="text"
-                  placeholder="Buscar lote..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg border border-stone-300 bg-stone-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
+            {/* Live Stats Counters */}
+            <div className="flex items-center gap-3">
+              <div className="px-3.5 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-center">
+                <span className="block text-lg font-bold text-emerald-700 leading-tight">{availableCount}</span>
+                <span className="text-[10px] text-emerald-800 font-semibold uppercase">Disponibles</span>
               </div>
+              <div className="px-3.5 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-center">
+                <span className="block text-lg font-bold text-amber-700 leading-tight">{reservedCount}</span>
+                <span className="text-[10px] text-amber-800 font-semibold uppercase">Reservados</span>
+              </div>
+              <div className="px-3.5 py-1.5 rounded-xl bg-rose-50 border border-rose-200 text-center">
+                <span className="block text-lg font-bold text-rose-700 leading-tight">{soldCount}</span>
+                <span className="text-[10px] text-rose-800 font-semibold uppercase">Vendidos</span>
+              </div>
+            </div>
+          </div>
 
-              {/* Status Filter */}
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-3 py-1.5 text-xs rounded-lg border border-stone-300 bg-stone-50 text-stone-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              >
-                <option value="todos">Todos los Estados</option>
-                <option value="disponible">Disponibles ({availableCount})</option>
-                <option value="reservado">Reservados ({reservedCount})</option>
-                <option value="vendido">Vendidos ({soldCount})</option>
-              </select>
+          {/* Filters and Search Bar */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 my-6">
+            <div className="relative">
+              <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-3" />
+              <input
+                type="text"
+                placeholder="Buscar por lote (ej. A1-01, B, 600 m²)..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 text-sm bg-stone-50 border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
+                id="search-lots-input"
+              />
+            </div>
 
-              {/* Location Filter */}
+            <div>
               <select
                 value={filterLocation}
                 onChange={(e) => setFilterLocation(e.target.value)}
-                className="px-3 py-1.5 text-xs rounded-lg border border-stone-300 bg-stone-50 text-stone-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-full px-3.5 py-2 text-sm bg-stone-50 border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                id="filter-location-select"
               >
                 <option value="todos">Todos los Sectores</option>
-                <option value="alta">Parte Alta (Colinas - 14 lotes)</option>
-                <option value="baja">Parte Baja (Ranch - 43 lotes)</option>
+                <option value="alta">Sector 1: Colinas (Parte Alta)</option>
+                <option value="baja">Sector 2: Ranch (Parte Baja)</option>
+              </select>
+            </div>
+
+            <div>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="w-full px-3.5 py-2 text-sm bg-stone-50 border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                id="filter-status-select"
+              >
+                <option value="todos">Todos los Estados</option>
+                <option value="disponible">Solo Disponibles</option>
+                <option value="reservado">Solo Reservados</option>
+                <option value="vendido">Solo Vendidos</option>
               </select>
             </div>
           </div>
 
-          {/* Table */}
-          <div className="overflow-x-auto max-h-[440px] rounded-xl border border-stone-200">
-            <table className="w-full text-left text-xs text-stone-700">
-              <thead className="bg-stone-100 text-stone-900 font-semibold sticky top-0 z-10 border-b border-stone-200">
-                <tr>
-                  <th className="py-3 px-4">Lote / Código</th>
-                  <th className="py-3 px-3">Manzana</th>
-                  <th className="py-3 px-3">Sector</th>
-                  <th className="py-3 px-3">Superficie</th>
-                  <th className="py-3 px-3">Precio m²</th>
-                  <th className="py-3 px-3">Inversión Total</th>
-                  <th className="py-3 px-3">Estado</th>
-                  <th className="py-3 px-4 text-right">Acción</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-stone-100 font-normal">
-                {filteredLots.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="py-8 text-center text-stone-400">
-                      No se encontraron lotes con los filtros seleccionados.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredLots.map((lot) => (
-                    <tr
-                      key={lot.id}
-                      className={`hover:bg-stone-50 transition-colors ${
-                        lot.status === 'disponible' ? 'cursor-pointer' : ''
-                      }`}
-                      onClick={() => lot.status === 'disponible' && setSelectedLotDetail(lot)}
-                    >
-                      <td className="py-3 px-4 font-bold text-stone-900">
-                        {lot.code}
-                      </td>
-                      <td className="py-3 px-3 font-semibold text-stone-600">
-                        Mz. {lot.manzana}
-                      </td>
-                      <td className="py-3 px-3 text-stone-500 capitalize">
-                        {lot.location === 'alta' ? 'Parte Alta' : 'Parte Baja'}
-                      </td>
-                      <td className="py-3 px-3 font-medium">
-                        {lot.areaM2.toLocaleString('es-VE')} m²
-                      </td>
-                      <td className="py-3 px-3 text-stone-500">
-                        ${lot.priceUsdPerM2} USD
-                      </td>
-                      <td className="py-3 px-3 font-bold text-emerald-700">
+          {/* Lots Grid / Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-h-[560px] overflow-y-auto pr-1">
+            {filteredLots.map((lot) => {
+              const isAvailable = lot.status === 'disponible';
+
+              return (
+                <div
+                  key={lot.id}
+                  className={`p-4 rounded-xl border transition-all flex flex-col justify-between ${
+                    isAvailable
+                      ? 'bg-stone-50/80 border-stone-200 hover:border-emerald-500 hover:shadow-md'
+                      : 'bg-stone-100/60 border-stone-200 opacity-75'
+                  }`}
+                  id={`lot-card-${lot.code}`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-mono font-extrabold text-base text-stone-900">{lot.code}</span>
+                      {getStatusBadge(lot.status)}
+                    </div>
+                    <div className="text-xs text-stone-600 mb-1">
+                      <span>Manzana: <strong>{lot.manzana}</strong></span> ·{' '}
+                      <span>{lot.location === 'alta' ? 'Parte Alta' : 'Parte Baja'}</span>
+                    </div>
+                    <div className="text-xs text-stone-600 mb-3">
+                      Superficie: <strong className="text-stone-900">{lot.areaM2.toLocaleString('es-VE')} m²</strong>
+                    </div>
+
+                    <div className="pt-2 border-t border-stone-200/80 flex items-baseline justify-between mb-3">
+                      <span className="text-[11px] text-stone-500">Precio total:</span>
+                      <span className="font-serif font-bold text-base text-stone-900">
                         ${lot.totalPriceUsd.toLocaleString('es-VE')} USD
-                      </td>
-                      <td className="py-3 px-3">
-                        {getStatusBadge(lot.status)}
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        {lot.status === 'disponible' ? (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onSelectLotForQuote(lot);
-                            }}
-                            className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-stone-950 transition-colors"
-                          >
-                            <span>Cotizar</span>
-                            <ArrowRight className="w-3 h-3" />
-                          </button>
-                        ) : (
-                          <span className="text-stone-400 text-xs">No disponible</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                      </span>
+                    </div>
+                  </div>
 
-        {/* Section CTAs */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <a
-            href="#contacto"
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl font-bold text-sm bg-emerald-700 hover:bg-emerald-600 text-white shadow-md transition-all"
-            id="masterplan-ver-disponibilidad-cta"
-          >
-            <span>{masterPlan.primaryCtaText || 'Ver disponibilidad de lotes'}</span>
-            <ArrowRight className="w-4 h-4" />
-          </a>
-          <a
-            href="#contacto?asunto=solicitar_plano_detallado"
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl font-semibold text-sm bg-white hover:bg-stone-100 text-stone-800 border border-stone-300 shadow-sm transition-all"
-            id="masterplan-solicitar-plano-cta"
-          >
-            <Download className="w-4 h-4 text-emerald-700" />
-            <span>{masterPlan.secondaryCtaText || 'Solicitar plano detallado en PDF'}</span>
-          </a>
-        </div>
-      </div>
-
-      {/* Blueprint Fullscreen Zoom Modal */}
-      {isZoomModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col p-4 sm:p-6 overflow-hidden">
-          <div className="flex items-center justify-between pb-3 border-b border-stone-800 text-white">
-            <div>
-              <h4 className="font-serif font-bold text-base sm:text-lg text-amber-400">
-                Plano de Lotificación Complejo Mis Delirios Ranch
-              </h4>
-              <p className="text-xs text-stone-400">57 Lotes · Manzanas A1, A2, B, C, D, E, F, G · Vialidad 8 a 10 metros</p>
-            </div>
-            <button
-              onClick={() => setIsZoomModalOpen(false)}
-              className="p-2 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-300 hover:text-white"
-            >
-              <X className="w-6 h-6" />
-            </button>
+                  {isAvailable ? (
+                    <button
+                      onClick={() => onSelectLotForQuote(lot)}
+                      className="w-full py-2 px-3 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                      id={`btn-quote-lot-${lot.code}`}
+                    >
+                      <span>Cotizar este lote</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </button>
+                  ) : (
+                    <div className="text-center py-2 text-xs font-medium text-stone-500 italic bg-stone-200/50 rounded-lg">
+                      No disponible
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
-          <div className="flex-1 overflow-auto flex items-center justify-center p-4">
-            <img
-              src={masterPlan.planImageUrl || '/api/images/blueprint-masterplan'}
-              alt="Plano detallado de lotificación"
-              className="max-w-none w-full lg:w-[1400px] h-auto object-contain shadow-2xl rounded-lg"
-              referrerPolicy="no-referrer"
-            />
-          </div>
-
-          <div className="pt-3 border-t border-stone-800 flex flex-wrap items-center justify-between text-xs text-stone-400 gap-2">
-            <span>Usa el scroll o gestos táctiles para explorar los linderos, calles internas y áreas comunales.</span>
-            <button
-              onClick={() => setIsZoomModalOpen(false)}
-              className="px-4 py-1.5 rounded-lg bg-stone-800 text-white hover:bg-stone-700 font-semibold"
-            >
-              Cerrar visor
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Lot Detail Quick Preview Modal */}
-      {selectedLotDetail && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-stone-200 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between pb-3 border-b border-stone-100">
-              <div className="flex items-center gap-2">
-                <span className="font-serif font-bold text-xl text-stone-900">Lote {selectedLotDetail.code}</span>
-                <span className="text-xs px-2 py-0.5 rounded bg-stone-100 text-stone-600 font-semibold">
-                  Mz. {selectedLotDetail.manzana}
-                </span>
-              </div>
-              <button
-                onClick={() => setSelectedLotDetail(null)}
-                className="text-stone-400 hover:text-stone-600 p-1"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="py-4 space-y-3 text-sm">
-              <div className="flex justify-between py-1.5 border-b border-stone-100">
-                <span className="text-stone-500">Sector:</span>
-                <span className="font-semibold text-stone-900">
-                  {selectedLotDetail.location === 'alta' ? 'Colinas de Mis Delirios (Parte Alta)' : 'Mis Delirios Ranch (Parte Baja)'}
-                </span>
-              </div>
-              <div className="flex justify-between py-1.5 border-b border-stone-100">
-                <span className="text-stone-500">Superficie exacta:</span>
-                <span className="font-bold text-stone-900">{selectedLotDetail.areaM2.toLocaleString('es-VE')} m²</span>
-              </div>
-              <div className="flex justify-between py-1.5 border-b border-stone-100">
-                <span className="text-stone-500">Precio preventa por m²:</span>
-                <span className="font-semibold text-emerald-700">${selectedLotDetail.priceUsdPerM2} USD/m²</span>
-              </div>
-              <div className="flex justify-between py-1.5 border-b border-stone-100">
-                <span className="text-stone-500">Inversión total:</span>
-                <span className="font-bold text-lg text-emerald-800">${selectedLotDetail.totalPriceUsd.toLocaleString('es-VE')} USD</span>
-              </div>
-              <div className="flex justify-between py-1.5 border-b border-stone-100">
-                <span className="text-stone-500">Inicial 10% para reservar:</span>
-                <span className="font-bold text-amber-600">
-                  ${Math.round(selectedLotDetail.totalPriceUsd * 0.1).toLocaleString('es-VE')} USD
-                </span>
-              </div>
-              <div className="flex justify-between py-1.5">
-                <span className="text-stone-500">Plan 50% inicial + 6 cuotas:</span>
-                <span className="font-semibold text-stone-700">
-                  6 cuotas de ${Math.round((selectedLotDetail.totalPriceUsd * 0.5) / 6).toLocaleString('es-VE')} USD
-                </span>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-stone-100 flex gap-3">
+          {filteredLots.length === 0 && (
+            <div className="py-12 text-center text-stone-500">
+              <p className="text-sm">No se encontraron lotes con los filtros seleccionados.</p>
               <button
                 onClick={() => {
-                  onSelectLotForQuote(selectedLotDetail);
-                  setSelectedLotDetail(null);
+                  setFilterStatus('todos');
+                  setFilterLocation('todos');
+                  setSearchTerm('');
                 }}
-                className="flex-1 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-sm text-center shadow-md transition-colors"
+                className="mt-2 text-xs text-emerald-700 font-semibold underline"
               >
-                Cotizar este lote ahora
-              </button>
-              <button
-                onClick={() => setSelectedLotDetail(null)}
-                className="px-4 py-3 rounded-xl border border-stone-300 text-stone-700 font-semibold text-sm hover:bg-stone-50"
-              >
-                Cerrar
+                Limpiar filtros
               </button>
             </div>
-          </div>
+          )}
+
+          {/* Bottom Action bar */}
+          {onNavigate && (
+            <div className="mt-8 pt-6 border-t border-stone-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <p className="text-xs text-stone-600">
+                ¿Deseas ver las opciones de casas en bambú para tu lote?
+              </p>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => onNavigate('modelos')}
+                  className="py-2.5 px-5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs shadow-md transition-all"
+                >
+                  Ver Modelos de Vivienda →
+                </button>
+                <button
+                  onClick={() => onNavigate('financiamiento')}
+                  className="py-2.5 px-5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs shadow-md transition-all"
+                >
+                  Simular Financiamiento
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </section>
   );
 };

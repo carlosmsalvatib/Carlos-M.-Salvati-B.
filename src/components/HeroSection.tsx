@@ -1,15 +1,33 @@
 import React from 'react';
 import { CmsContent } from '../types';
-import { ArrowRight, Download, Sparkles, MapPin, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Download, Sparkles, MapPin, CheckCircle2, ShieldCheck, Play } from 'lucide-react';
 
 interface HeroSectionProps {
   content: CmsContent;
-  onSelectCta?: (target: string) => void;
+  onNavigate?: (pageId: string) => void;
 }
 
-export const HeroSection: React.FC<HeroSectionProps> = ({ content }) => {
-  const { hero, site } = content;
+export const HeroSection: React.FC<HeroSectionProps> = ({ content, onNavigate }) => {
+  const { hero } = content;
   if (!hero.active) return null;
+
+  const handlePrimaryClick = () => {
+    if (onNavigate) {
+      onNavigate('plan-maestro');
+    } else {
+      const el = document.getElementById('plan-maestro');
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  const handleSecondaryClick = () => {
+    if (onNavigate) {
+      onNavigate('financiamiento');
+    } else {
+      const el = document.getElementById('financiamiento');
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
 
   return (
     <section id="inicio" className="relative min-h-[92vh] flex items-center justify-center pt-24 pb-16 overflow-hidden bg-stone-950">
@@ -28,7 +46,10 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ content }) => {
       <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center mt-6 sm:mt-10">
         {/* Promotional Badge / Sello */}
         {hero.showBadge && (
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-900/80 border border-emerald-500/50 text-emerald-200 text-xs sm:text-sm font-semibold tracking-wide backdrop-blur-sm mb-6 shadow-lg animate-pulse" id="hero-promo-badge">
+          <div
+            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-900/80 border border-emerald-500/50 text-emerald-200 text-xs sm:text-sm font-semibold tracking-wide backdrop-blur-sm mb-6 shadow-lg animate-pulse"
+            id="hero-promo-badge"
+          >
             <Sparkles className="w-4 h-4 text-amber-400" />
             <span>{hero.badgeText || 'Preventa Exclusiva Primera Etapa'}</span>
             <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
@@ -54,23 +75,23 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ content }) => {
 
         {/* High-Impact CTAs */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
-          <a
-            href={hero.primaryCtaLink || '#contacto'}
+          <button
+            onClick={handlePrimaryClick}
             className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 py-4 rounded-xl text-base font-bold bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-stone-950 shadow-xl shadow-amber-950/40 hover:shadow-amber-500/20 transform hover:-translate-y-0.5 transition-all duration-200 group"
             id="hero-primary-cta"
           >
             <span>{hero.primaryCtaText || 'Reserva tu lote con 10% de inicial'}</span>
             <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-          </a>
+          </button>
 
-          <a
-            href={hero.secondaryCtaLink || '#financiamiento'}
+          <button
+            onClick={handleSecondaryClick}
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-4 rounded-xl text-base font-semibold bg-stone-900/80 hover:bg-stone-800 text-white border border-stone-700/80 backdrop-blur-sm shadow-lg hover:border-amber-400/60 transition-all duration-200"
             id="hero-secondary-cta"
           >
             <Download className="w-5 h-5 text-amber-400" />
-            <span>{hero.secondaryCtaText || 'Descarga el Plan de Venta'}</span>
-          </a>
+            <span>{hero.secondaryCtaText || 'Simular Plan de Venta'}</span>
+          </button>
         </div>
 
         {/* Key Real Estate Pillars (Bento Strip) */}

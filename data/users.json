@@ -8,7 +8,8 @@
     "levelName": "Superusuario",
     "password": "password123",
     "active": true,
-    "createdAt": "2026-09-20T22:45:08.430Z"
+    "createdAt": "2026-09-20T22:45:08.430Z",
+    "lastLogin": "2026-09-20T23:07:08.581Z"
   },
   {
     "id": "user-2",

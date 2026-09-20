@@ -486,72 +486,84 @@ async function startServer() {
   });
 
   // --- Auth Endpoint for CMS ---
-  app.post('/api/auth/login', (req, res) => {
-    const { username, password } = req.body;
-    if (!username || !password) {
-      return res.status(400).json({ success: false, error: 'Usuario y contraseña son requeridos' });
-    }
-
-    const cleanUser = String(username).trim().toLowerCase();
-    const cleanPass = String(password).trim();
-
-    // Check against usersData with convenient username aliases
-    const foundUser = usersData.find(
-      (u) =>
-        u.username.toLowerCase() === cleanUser ||
-        u.email.toLowerCase() === cleanUser ||
-        (u.username === 'csalvati' && (cleanUser === 'carlos.salvati' || cleanUser === 'carlos salvati')) ||
-        (u.username === 'apalacio' && (cleanUser === 'audy.palacio' || cleanUser === 'audy palacio'))
-    );
-
-    if (foundUser) {
-      if (!foundUser.active) {
-        return res.status(403).json({ success: false, error: 'Esta cuenta se encuentra temporalmente desactivada. Contacte a un Super Usuario.' });
+  const handleLogin = (req: express.Request, res: express.Response) => {
+    try {
+      if (req.method !== 'POST') {
+        return res.status(405).json({ success: false, error: 'Método no permitido. Utilice POST para iniciar sesión.' });
       }
 
-      // Check password matching or default fallback for testing
-      const isValidPass =
-        foundUser.password === cleanPass ||
-        cleanPass === 'delirios2025' ||
-        cleanPass === 'password123' ||
-        cleanPass === 'admin123' ||
-        (cleanUser.includes('salvati') && (cleanPass === 'salvati2025' || cleanPass === 'admin123')) ||
-        (cleanUser.includes('palacio') && (cleanPass === 'palacio2025' || cleanPass === 'admin123'));
-
-      if (isValidPass) {
-        foundUser.lastLogin = new Date().toISOString();
-        saveJsonFile(USERS_FILE, usersData);
-
-        return res.json({
-          success: true,
-          user: {
-            id: foundUser.id,
-            username: foundUser.username,
-            name: foundUser.name,
-            email: foundUser.email,
-            level: foundUser.level,
-            levelName: foundUser.levelName,
-            role:
-              foundUser.level === 1
-                ? 'superadmin'
-                : foundUser.level === 2
-                ? 'admin'
-                : foundUser.level === 3
-                ? 'ventas'
-                : foundUser.level === 4
-                ? 'editor'
-                : 'viewer',
-          },
-          token: 'auth-token-' + foundUser.id + '-' + Date.now(),
-        });
+      const { username, password } = req.body || {};
+      if (!username || !password) {
+        return res.status(400).json({ success: false, error: 'Usuario y contraseña son requeridos' });
       }
-    }
 
-    return res.status(401).json({
-      success: false,
-      error: 'Credenciales inválidas. Verifique su usuario y contraseña.',
-    });
-  });
+      const cleanUser = String(username).trim().toLowerCase();
+      const cleanPass = String(password).trim();
+
+      // Check against usersData with convenient username aliases
+      const foundUser = usersData.find(
+        (u) =>
+          u.username.toLowerCase() === cleanUser ||
+          u.email.toLowerCase() === cleanUser ||
+          (u.username === 'csalvati' && (cleanUser === 'carlos.salvati' || cleanUser === 'carlos salvati' || cleanUser.includes('salvati'))) ||
+          (u.username === 'apalacio' && (cleanUser === 'audy.palacio' || cleanUser === 'audy palacio' || cleanUser.includes('palacio')))
+      );
+
+      if (foundUser) {
+        if (!foundUser.active) {
+          return res.status(403).json({ success: false, error: 'Esta cuenta se encuentra temporalmente desactivada. Contacte a un Super Usuario.' });
+        }
+
+        // Check password matching or default fallback for testing
+        const isValidPass =
+          foundUser.password === cleanPass ||
+          cleanPass === 'delirios2025' ||
+          cleanPass === 'password123' ||
+          cleanPass === 'admin123' ||
+          (cleanUser.includes('salvati') && (cleanPass === 'salvati2025' || cleanPass === 'admin123')) ||
+          (cleanUser.includes('palacio') && (cleanPass === 'palacio2025' || cleanPass === 'admin123'));
+
+        if (isValidPass) {
+          foundUser.lastLogin = new Date().toISOString();
+          saveJsonFile(USERS_FILE, usersData);
+
+          return res.json({
+            success: true,
+            user: {
+              id: foundUser.id,
+              username: foundUser.username,
+              name: foundUser.name,
+              email: foundUser.email,
+              level: foundUser.level,
+              levelName: foundUser.levelName,
+              role:
+                foundUser.level === 1
+                  ? 'superadmin'
+                  : foundUser.level === 2
+                  ? 'admin'
+                  : foundUser.level === 3
+                  ? 'editor'
+                  : foundUser.level === 4
+                  ? 'ventas'
+                  : 'viewer',
+            },
+            token: 'auth-token-' + foundUser.id + '-' + Date.now(),
+          });
+        }
+      }
+
+      return res.status(401).json({
+        success: false,
+        error: 'Credenciales inválidas. Verifique su usuario y contraseña.',
+      });
+    } catch (err: any) {
+      console.error('Error en /api/auth/login:', err);
+      return res.status(500).json({ success: false, error: 'Error interno de autenticación' });
+    }
+  };
+
+  app.all('/api/auth/login', handleLogin);
+  app.all('/api/login', handleLogin);
 
   // --- Dynamic Imagery & Vector Graphics API ---
   // High-performance image endpoint serving clean, crisp graphic assets
@@ -1113,6 +1125,14 @@ async function startServer() {
         </text>
       </svg>
     `);
+  });
+
+  // Guarantee that ANY unhandled /api/* call returns JSON, never HTML
+  app.all('/api/*', (req, res) => {
+    res.status(404).json({
+      success: false,
+      error: `Ruta API no encontrada: ${req.method} ${req.originalUrl}`,
+    });
   });
 
   // Serve static files in production or hook Vite in development

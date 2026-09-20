@@ -151,9 +151,9 @@ export const CmsLoginModal: React.FC<CmsLoginModalProps> = ({
         {/* Fast Credentials Selector for convenience */}
         <div className="mt-6 pt-5 border-t border-stone-800/80">
           <p className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider mb-2.5">
-            Super Usuarios Fundadores & Niveles:
+            Super Usuarios Fundadores & Niveles (Clic para autocompletar):
           </p>
-          <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
             <button
               type="button"
               onClick={() => setDemoCredentials('csalvati', 'password123')}
@@ -178,7 +178,16 @@ export const CmsLoginModal: React.FC<CmsLoginModalProps> = ({
               className="p-2 rounded-lg bg-stone-950/80 hover:bg-stone-800 border border-stone-800 hover:border-amber-500/50 text-left transition-all group"
             >
               <div className="font-bold text-stone-200">Admin General</div>
-              <div className="text-[10px] text-stone-400">Nivel 2 · Contenidos & Lotes</div>
+              <div className="text-[10px] text-stone-400">Nivel 2 · Administrador</div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setDemoCredentials('editor', 'delirios2025')}
+              className="p-2 rounded-lg bg-stone-950/80 hover:bg-stone-800 border border-stone-800 hover:border-amber-500/50 text-left transition-all group"
+            >
+              <div className="font-bold text-stone-200">Editor</div>
+              <div className="text-[10px] text-stone-400">Nivel 3 · Textos & Planos</div>
             </button>
 
             <button
@@ -186,8 +195,17 @@ export const CmsLoginModal: React.FC<CmsLoginModalProps> = ({
               onClick={() => setDemoCredentials('ventas', 'delirios2025')}
               className="p-2 rounded-lg bg-stone-950/80 hover:bg-stone-800 border border-stone-800 hover:border-amber-500/50 text-left transition-all group"
             >
-              <div className="font-bold text-stone-200">Ventas & Lotes</div>
-              <div className="text-[10px] text-stone-400">Nivel 3 · Inventario Lotes</div>
+              <div className="font-bold text-stone-200">Ventas</div>
+              <div className="text-[10px] text-stone-400">Nivel 4 · Lotes & Leads</div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setDemoCredentials('invitado', 'delirios2025')}
+              className="p-2 rounded-lg bg-stone-950/80 hover:bg-stone-800 border border-stone-800 hover:border-amber-500/50 text-left transition-all group"
+            >
+              <div className="font-bold text-stone-200">Invitado</div>
+              <div className="text-[10px] text-stone-400">Nivel 5 · Solo Lectura</div>
             </button>
           </div>
         </div>

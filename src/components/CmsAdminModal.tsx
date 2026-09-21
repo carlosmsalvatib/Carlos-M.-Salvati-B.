@@ -37,7 +37,12 @@ import {
   Sliders,
   ShieldAlert,
   Sparkles,
+  FolderArchive,
+  HardDrive,
+  Globe,
 } from 'lucide-react';
+import { MediaFieldWithSourceSelector } from './MediaFieldWithSourceSelector';
+import { MediaSourceSelectorModal } from './MediaSourceSelectorModal';
 
 interface CmsAdminModalProps {
   isOpen: boolean;
@@ -798,15 +803,24 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                     className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white"
                   />
                 </div>
-                <div>
-                  <label className="block text-stone-300 mb-1 font-semibold">Imagen de Fondo Hero (URL)</label>
-                  <input
-                    type="text"
-                    value={formData.hero.backgroundImage}
-                    onChange={(e) =>
-                      setFormData({ ...formData, hero: { ...formData.hero, backgroundImage: e.target.value } })
+                <div className="pt-1">
+                  <MediaFieldWithSourceSelector
+                    id="hero-bg-media-selector"
+                    label="Imagen de Fondo / Render de Portada Hero"
+                    value={formData.hero.backgroundImage || (formData.hero as any).backgroundImageUrl || ''}
+                    onChange={(newUrl) =>
+                      setFormData({
+                        ...formData,
+                        hero: {
+                          ...formData.hero,
+                          backgroundImage: newUrl,
+                          backgroundImageUrl: newUrl,
+                        },
+                      })
                     }
-                    className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white"
+                    mediaType="image"
+                    placeholder="Suba un archivo, seleccione de la biblioteca del ranch o pegue una URL..."
+                    helperText="Render panorámico en alta definición o paisaje andino de Sabana Larga y Cordero."
                   />
                 </div>
               </div>
@@ -851,6 +865,25 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                     className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white"
                   />
                 </div>
+                <div className="sm:col-span-2 pt-1">
+                  <MediaFieldWithSourceSelector
+                    id="valueprop-terrain-media"
+                    label="Fotografía / Render del Terreno Real (Sabana Larga)"
+                    value={formData.valueProp.imageUrl || ''}
+                    onChange={(newUrl) =>
+                      setFormData({
+                        ...formData,
+                        valueProp: {
+                          ...formData.valueProp,
+                          imageUrl: newUrl,
+                        },
+                      })
+                    }
+                    mediaType="image"
+                    placeholder="Seleccione origen: Subir archivo, Biblioteca del Ranch o Enlace Web..."
+                    helperText="Imagen del terreno y paisaje montañoso mostrada en la vista previa del proyecto."
+                  />
+                </div>
               </div>
 
               {/* VIDEOS RENDER LIST */}
@@ -873,7 +906,7 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                             {vid.duration}
                           </span>
                         </div>
-                        <p className="text-stone-400 text-[11px] truncate mt-0.5">{vid.url}</p>
+                        <p className="text-stone-400 text-[11px] truncate mt-0.5 font-mono">{vid.url || vid.videoUrl}</p>
                       </div>
                       <button
                         onClick={() => handleDeleteVideo(vid.id)}
@@ -914,21 +947,32 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                       />
                     </div>
                     <div className="sm:col-span-3">
-                      <label className="block text-stone-400 mb-1">URL de Video (YouTube, Vimeo, MP4)</label>
-                      <input
-                        type="text"
+                      <MediaFieldWithSourceSelector
+                        id="new-video-render-source"
+                        label="Archivo o Enlace del Render de Video"
                         value={newVideoUrl}
-                        onChange={(e) => setNewVideoUrl(e.target.value)}
-                        placeholder="https://www.youtube.com/embed/..."
-                        className="w-full px-3 py-1.5 rounded bg-stone-950 border border-stone-700 text-white font-mono"
+                        onChange={setNewVideoUrl}
+                        onMetadataSelected={(meta) => {
+                          if (meta.title && !newVideoTitle) {
+                            setNewVideoTitle(meta.title);
+                          }
+                        }}
+                        mediaType="video"
+                        placeholder="Suba un archivo MP4, enlace de YouTube / Vimeo o seleccione de la biblioteca..."
+                        helperText="Soporta videos MP4 locales de su equipo, enlaces de YouTube/Vimeo y renders 3D oficiales."
                       />
                     </div>
                   </div>
                   <div className="text-right">
                     <button
                       type="button"
+                      disabled={!newVideoUrl.trim() || !newVideoTitle.trim()}
                       onClick={handleAddVideo}
-                      className="px-4 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs"
+                      className={`px-4 py-2 rounded-lg font-bold text-xs transition-all ${
+                        newVideoUrl.trim() && newVideoTitle.trim()
+                          ? 'bg-amber-500 hover:bg-amber-400 text-stone-950 shadow-md'
+                          : 'bg-stone-800 text-stone-500 cursor-not-allowed'
+                      }`}
                     >
                       Agregar Video Render al CMS
                     </button>
@@ -1021,21 +1065,32 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                       />
                     </div>
                     <div className="sm:col-span-2">
-                      <label className="block text-stone-400 mb-1">URL de la Imagen del Plano</label>
-                      <input
-                        type="text"
+                      <MediaFieldWithSourceSelector
+                        id="new-blueprint-media-source"
+                        label="Archivo o Imagen del Plano Arquitectónico"
                         value={newBlueprintUrl}
-                        onChange={(e) => setNewBlueprintUrl(e.target.value)}
-                        placeholder="/api/images/blueprint-masterplan o URL externa"
-                        className="w-full px-3 py-1.5 rounded bg-stone-950 border border-stone-700 text-white font-mono"
+                        onChange={setNewBlueprintUrl}
+                        onMetadataSelected={(meta) => {
+                          if (meta.title && !newBlueprintTitle) {
+                            setNewBlueprintTitle(meta.title);
+                          }
+                        }}
+                        mediaType="image"
+                        placeholder="Suba plano en PNG/JPG/SVG, seleccione del catálogo o pegue URL..."
+                        helperText="Soporta planos arquitectónicos oficiales (Lotificación 57 lotes, sectores, redes) y archivos locales."
                       />
                     </div>
                   </div>
                   <div className="text-right">
                     <button
                       type="button"
+                      disabled={!newBlueprintUrl.trim() || !newBlueprintTitle.trim()}
                       onClick={handleAddBlueprint}
-                      className="px-4 py-1.5 rounded-lg bg-blue-500 hover:bg-blue-400 text-stone-950 font-bold text-xs"
+                      className={`px-4 py-2 rounded-lg font-bold text-xs transition-all ${
+                        newBlueprintUrl.trim() && newBlueprintTitle.trim()
+                          ? 'bg-blue-500 hover:bg-blue-400 text-stone-950 shadow-md'
+                          : 'bg-stone-800 text-stone-500 cursor-not-allowed'
+                      }`}
                     >
                       Agregar Plano al CMS
                     </button>
@@ -1329,23 +1384,33 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                       ))}
                     </div>
 
-                    {/* ADD NEW IMAGE TO MODEL FORM */}
-                    <div className="pt-3 flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="Pegar URL de nueva imagen o plano (ej. /api/images/model-b-plano)..."
+                    {/* ADD NEW IMAGE TO MODEL FORM WITH SOURCE SELECTOR */}
+                    <div className="pt-3 space-y-2.5 bg-stone-950/70 p-3.5 rounded-xl border border-stone-800">
+                      <MediaFieldWithSourceSelector
+                        id="new-model-image-selector"
+                        label="Agregar Render o Imagen a la Galería del Modelo"
                         value={newImageUrl}
-                        onChange={(e) => setNewImageUrl(e.target.value)}
-                        className="flex-1 px-3 py-2 rounded-lg bg-stone-900 border border-stone-700 text-white font-mono text-xs"
+                        onChange={setNewImageUrl}
+                        mediaType="image"
+                        placeholder="Suba un archivo local, seleccione de la biblioteca del ranch o pegue una URL..."
+                        helperText="Soporta renders 3D de fachada, planos de corte, terrazas en Bambú Guadua y fotos del modelo."
                       />
-                      <button
-                        type="button"
-                        onClick={() => handleAddImageToModel(currentSelectedModel.id)}
-                        className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs flex items-center gap-1.5"
-                      >
-                        <Plus className="w-4 h-4" />
-                        <span>Agregar Imagen</span>
-                      </button>
+                      <div className="text-right pt-1">
+                        <button
+                          id="btn-confirm-add-model-image"
+                          type="button"
+                          disabled={!newImageUrl.trim()}
+                          onClick={() => handleAddImageToModel(currentSelectedModel.id)}
+                          className={`px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 ml-auto transition-all ${
+                            newImageUrl.trim()
+                              ? 'bg-amber-500 hover:bg-amber-400 text-stone-950 shadow-md'
+                              : 'bg-stone-800 text-stone-500 cursor-not-allowed'
+                          }`}
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span>Agregar a la Galería de {currentSelectedModel.name}</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>

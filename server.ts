@@ -153,7 +153,8 @@ let versionsHistory: { timestamp: string; version: number; note: string; content
 
 async function startServer() {
   const app = express();
-  app.use(express.json({ limit: '15mb' }));
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
   // API Routes
   app.get('/api/health', (req, res) => {

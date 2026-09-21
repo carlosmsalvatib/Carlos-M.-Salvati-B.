@@ -34,7 +34,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ content, onNavigate })
       {/* Background Graphic & Andean Overlay */}
       <div className="absolute inset-0 z-0">
         <img
-          src={hero.backgroundImageUrl || '/api/images/hero-landscape'}
+          src={hero.backgroundImageUrl || (hero as any).backgroundImage || '/api/images/hero-landscape'}
           alt="Paisaje montañoso Mis Delirios Ranch y cabañas en Guadua"
           className="w-full h-full object-cover object-center scale-105 filter brightness-75 contrast-105"
           referrerPolicy="no-referrer"

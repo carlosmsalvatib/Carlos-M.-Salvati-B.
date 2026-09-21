@@ -1,5 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { CmsContent, LotItem, LotStatus, MasterPlanBlueprint } from '../types';
+import {
+  MasterPlanAdvancedSearch,
+  LotFilterState,
+  initialFilterState,
+} from './MasterPlanAdvancedSearch';
 import {
   Layers,
   ZoomIn,
@@ -17,6 +22,8 @@ import {
   Maximize2,
   Compass,
   FileText,
+  Info,
+  SlidersHorizontal,
 } from 'lucide-react';
 
 interface MasterPlanSectionProps {
@@ -76,23 +83,75 @@ export const MasterPlanSection: React.FC<MasterPlanSectionProps> = ({
         ];
 
   const [currentBlueprintIndex, setCurrentBlueprintIndex] = useState<number>(0);
-  const [filterStatus, setFilterStatus] = useState<string>('todos');
-  const [filterLocation, setFilterLocation] = useState<string>('todos');
-  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [filterState, setFilterState] = useState<LotFilterState>(initialFilterState);
   const [selectedLotDetail, setSelectedLotDetail] = useState<LotItem | null>(null);
 
   const activeBlueprint = blueprints[currentBlueprintIndex] || blueprints[0];
 
-  // Filter lots
-  const filteredLots = lots.filter((lot) => {
-    const matchesStatus = filterStatus === 'todos' || lot.status === filterStatus;
-    const matchesLocation = filterLocation === 'todos' || lot.location === filterLocation;
-    const matchesSearch =
-      lot.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lot.manzana.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      String(lot.areaM2).includes(searchTerm);
-    return matchesStatus && matchesLocation && matchesSearch;
-  });
+  // Advanced filtered lots
+  const filteredLots = useMemo(() => {
+    return lots
+      .filter((lot) => {
+        // 1. Availability / Status filter
+        if (filterState.status !== 'todos' && lot.status !== filterState.status) {
+          return false;
+        }
+
+        // 2. Location / Sector filter
+        if (filterState.location !== 'todos' && lot.location !== filterState.location) {
+          return false;
+        }
+
+        // 3. Text search
+        if (filterState.searchTerm.trim()) {
+          const q = filterState.searchTerm.toLowerCase().trim();
+          const matchesCode = lot.code.toLowerCase().includes(q);
+          const matchesManzana = lot.manzana.toLowerCase().includes(q);
+          const matchesArea = String(lot.areaM2).includes(q);
+          const matchesPrice = String(lot.totalPriceUsd).includes(q);
+          const matchesSector = (
+            lot.location === 'alta' ? 'colinas alta sector 1' : 'ranch baja sector 2'
+          ).includes(q);
+
+          if (!matchesCode && !matchesManzana && !matchesArea && !matchesPrice && !matchesSector) {
+            return false;
+          }
+        }
+
+        // 4. Area (m²) min and max
+        if (filterState.areaMin !== '' && lot.areaM2 < Number(filterState.areaMin)) {
+          return false;
+        }
+        if (filterState.areaMax !== '' && lot.areaM2 > Number(filterState.areaMax)) {
+          return false;
+        }
+
+        // 5. Price (USD) min and max
+        if (filterState.priceMin !== '' && lot.totalPriceUsd < Number(filterState.priceMin)) {
+          return false;
+        }
+        if (filterState.priceMax !== '' && lot.totalPriceUsd > Number(filterState.priceMax)) {
+          return false;
+        }
+
+        return true;
+      })
+      .sort((a, b) => {
+        switch (filterState.sortBy) {
+          case 'price_asc':
+            return a.totalPriceUsd - b.totalPriceUsd;
+          case 'price_desc':
+            return b.totalPriceUsd - a.totalPriceUsd;
+          case 'area_asc':
+            return a.areaM2 - b.areaM2;
+          case 'area_desc':
+            return b.areaM2 - a.areaM2;
+          case 'code':
+          default:
+            return a.code.localeCompare(b.code, undefined, { numeric: true, sensitivity: 'base' });
+        }
+      });
+  }, [lots, filterState]);
 
   // Calculate stats
   const availableCount = lots.filter((l) => l.status === 'disponible').length;
@@ -352,50 +411,17 @@ export const MasterPlanSection: React.FC<MasterPlanSectionProps> = ({
             </div>
           </div>
 
-          {/* Filters and Search Bar */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 my-6">
-            <div className="relative">
-              <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-3" />
-              <input
-                type="text"
-                placeholder="Buscar por lote (ej. A1-01, B, 600 m²)..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 text-sm bg-stone-50 border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
-                id="search-lots-input"
-              />
-            </div>
-
-            <div>
-              <select
-                value={filterLocation}
-                onChange={(e) => setFilterLocation(e.target.value)}
-                className="w-full px-3.5 py-2 text-sm bg-stone-50 border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                id="filter-location-select"
-              >
-                <option value="todos">Todos los Sectores</option>
-                <option value="alta">Sector 1: Colinas (Parte Alta)</option>
-                <option value="baja">Sector 2: Ranch (Parte Baja)</option>
-              </select>
-            </div>
-
-            <div>
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="w-full px-3.5 py-2 text-sm bg-stone-50 border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                id="filter-status-select"
-              >
-                <option value="todos">Todos los Estados</option>
-                <option value="disponible">Solo Disponibles</option>
-                <option value="reservado">Solo Reservados</option>
-                <option value="vendido">Solo Vendidos</option>
-              </select>
-            </div>
-          </div>
+          {/* ADVANCED SEARCH & FILTER BAR */}
+          <MasterPlanAdvancedSearch
+            lots={lots}
+            filterState={filterState}
+            onFilterChange={setFilterState}
+            filteredCount={filteredLots.length}
+            totalCount={lots.length}
+          />
 
           {/* Lots Grid / Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-h-[560px] overflow-y-auto pr-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-h-[640px] overflow-y-auto pr-1">
             {filteredLots.map((lot) => {
               const isAvailable = lot.status === 'disponible';
 
@@ -414,53 +440,69 @@ export const MasterPlanSection: React.FC<MasterPlanSectionProps> = ({
                       <span className="font-mono font-extrabold text-base text-stone-900">{lot.code}</span>
                       {getStatusBadge(lot.status)}
                     </div>
-                    <div className="text-xs text-stone-600 mb-1">
-                      <span>Manzana: <strong>{lot.manzana}</strong></span> ·{' '}
-                      <span>{lot.location === 'alta' ? 'Parte Alta' : 'Parte Baja'}</span>
+                    <div className="text-xs text-stone-600 mb-1 flex items-center justify-between">
+                      <span>Manzana: <strong className="text-stone-800">{lot.manzana}</strong></span>
+                      <span className="px-2 py-0.5 rounded-md bg-stone-200/70 text-[10px] font-semibold text-stone-700">
+                        {lot.location === 'alta' ? 'Sector 1 · Alta' : 'Sector 2 · Baja'}
+                      </span>
                     </div>
-                    <div className="text-xs text-stone-600 mb-3">
+                    <div className="text-xs text-stone-600 mb-2">
                       Superficie: <strong className="text-stone-900">{lot.areaM2.toLocaleString('es-VE')} m²</strong>
                     </div>
 
                     <div className="pt-2 border-t border-stone-200/80 flex items-baseline justify-between mb-3">
-                      <span className="text-[11px] text-stone-500">Precio total:</span>
+                      <span className="text-[11px] text-stone-500">Precio de lista:</span>
                       <span className="font-serif font-bold text-base text-stone-900">
                         ${lot.totalPriceUsd.toLocaleString('es-VE')} USD
                       </span>
                     </div>
                   </div>
 
-                  {isAvailable ? (
+                  <div className="space-y-1.5 pt-1">
+                    {isAvailable ? (
+                      <button
+                        onClick={() => onSelectLotForQuote(lot)}
+                        className="w-full min-h-[44px] py-2.5 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98]"
+                        id={`btn-quote-lot-${lot.code}`}
+                      >
+                        <span>Cotizar este lote</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    ) : (
+                      <div className="text-center py-2.5 min-h-[44px] flex items-center justify-center text-xs font-medium text-stone-500 italic bg-stone-200/50 rounded-xl">
+                        No disponible
+                      </div>
+                    )}
+
                     <button
-                      onClick={() => onSelectLotForQuote(lot)}
-                      className="w-full py-2 px-3 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
-                      id={`btn-quote-lot-${lot.code}`}
+                      type="button"
+                      onClick={() => setSelectedLotDetail(lot)}
+                      className="w-full py-1.5 px-2 text-[11px] font-semibold text-stone-600 hover:text-stone-900 hover:bg-stone-200/60 rounded-lg transition-colors flex items-center justify-center gap-1"
                     >
-                      <span>Cotizar este lote</span>
-                      <ArrowRight className="w-3 h-3" />
+                      <Info className="w-3 h-3 text-stone-500" />
+                      <span>Ver linderos y ficha técnica</span>
                     </button>
-                  ) : (
-                    <div className="text-center py-2 text-xs font-medium text-stone-500 italic bg-stone-200/50 rounded-lg">
-                      No disponible
-                    </div>
-                  )}
+                  </div>
                 </div>
               );
             })}
           </div>
 
           {filteredLots.length === 0 && (
-            <div className="py-12 text-center text-stone-500">
-              <p className="text-sm">No se encontraron lotes con los filtros seleccionados.</p>
+            <div className="py-12 text-center text-stone-500 bg-stone-50 rounded-2xl border border-dashed border-stone-300 my-4">
+              <Search className="w-8 h-8 text-stone-400 mx-auto mb-2" />
+              <p className="text-sm font-semibold text-stone-800">
+                No se encontraron lotes que coincidan con los criterios.
+              </p>
+              <p className="text-xs text-stone-500 mt-1 max-w-md mx-auto">
+                Prueba relajando los rangos de precio o superficie, o cambiando el estado de disponibilidad.
+              </p>
               <button
-                onClick={() => {
-                  setFilterStatus('todos');
-                  setFilterLocation('todos');
-                  setSearchTerm('');
-                }}
-                className="mt-2 text-xs text-emerald-700 font-semibold underline"
+                type="button"
+                onClick={() => setFilterState(initialFilterState)}
+                className="mt-3 px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs shadow-sm transition-all inline-flex items-center gap-1.5"
               >
-                Limpiar filtros
+                <span>Restablecer todos los filtros</span>
               </button>
             </div>
           )}
@@ -489,6 +531,117 @@ export const MasterPlanSection: React.FC<MasterPlanSectionProps> = ({
           )}
         </div>
       </div>
+
+      {/* LOT DETAIL / TECHNICAL SPECS MODAL */}
+      {selectedLotDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-stone-200 relative max-h-[90vh] overflow-y-auto">
+            <button
+              type="button"
+              onClick={() => setSelectedLotDetail(null)}
+              className="absolute top-4 right-4 p-2 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-2 mb-1">
+              <span className="font-mono font-extrabold text-xl text-stone-900">
+                Lote {selectedLotDetail.code}
+              </span>
+              {getStatusBadge(selectedLotDetail.status)}
+            </div>
+
+            <p className="text-xs text-stone-500 mb-4">
+              Sector {selectedLotDetail.location === 'alta' ? '1: Colinas de Mis Delirios (Parte Alta)' : '2: Mis Delirios Ranch (Parte Baja)'} · Manzana {selectedLotDetail.manzana}
+            </p>
+
+            <div className="space-y-4">
+              {/* Technical Specifications */}
+              <div className="grid grid-cols-2 gap-3 p-3.5 bg-stone-50 rounded-xl border border-stone-200 text-xs">
+                <div>
+                  <span className="text-stone-500 block">Superficie Total:</span>
+                  <span className="font-bold text-stone-900 text-sm">
+                    {selectedLotDetail.areaM2.toLocaleString('es-VE')} m²
+                  </span>
+                </div>
+                <div>
+                  <span className="text-stone-500 block">Precio Lista ($20/m²):</span>
+                  <span className="font-serif font-bold text-emerald-800 text-sm">
+                    ${selectedLotDetail.totalPriceUsd.toLocaleString('es-VE')} USD
+                  </span>
+                </div>
+                <div>
+                  <span className="text-stone-500 block">Tipología:</span>
+                  <span className="font-semibold text-stone-800 capitalize">
+                    {selectedLotDetail.type}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-stone-500 block">Estado Actual:</span>
+                  <span className="font-semibold text-stone-800 capitalize">
+                    {selectedLotDetail.status}
+                  </span>
+                </div>
+              </div>
+
+              {/* Boundary Dimensions if available */}
+              {selectedLotDetail.dimensions && (
+                <div className="p-3.5 bg-emerald-50/60 rounded-xl border border-emerald-200/80 text-xs">
+                  <span className="font-bold text-emerald-950 block mb-2">
+                    Linderos y Medidas Perimétricas:
+                  </span>
+                  <div className="grid grid-cols-2 gap-2 text-stone-700">
+                    <div>Norte: <strong>{selectedLotDetail.dimensions.norte || 'S/D'} m</strong></div>
+                    <div>Sur: <strong>{selectedLotDetail.dimensions.sur || 'S/D'} m</strong></div>
+                    <div>Este: <strong>{selectedLotDetail.dimensions.este || 'S/D'} m</strong></div>
+                    <div>Oeste: <strong>{selectedLotDetail.dimensions.oeste || 'S/D'} m</strong></div>
+                  </div>
+                </div>
+              )}
+
+              {/* Urban Services included */}
+              <div className="p-3.5 bg-stone-50 rounded-xl border border-stone-200 text-xs space-y-1.5">
+                <span className="font-bold text-stone-800 block">Servicios e Infraestructura Incluidos:</span>
+                <ul className="text-stone-600 space-y-1 list-disc pl-4 text-[11px]">
+                  <li>Vialidad interna pavimentada / enripiada de 8 a 10 metros de ancho.</li>
+                  <li>Acometida a red eléctrica y canalización de aguas pluviales.</li>
+                  <li>Acceso directo al Bulevar Comunal de la Guadua (14.600 m² áreas verdes).</li>
+                  <li>Linderos naturales con vistas andinas de Sabana Larga y Río Torbes.</li>
+                </ul>
+              </div>
+
+              {/* Actions */}
+              <div className="pt-2 flex items-center gap-2">
+                {selectedLotDetail.status === 'disponible' ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const lot = selectedLotDetail;
+                      setSelectedLotDetail(null);
+                      onSelectLotForQuote(lot);
+                    }}
+                    className="flex-1 py-3 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2"
+                  >
+                    <span>Solicitar Cotización y Reserva</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <div className="flex-1 py-3 px-4 rounded-xl bg-stone-200 text-stone-500 text-xs font-medium text-center italic">
+                    Este lote se encuentra {selectedLotDetail.status}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setSelectedLotDetail(null)}
+                  className="px-4 py-3 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 };

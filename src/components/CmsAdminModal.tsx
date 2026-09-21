@@ -40,6 +40,7 @@ import {
   FolderArchive,
   HardDrive,
   Globe,
+  Edit3,
 } from 'lucide-react';
 import { MediaFieldWithSourceSelector } from './MediaFieldWithSourceSelector';
 import { MediaSourceSelectorModal } from './MediaSourceSelectorModal';
@@ -112,14 +113,17 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
   // Selected housing model for detailed image editing
   const [selectedModelId, setSelectedModelId] = useState<string>('modelo-a');
   const [newImageUrl, setNewImageUrl] = useState<string>('');
+  const [editingModelImageIndex, setEditingModelImageIndex] = useState<number | null>(null);
 
-  // New video form inside propuesta
+  // Video editing & creation inside propuesta
+  const [editingVideoId, setEditingVideoId] = useState<string | null>(null);
   const [newVideoTitle, setNewVideoTitle] = useState('');
   const [newVideoUrl, setNewVideoUrl] = useState('');
   const [newVideoDuration, setNewVideoDuration] = useState('02:00');
   const [newVideoDesc, setNewVideoDesc] = useState('');
 
-  // New blueprint form inside planMaestro
+  // Blueprint editing & creation inside planMaestro
+  const [editingBlueprintId, setEditingBlueprintId] = useState<string | null>(null);
   const [newBlueprintTitle, setNewBlueprintTitle] = useState('');
   const [newBlueprintSector, setNewBlueprintSector] = useState('Sector General');
   const [newBlueprintUrl, setNewBlueprintUrl] = useState('');
@@ -304,6 +308,26 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
         videos: currentVideos.filter((v) => v.id !== videoId),
       },
     });
+    if (editingVideoId === videoId) setEditingVideoId(null);
+  };
+
+  const handleUpdateVideo = (videoId: string, updates: Partial<PropuestaVideo>) => {
+    const currentVideos = formData.valueProp.videos || [];
+    setFormData({
+      ...formData,
+      valueProp: {
+        ...formData.valueProp,
+        videos: currentVideos.map((v) => {
+          if (v.id === videoId) {
+            const next = { ...v, ...updates };
+            if (updates.videoUrl) next.url = updates.videoUrl;
+            if (updates.posterUrl) next.thumbnailUrl = updates.posterUrl;
+            return next;
+          }
+          return v;
+        }),
+      },
+    });
   };
 
   // BLUEPRINTS MANAGEMENT IN PLAN MAESTRO
@@ -339,6 +363,20 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
         blueprints: currentBlueprints.filter((b) => b.id !== bpId),
       },
     });
+    if (editingBlueprintId === bpId) setEditingBlueprintId(null);
+  };
+
+  const handleUpdateBlueprint = (bpId: string, updates: Partial<MasterPlanBlueprint>) => {
+    const currentBlueprints = formData.masterPlan.blueprints || [];
+    setFormData({
+      ...formData,
+      masterPlan: {
+        ...formData.masterPlan,
+        blueprints: currentBlueprints.map((b) =>
+          b.id === bpId ? { ...b, ...updates } : b
+        ),
+      },
+    });
   };
 
   // HOUSING MODEL IMAGES MANAGEMENT (Requirement 10)
@@ -365,6 +403,28 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
       },
     });
     setNewImageUrl('');
+  };
+
+  const handleUpdateModelImage = (modelId: string, imageIndex: number, newUrl: string) => {
+    if (!newUrl.trim()) return;
+    const updatedModels = formData.housingModels.models.map((m) => {
+      if (m.id === modelId) {
+        const nextImages = [...(m.images || [])];
+        nextImages[imageIndex] = newUrl.trim();
+        return {
+          ...m,
+          images: nextImages,
+        };
+      }
+      return m;
+    });
+    setFormData({
+      ...formData,
+      housingModels: {
+        ...formData.housingModels,
+        models: updatedModels,
+      },
+    });
   };
 
   const handleDeleteImageFromModel = (modelId: string, imageIndex: number) => {
@@ -800,6 +860,41 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                     className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white"
                   />
                 </div>
+
+                <div className="sm:col-span-2 pt-3 border-t border-stone-800 space-y-4">
+                  <h4 className="font-serif font-bold text-white text-sm flex items-center gap-2">
+                    <ImageIcon className="w-4 h-4 text-amber-400" />
+                    <span>Identidad Gráfica y Medios de Marca</span>
+                  </h4>
+                  <MediaFieldWithSourceSelector
+                    id="site-logo-media-selector"
+                    label="Logotipo Oficial del Complejo (Navbar y Pie de Página)"
+                    value={formData.site.logoUrl || ''}
+                    onChange={(newUrl) =>
+                      setFormData({
+                        ...formData,
+                        site: { ...formData.site, logoUrl: newUrl },
+                      })
+                    }
+                    mediaType="image"
+                    placeholder="Suba su logo en PNG/SVG, elija de la biblioteca o pegue URL..."
+                    helperText="Logotipo en formato SVG o PNG transparente visible en el encabezado principal y pie de página."
+                  />
+                  <MediaFieldWithSourceSelector
+                    id="seo-ogimage-media-selector"
+                    label="Imagen Social de Vista Previa (Compartir por WhatsApp y Redes)"
+                    value={formData.seo?.ogImage || ''}
+                    onChange={(newUrl) =>
+                      setFormData({
+                        ...formData,
+                        seo: { ...formData.seo, ogImage: newUrl },
+                      })
+                    }
+                    mediaType="image"
+                    placeholder="Seleccione la imagen para previsualizar al compartir en WhatsApp..."
+                    helperText="Esta imagen aparece automáticamente como miniatura en WhatsApp, Telegram o Facebook al enviar el enlace del proyecto."
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -924,29 +1019,135 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                 </h4>
 
                 <div className="space-y-3">
-                  {(formData.valueProp.videos || []).map((vid, idx) => (
-                    <div
-                      key={vid.id || idx}
-                      className="p-3 rounded-lg bg-stone-900 border border-stone-800 flex items-center justify-between gap-3 text-xs"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-white truncate">{vid.title}</span>
-                          <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[10px] font-mono">
-                            {vid.duration}
-                          </span>
-                        </div>
-                        <p className="text-stone-400 text-[11px] truncate mt-0.5 font-mono">{vid.url || vid.videoUrl}</p>
-                      </div>
-                      <button
-                        onClick={() => handleDeleteVideo(vid.id)}
-                        className="p-1.5 rounded-lg bg-stone-800 hover:bg-red-900/60 text-stone-400 hover:text-red-300 transition-colors"
-                        title="Eliminar video render"
+                  {(formData.valueProp.videos || []).map((vid, idx) => {
+                    const isEditing = editingVideoId === vid.id;
+                    return (
+                      <div
+                        key={vid.id || idx}
+                        className={`p-3 rounded-xl bg-stone-900 border transition-all text-xs ${
+                          isEditing ? 'border-amber-500/80 shadow-lg' : 'border-stone-800 hover:border-stone-700'
+                        }`}
                       >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                            <div className="p-2 rounded-lg bg-stone-800 text-amber-400 flex-shrink-0">
+                              <Video className="w-4 h-4" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-white truncate">{vid.title}</span>
+                                <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[10px] font-mono flex-shrink-0">
+                                  {vid.duration || '02:00'}
+                                </span>
+                              </div>
+                              <p className="text-stone-400 text-[11px] truncate mt-0.5 font-mono">
+                                {vid.url || vid.videoUrl}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => setEditingVideoId(isEditing ? null : vid.id)}
+                              className={`px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 text-xs font-semibold transition-colors ${
+                                isEditing
+                                  ? 'bg-amber-500 text-stone-950 font-bold'
+                                  : 'bg-stone-800 hover:bg-stone-700 text-stone-300'
+                              }`}
+                              title={isEditing ? 'Cerrar edición' : 'Editar archivo de video y datos'}
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                              <span>{isEditing ? 'Listo' : 'Editar'}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteVideo(vid.id)}
+                              className="p-1.5 rounded-lg bg-stone-800 hover:bg-red-900/60 text-stone-400 hover:text-red-300 transition-colors"
+                              title="Eliminar video render"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* EXPANDABLE INLINE VIDEO EDITOR */}
+                        {isEditing && (
+                          <div className="mt-3 pt-3 border-t border-stone-800/80 space-y-3 bg-stone-950/60 p-3 rounded-lg">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                              <div className="sm:col-span-2">
+                                <label className="block text-stone-300 mb-1 font-semibold">Título del Render</label>
+                                <input
+                                  type="text"
+                                  value={vid.title}
+                                  onChange={(e) => handleUpdateVideo(vid.id, { title: e.target.value })}
+                                  className="w-full px-3 py-1.5 rounded bg-stone-900 border border-stone-700 text-white"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-stone-300 mb-1 font-semibold">Duración (mm:ss)</label>
+                                <input
+                                  type="text"
+                                  value={vid.duration || ''}
+                                  onChange={(e) => handleUpdateVideo(vid.id, { duration: e.target.value })}
+                                  className="w-full px-3 py-1.5 rounded bg-stone-900 border border-stone-700 text-white"
+                                />
+                              </div>
+                              <div className="sm:col-span-3">
+                                <label className="block text-stone-300 mb-1 font-semibold">Descripción del Video</label>
+                                <textarea
+                                  rows={2}
+                                  value={vid.description || ''}
+                                  onChange={(e) => handleUpdateVideo(vid.id, { description: e.target.value })}
+                                  className="w-full px-3 py-1.5 rounded bg-stone-900 border border-stone-700 text-white"
+                                />
+                              </div>
+                              <div className="sm:col-span-3">
+                                <MediaFieldWithSourceSelector
+                                  id={`edit-video-url-${vid.id}`}
+                                  label="Archivo o Enlace de Video a Mostrar (Seleccione Origen)"
+                                  value={vid.videoUrl || vid.url || ''}
+                                  onChange={(newUrl) =>
+                                    handleUpdateVideo(vid.id, {
+                                      videoUrl: newUrl,
+                                      url: newUrl,
+                                    })
+                                  }
+                                  mediaType="video"
+                                  placeholder="Suba video MP4 de su PC, elija de la biblioteca o pegue enlace..."
+                                  helperText="Puede seleccionar un archivo MP4 desde su equipo, biblioteca del ranch o enlace de YouTube/Vimeo."
+                                />
+                              </div>
+                              <div className="sm:col-span-3">
+                                <MediaFieldWithSourceSelector
+                                  id={`edit-video-poster-${vid.id}`}
+                                  label="Miniatura / Portada del Video (Opcional)"
+                                  value={vid.posterUrl || vid.thumbnailUrl || ''}
+                                  onChange={(newUrl) =>
+                                    handleUpdateVideo(vid.id, {
+                                      posterUrl: newUrl,
+                                      thumbnailUrl: newUrl,
+                                    })
+                                  }
+                                  mediaType="image"
+                                  placeholder="Seleccione origen para la portada del video..."
+                                  helperText="Imagen mostrada en el reproductor antes de reproducir el video."
+                                />
+                              </div>
+                            </div>
+                            <div className="text-right pt-1">
+                              <button
+                                type="button"
+                                onClick={() => setEditingVideoId(null)}
+                                className="px-3 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs"
+                              >
+                                Listo / Guardar Video
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {/* ADD NEW VIDEO RENDER FORM */}
@@ -1021,8 +1222,66 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                     Plan Maestro & Planos Arquitectónicos Oficiales
                   </h3>
                   <p className="text-xs text-stone-400">
-                    Carga y administra los planos del proyecto (lotificación, sectores, bulevar) para su visualización y ampliación.
+                    Carga y administra los planos del proyecto (lotificación general, sectores, bulevar) seleccionando el origen de cada archivo.
                   </p>
+                </div>
+              </div>
+
+              {/* PLANO GENERAL PRINCIPAL DEL MASTER PLAN */}
+              <div className="bg-stone-950 p-4 rounded-xl border border-stone-800 space-y-4">
+                <h4 className="font-serif font-bold text-white text-sm flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4 text-amber-400" />
+                  <span>Plano General Principal del Complejo</span>
+                </h4>
+                <div className="space-y-3">
+                  <MediaFieldWithSourceSelector
+                    id="masterplan-main-blueprint-selector"
+                    label="Archivo del Plano General Principal (Lotificación 57 Lotes)"
+                    value={formData.masterPlan.planImageUrl || ''}
+                    onChange={(newUrl) =>
+                      setFormData({
+                        ...formData,
+                        masterPlan: {
+                          ...formData.masterPlan,
+                          planImageUrl: newUrl,
+                        },
+                      })
+                    }
+                    mediaType="image"
+                    placeholder="Seleccione origen: Subir archivo, Biblioteca del Ranch o Enlace Web..."
+                    helperText="Plano arquitectónico maestro general visible como referencia principal de toda la sección del Plan Maestro."
+                  />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1">
+                    <div>
+                      <label className="block text-stone-300 mb-1 font-semibold">Enlace a PDF Oficial de Descarga</label>
+                      <input
+                        type="text"
+                        value={formData.masterPlan.planPdfUrl || ''}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            masterPlan: { ...formData.masterPlan, planPdfUrl: e.target.value },
+                          })
+                        }
+                        placeholder="#plan-descarga o https://..."
+                        className="w-full px-3 py-2 rounded-lg bg-stone-900 border border-stone-700 text-white font-mono text-[11px]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-stone-300 mb-1 font-semibold">Total de Lotes del Complejo</label>
+                      <input
+                        type="number"
+                        value={formData.masterPlan.totalLots || 57}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            masterPlan: { ...formData.masterPlan, totalLots: Number(e.target.value) },
+                          })
+                        }
+                        className="w-full px-3 py-2 rounded-lg bg-stone-900 border border-stone-700 text-white"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -1034,37 +1293,129 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                 </h4>
 
                 <div className="space-y-3">
-                  {(formData.masterPlan.blueprints || []).map((bp, idx) => (
-                    <div
-                      key={bp.id || idx}
-                      className="p-3 rounded-lg bg-stone-900 border border-stone-800 flex items-center justify-between gap-3 text-xs"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <img
-                          src={bp.imageUrl}
-                          alt={bp.title}
-                          className="w-14 h-10 object-cover rounded border border-stone-700 bg-stone-950 flex-shrink-0"
-                          referrerPolicy="no-referrer"
-                        />
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-white truncate">{bp.title}</span>
-                            <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 text-[10px]">
-                              {bp.sector}
-                            </span>
-                          </div>
-                          <p className="text-stone-400 text-[11px] truncate mt-0.5">{bp.subtitle}</p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => handleDeleteBlueprint(bp.id)}
-                        className="p-1.5 rounded-lg bg-stone-800 hover:bg-red-900/60 text-stone-400 hover:text-red-300 transition-colors"
-                        title="Eliminar plano"
+                  {(formData.masterPlan.blueprints || []).map((bp, idx) => {
+                    const isEditing = editingBlueprintId === bp.id;
+                    return (
+                      <div
+                        key={bp.id || idx}
+                        className={`p-3 rounded-xl bg-stone-900 border transition-all text-xs ${
+                          isEditing ? 'border-blue-500/80 shadow-lg' : 'border-stone-800 hover:border-stone-700'
+                        }`}
                       >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <img
+                              src={bp.imageUrl}
+                              alt={bp.title}
+                              className="w-16 h-12 object-cover rounded-lg border border-stone-700 bg-stone-950 flex-shrink-0"
+                              referrerPolicy="no-referrer"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-white truncate">{bp.title}</span>
+                                <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 text-[10px] flex-shrink-0">
+                                  {bp.sector}
+                                </span>
+                              </div>
+                              <p className="text-stone-400 text-[11px] truncate mt-0.5">{bp.subtitle}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => setEditingBlueprintId(isEditing ? null : bp.id)}
+                              className={`px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 text-xs font-semibold transition-colors ${
+                                isEditing
+                                  ? 'bg-blue-500 text-stone-950 font-bold'
+                                  : 'bg-stone-800 hover:bg-stone-700 text-stone-300'
+                              }`}
+                              title={isEditing ? 'Cerrar edición' : 'Editar plano y origen del archivo'}
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                              <span>{isEditing ? 'Listo' : 'Editar'}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteBlueprint(bp.id)}
+                              className="p-1.5 rounded-lg bg-stone-800 hover:bg-red-900/60 text-stone-400 hover:text-red-300 transition-colors"
+                              title="Eliminar plano"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* EXPANDABLE INLINE BLUEPRINT EDITOR */}
+                        {isEditing && (
+                          <div className="mt-3 pt-3 border-t border-stone-800/80 space-y-3 bg-stone-950/60 p-3 rounded-lg">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                              <div>
+                                <label className="block text-stone-300 mb-1 font-semibold">Título del Plano</label>
+                                <input
+                                  type="text"
+                                  value={bp.title}
+                                  onChange={(e) => handleUpdateBlueprint(bp.id, { title: e.target.value })}
+                                  className="w-full px-3 py-1.5 rounded bg-stone-900 border border-stone-700 text-white"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-stone-300 mb-1 font-semibold">Sector / Área</label>
+                                <input
+                                  type="text"
+                                  value={bp.sector}
+                                  onChange={(e) => handleUpdateBlueprint(bp.id, { sector: e.target.value })}
+                                  className="w-full px-3 py-1.5 rounded bg-stone-900 border border-stone-700 text-white"
+                                />
+                              </div>
+                              <div className="sm:col-span-2">
+                                <label className="block text-stone-300 mb-1 font-semibold">Subtítulo / Descripción Corta</label>
+                                <input
+                                  type="text"
+                                  value={bp.subtitle || ''}
+                                  onChange={(e) => handleUpdateBlueprint(bp.id, { subtitle: e.target.value })}
+                                  className="w-full px-3 py-1.5 rounded bg-stone-900 border border-stone-700 text-white"
+                                />
+                              </div>
+                              <div className="sm:col-span-2">
+                                <label className="block text-stone-300 mb-1 font-semibold">Descripción Detallada</label>
+                                <textarea
+                                  rows={2}
+                                  value={bp.description || ''}
+                                  onChange={(e) => handleUpdateBlueprint(bp.id, { description: e.target.value })}
+                                  className="w-full px-3 py-1.5 rounded bg-stone-900 border border-stone-700 text-white"
+                                />
+                              </div>
+                              <div className="sm:col-span-2">
+                                <MediaFieldWithSourceSelector
+                                  id={`edit-blueprint-source-${bp.id}`}
+                                  label="Archivo o Imagen del Plano (Seleccione Origen)"
+                                  value={bp.imageUrl}
+                                  onChange={(newUrl) => handleUpdateBlueprint(bp.id, { imageUrl: newUrl })}
+                                  onMetadataSelected={(meta) => {
+                                    if (meta.title && !bp.title) {
+                                      handleUpdateBlueprint(bp.id, { title: meta.title });
+                                    }
+                                  }}
+                                  mediaType="image"
+                                  placeholder="Suba plano en PNG/JPG/SVG, elija del catálogo o pegue URL..."
+                                  helperText="Cambie el plano seleccionando: archivo local de su PC, biblioteca oficial o enlace web."
+                                />
+                              </div>
+                            </div>
+                            <div className="text-right pt-1">
+                              <button
+                                type="button"
+                                onClick={() => setEditingBlueprintId(null)}
+                                className="px-3 py-1.5 rounded bg-blue-500 hover:bg-blue-400 text-stone-950 font-bold text-xs"
+                              >
+                                Listo / Guardar Plano
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {/* ADD NEW BLUEPRINT FORM */}
@@ -1374,6 +1725,21 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                         className="w-full px-3 py-2 rounded-lg bg-stone-900 border border-stone-700 text-white"
                       />
                     </div>
+                    <div className="sm:col-span-3">
+                      <label className="block text-stone-300 mb-1 font-semibold">Enlace a Ficha Técnica / Folleto en PDF</label>
+                      <input
+                        type="text"
+                        value={currentSelectedModel.brochurePdfUrl || ''}
+                        onChange={(e) => {
+                          const updated = formData.housingModels.models.map((m) =>
+                            m.id === currentSelectedModel.id ? { ...m, brochurePdfUrl: e.target.value } : m
+                          );
+                          setFormData({ ...formData, housingModels: { ...formData.housingModels, models: updated } });
+                        }}
+                        placeholder="#ficha-tecnica o https://..."
+                        className="w-full px-3 py-2 rounded-lg bg-stone-900 border border-stone-700 text-white font-mono text-xs"
+                      />
+                    </div>
                   </div>
 
                   {/* MULTI-IMAGE GALLERY MANAGER */}
@@ -1389,29 +1755,87 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {(currentSelectedModel.images || []).map((imgUrl, imgIdx) => (
-                        <div
-                          key={imgIdx}
-                          className="relative rounded-xl overflow-hidden border border-stone-700 bg-stone-900 group"
-                        >
-                          <img
-                            src={imgUrl}
-                            alt={`Imagen ${imgIdx + 1}`}
-                            className="w-full h-28 object-cover"
-                            referrerPolicy="no-referrer"
-                          />
-                          <div className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-black/80 text-[10px] text-stone-300 font-mono">
-                            #{imgIdx + 1}
-                          </div>
-                          <button
-                            onClick={() => handleDeleteImageFromModel(currentSelectedModel.id, imgIdx)}
-                            className="absolute top-1 right-1 p-1 rounded bg-red-600 text-white hover:bg-red-500 opacity-90 hover:opacity-100 transition-opacity"
-                            title="Eliminar imagen"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ))}
+                      {(currentSelectedModel.images || []).map((imgUrl, imgIdx) => {
+                        const isEditingThisImage = editingModelImageIndex === imgIdx;
+                        return (
+                          <React.Fragment key={imgIdx}>
+                            <div
+                              className={`relative rounded-xl overflow-hidden border bg-stone-900 group transition-all ${
+                                isEditingThisImage
+                                  ? 'border-amber-500 ring-2 ring-amber-500/40'
+                                  : 'border-stone-700 hover:border-stone-500'
+                              }`}
+                            >
+                              <img
+                                src={imgUrl}
+                                alt={`Imagen ${imgIdx + 1}`}
+                                className="w-full h-28 object-cover"
+                                referrerPolicy="no-referrer"
+                              />
+                              <div className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-black/80 text-[10px] text-stone-300 font-mono">
+                                #{imgIdx + 1}
+                              </div>
+                              <div className="absolute top-1 right-1 flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingModelImageIndex(isEditingThisImage ? null : imgIdx)}
+                                  className={`p-1 rounded text-white transition-opacity ${
+                                    isEditingThisImage
+                                      ? 'bg-amber-500 text-stone-950 font-bold opacity-100'
+                                      : 'bg-stone-900/90 hover:bg-stone-800 text-stone-200 opacity-90 hover:opacity-100'
+                                  }`}
+                                  title="Editar y cambiar archivo de esta imagen"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (editingModelImageIndex === imgIdx) setEditingModelImageIndex(null);
+                                    handleDeleteImageFromModel(currentSelectedModel.id, imgIdx);
+                                  }}
+                                  className="p-1 rounded bg-red-600 text-white hover:bg-red-500 opacity-90 hover:opacity-100 transition-opacity"
+                                  title="Eliminar imagen"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* INLINE REPLACEMENT SELECTOR FOR THIS IMAGE */}
+                            {isEditingThisImage && (
+                              <div className="col-span-2 sm:col-span-4 p-3.5 rounded-xl bg-stone-900 border border-amber-500/70 space-y-2.5">
+                                <div className="flex items-center justify-between">
+                                  <span className="font-semibold text-amber-400 text-xs flex items-center gap-1.5">
+                                    <Edit3 className="w-3.5 h-3.5" />
+                                    <span>
+                                      Cambiar Archivo de Imagen #{imgIdx + 1} · {currentSelectedModel.name}
+                                    </span>
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingModelImageIndex(null)}
+                                    className="px-2.5 py-1 rounded bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs"
+                                  >
+                                    Listo / Cerrar
+                                  </button>
+                                </div>
+                                <MediaFieldWithSourceSelector
+                                  id={`edit-model-image-${currentSelectedModel.id}-${imgIdx}`}
+                                  label={`Seleccione el nuevo archivo para sustituir la imagen #${imgIdx + 1}`}
+                                  value={imgUrl}
+                                  onChange={(newUrl) => {
+                                    handleUpdateModelImage(currentSelectedModel.id, imgIdx, newUrl);
+                                  }}
+                                  mediaType="image"
+                                  placeholder="Suba un archivo local, elija de la biblioteca o pegue URL..."
+                                  helperText="Sustituye la imagen de forma inmediata seleccionando origen: archivo de su equipo, biblioteca o enlace web."
+                                />
+                              </div>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
                     </div>
 
                     {/* ADD NEW IMAGE TO MODEL FORM WITH SOURCE SELECTOR */}
@@ -1550,6 +1974,45 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                     setFormData({ ...formData, socialImpact: { ...formData.socialImpact, description: e.target.value } })
                   }
                   className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white"
+                />
+              </div>
+
+              {/* Renders and images for Sostenibilidad and Bulevar */}
+              <div className="pt-3 border-t border-stone-800 space-y-4">
+                <h4 className="font-serif font-bold text-white text-sm flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4 text-emerald-400" />
+                  <span>Renders y Planos de Sostenibilidad y Áreas Comunitarias</span>
+                </h4>
+                <MediaFieldWithSourceSelector
+                  id="social-impact-media-selector"
+                  label="Render del Bulevar de la Guadua y Espacios Comunitarios (+14.600 m²)"
+                  value={formData.socialImpact.imageUrl || ''}
+                  onChange={(newUrl) =>
+                    setFormData({
+                      ...formData,
+                      socialImpact: { ...formData.socialImpact, imageUrl: newUrl },
+                    })
+                  }
+                  mediaType="image"
+                  placeholder="Suba render del bulevar, elija de la biblioteca o pegue URL..."
+                  helperText="Render ilustrativo de áreas públicas: canchas deportivas, plazas, parques y frente sobre la Trasandina."
+                />
+                <MediaFieldWithSourceSelector
+                  id="technical-attributes-media-selector"
+                  label="Render / Detalle Constructivo de Arquitectura en Bambú Guadua"
+                  value={formData.technicalAttributes?.imageUrl || ''}
+                  onChange={(newUrl) =>
+                    setFormData({
+                      ...formData,
+                      technicalAttributes: {
+                        ...formData.technicalAttributes,
+                        imageUrl: newUrl,
+                      },
+                    })
+                  }
+                  mediaType="image"
+                  placeholder="Suba esquema estructural de Guadua, elija de la biblioteca o pegue URL..."
+                  helperText="Detalle técnico de columnas en Bambú Guadua angustifolia, losa flotante de concreto a 40 cm e ingeniería sismorresistente."
                 />
               </div>
             </div>

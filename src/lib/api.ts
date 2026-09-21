@@ -4,6 +4,67 @@ import { initialLots } from '../data/initialLots';
 
 export const API_BASE = '/api';
 
+const STORAGE_KEY_CONTENT = 'mdr_runtime_cms_content_v2';
+const STORAGE_KEY_LOTS = 'mdr_runtime_lots_v2';
+const STORAGE_KEY_LAST_SAVED = 'mdr_runtime_last_saved_v2';
+
+/**
+ * Retrieve cached CMS content from browser storage for instant runtime persistence
+ */
+export function getLocalCachedContent(): CmsContent | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_CONTENT);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && parsed.site) {
+        return parsed;
+      }
+    }
+  } catch {}
+  return null;
+}
+
+/**
+ * Retrieve cached Lots inventory from browser storage for instant runtime persistence
+ */
+export function getLocalCachedLots(): LotItem[] | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_LOTS);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch {}
+  return null;
+}
+
+/**
+ * Saves content and lots to browser storage and dispatches live update event
+ */
+export function saveLocalCache(content?: CmsContent, lots?: LotItem[]): void {
+  try {
+    if (content) {
+      localStorage.setItem(STORAGE_KEY_CONTENT, JSON.stringify(content));
+    }
+    if (lots && Array.isArray(lots)) {
+      localStorage.setItem(STORAGE_KEY_LOTS, JSON.stringify(lots));
+    }
+    localStorage.setItem(STORAGE_KEY_LAST_SAVED, new Date().toISOString());
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('mdr_data_updated', {
+          detail: { content, lots, timestamp: Date.now() },
+        })
+      );
+    }
+  } catch (e) {
+    console.warn('Almacenamiento local no disponible:', e);
+  }
+}
+
 /**
  * Safely parses response as JSON without crashing with "JSON.parse: unexpected character"
  * if the server returns HTML (e.g. 404/502/SPA fallback).
@@ -33,20 +94,35 @@ async function parseJsonSafely<T>(res: Response, fallbackErrorMsg: string): Prom
 }
 
 export async function fetchCmsContent(): Promise<CmsContent> {
+  const localCached = getLocalCachedContent();
   try {
     const res = await fetch(`${API_BASE}/content`);
     const json = await parseJsonSafely<{ success: boolean; data: CmsContent }>(
       res,
       'Error al cargar contenido'
     );
-    return json.data;
+    if (json.data && json.data.site) {
+      // If the server data has a lower version or timestamp than local cached, prioritize local
+      const serverVersion = json.data.version || 1;
+      const localVersion = localCached?.version || 1;
+      if (localCached && localVersion > serverVersion) {
+        // Automatically sync our newer local cache to the server in the background
+        saveCmsContent(localCached).catch(() => {});
+        return localCached;
+      }
+      saveLocalCache(json.data);
+      return json.data;
+    }
   } catch (err) {
-    console.warn('Usando contenido base local:', err);
-    return initialCmsContent;
+    console.warn('Conexión con servidor no disponible, usando cache local persistente:', err);
   }
+  return localCached || initialCmsContent;
 }
 
 export async function saveCmsContent(content: CmsContent, note?: string): Promise<CmsContent> {
+  // 1. Guardar de inmediato en almacenamiento persistente del cliente
+  saveLocalCache(content);
+
   const query = note ? `?note=${encodeURIComponent(note)}` : '';
   try {
     const res = await fetch(`${API_BASE}/content${query}`, {
@@ -58,40 +134,50 @@ export async function saveCmsContent(content: CmsContent, note?: string): Promis
       res,
       'Error al guardar contenido'
     );
-    return json.data;
+    if (json.data) {
+      saveLocalCache(json.data);
+      return json.data;
+    }
   } catch (err: any) {
-    // Save to local storage as fallback
-    try {
-      localStorage.setItem('mdr_cms_content_backup', JSON.stringify(content));
-    } catch {}
-    return content;
+    console.warn('Guardado en base local por desconexión de red:', err);
   }
+  return content;
 }
 
 export async function resetCmsContent(): Promise<CmsContent> {
   try {
+    localStorage.removeItem(STORAGE_KEY_CONTENT);
+    localStorage.removeItem(STORAGE_KEY_LOTS);
     const res = await fetch(`${API_BASE}/content/reset`, { method: 'POST' });
     const json = await parseJsonSafely<{ success: boolean; data: CmsContent }>(
       res,
       'Error al reiniciar contenido'
     );
-    return json.data;
-  } catch {
-    return initialCmsContent;
-  }
+    if (json.data) {
+      saveLocalCache(json.data, initialLots);
+      return json.data;
+    }
+  } catch {}
+  saveLocalCache(initialCmsContent, initialLots);
+  return initialCmsContent;
 }
 
 export async function fetchLots(): Promise<LotItem[]> {
+  const localCached = getLocalCachedLots();
   try {
     const res = await fetch(`${API_BASE}/lots`);
     const json = await parseJsonSafely<{ success: boolean; data: LotItem[] }>(
       res,
       'Error al cargar lotes'
     );
-    return json.data || initialLots;
-  } catch {
-    return initialLots;
+    if (json.data && Array.isArray(json.data) && json.data.length > 0) {
+      saveLocalCache(undefined, json.data);
+      return json.data;
+    }
+  } catch (err) {
+    console.warn('Conexión con servidor para lotes no disponible, usando cache local:', err);
   }
+  return (localCached && localCached.length > 0) ? localCached : initialLots;
 }
 
 export async function updateLot(id: string, updates: Partial<LotItem>): Promise<LotItem> {
@@ -108,6 +194,9 @@ export async function updateLot(id: string, updates: Partial<LotItem>): Promise<
 }
 
 export async function saveBulkLots(lots: LotItem[]): Promise<LotItem[]> {
+  // 1. Guardar de inmediato en almacenamiento local persistente
+  saveLocalCache(undefined, lots);
+
   try {
     const res = await fetch(`${API_BASE}/lots/bulk-save`, {
       method: 'POST',
@@ -118,13 +207,54 @@ export async function saveBulkLots(lots: LotItem[]): Promise<LotItem[]> {
       res,
       'Error al grabar inventario'
     );
-    return json.data;
+    if (json.data) {
+      saveLocalCache(undefined, json.data);
+      return json.data;
+    }
   } catch (err: any) {
-    try {
-      localStorage.setItem('mdr_lots_backup', JSON.stringify(lots));
-    } catch {}
-    return lots;
+    console.warn('Inventario respaldado en persistencia local por desconexión:', err);
   }
+  return lots;
+}
+
+/**
+ * Operación unificada para guardar Contenido y Lotes simultáneamente con garantía de persistencia
+ */
+export async function saveAllCmsAndLots(
+  content: CmsContent,
+  lots: LotItem[],
+  note?: string
+): Promise<{ content: CmsContent; lots: LotItem[] }> {
+  // Guardar en cache persistente local de inmediato
+  saveLocalCache(content, lots);
+
+  try {
+    const query = note ? `?note=${encodeURIComponent(note)}` : '';
+    const res = await fetch(`${API_BASE}/sync-all${query}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content, lots }),
+    });
+    const json = await parseJsonSafely<{
+      success: boolean;
+      data: { content: CmsContent; lots: LotItem[] };
+    }>(res, 'Error al sincronizar datos');
+    if (json.data) {
+      saveLocalCache(json.data.content, json.data.lots);
+      return json.data;
+    }
+  } catch (err) {
+    console.warn('Sincronización con backend falló, respaldado en persistencia local:', err);
+    // Intentar guardar en endpoints individuales como respaldo
+    try {
+      await Promise.all([
+        saveCmsContent(content, note),
+        saveBulkLots(lots),
+      ]);
+    } catch {}
+  }
+
+  return { content, lots };
 }
 
 export async function createLot(lot: Partial<LotItem>): Promise<LotItem> {

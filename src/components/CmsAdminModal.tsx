@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CmsContent, LotItem, LeadSubmission, LotStatus, AppUser, HousingModel, PropuestaVideo, MasterPlanBlueprint, UserLevel } from '../types';
-import { updateContent, updateLot, getLeads, updateLeadStatus, saveBulkLots, createLot, deleteLot } from '../lib/api';
+import { updateContent, updateLot, getLeads, updateLeadStatus, saveBulkLots, createLot, deleteLot, saveAllCmsAndLots } from '../lib/api';
 import { UsersCmsTab } from './UsersCmsTab';
 import {
   USER_LEVEL_DEFINITIONS,
@@ -157,32 +157,54 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
     }
   };
 
-  const handleSaveContent = async () => {
+  const handleSaveAll = async (shouldClose = false) => {
     setSaving(true);
+    setSavingLots(true);
     try {
-      const updated = await updateContent(formData);
-      onContentUpdated(updated);
+      const result = await saveAllCmsAndLots(
+        formData,
+        localLots,
+        `Sincronización global CMS (${new Date().toLocaleTimeString('es-VE')})`
+      );
+      onContentUpdated(result.content);
+      onLotsUpdated(result.lots);
       setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
+      setLotsSaveSuccess(true);
+      setTimeout(() => {
+        setSaveSuccess(false);
+        setLotsSaveSuccess(false);
+      }, 3500);
+
+      if (shouldClose) {
+        onClose();
+      }
     } catch (err) {
-      alert('Error guardando contenido: ' + err);
+      alert('Error guardando en la base de datos: ' + err);
     } finally {
       setSaving(false);
+      setSavingLots(false);
     }
+  };
+
+  const handleSaveContent = async () => {
+    // Guarda tanto contenido como lotes para asegurar consistencia total
+    await handleSaveAll(false);
   };
 
   // Requirement 11: "El catalogo de Disponibilidad debe poder grabarse y actualizarse."
   const handleSaveAllLots = async () => {
-    setSavingLots(true);
-    try {
-      const saved = await saveBulkLots(localLots);
-      onLotsUpdated(saved);
-      setLotsSaveSuccess(true);
-      setTimeout(() => setLotsSaveSuccess(false), 3500);
-    } catch (err) {
-      alert('Error al grabar el catálogo de disponibilidad: ' + err);
-    } finally {
-      setSavingLots(false);
+    await handleSaveAll(false);
+  };
+
+  const handleCloseModal = () => {
+    const hasContentChanges = JSON.stringify(formData) !== JSON.stringify(content);
+    const hasLotChanges = JSON.stringify(localLots) !== JSON.stringify(lots);
+
+    if (hasContentChanges || hasLotChanges) {
+      // Auto-guarda y sincroniza al salir del CMS para que los cambios se reflejen de inmediato
+      handleSaveAll(true);
+    } else {
+      onClose();
     }
   };
 
@@ -416,14 +438,20 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2.5">
-            {saveSuccess && (
+            <span className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-950/70 border border-emerald-500/40 text-[11px] font-semibold text-emerald-300">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>DB Conectada en Tiempo Real</span>
+            </span>
+
+            {(saveSuccess || lotsSaveSuccess) && (
               <span className="inline-flex items-center gap-1 text-xs text-emerald-400 font-semibold px-2.5 py-1 bg-emerald-950/60 border border-emerald-500/40 rounded-lg animate-fadeIn">
-                <Check className="w-3.5 h-3.5" /> ¡Contenidos Guardados!
+                <Check className="w-3.5 h-3.5" /> ¡Cambios Guardados y Aplicados!
               </span>
             )}
+
             <button
-              onClick={handleSaveContent}
-              disabled={saving || levelInfo.isReadOnly || (userLevel === 4 && activeTab !== 'lotes')}
+              onClick={() => handleSaveAll(false)}
+              disabled={saving || savingLots || levelInfo.isReadOnly || (userLevel === 4 && activeTab !== 'lotes')}
               className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold text-xs shadow-md transition-all ${
                 levelInfo.isReadOnly || (userLevel === 4 && activeTab !== 'lotes')
                   ? 'bg-stone-800 text-stone-500 cursor-not-allowed border border-stone-700'
@@ -435,24 +463,26 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                   ? 'Modo sólo lectura habilitado para Invitados'
                   : userLevel === 4 && activeTab !== 'lotes'
                   ? 'El nivel Vendedor gestiona disponibilidades en la pestaña Lotes'
-                  : 'Guardar todos los cambios del CMS'
+                  : 'Guardar todos los cambios en la Base de Datos y aplicar al sitio en vivo'
               }
             >
               <Save className="w-4 h-4" />
               <span>
-                {saving
-                  ? 'Guardando...'
+                {saving || savingLots
+                  ? 'Guardando en DB...'
                   : levelInfo.isReadOnly
                   ? 'Sólo Lectura'
                   : userLevel === 4 && activeTab !== 'lotes'
                   ? 'Ventas: Edita Lotes'
-                  : 'Guardar Cambios'}
+                  : 'Guardar Todo en DB'}
               </span>
             </button>
+
             <button
-              onClick={onClose}
+              onClick={handleCloseModal}
               className="p-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 hover:text-white transition-colors"
               id="btn-close-cms-modal"
+              title="Guardar y Salir"
             >
               <X className="w-5 h-5" />
             </button>

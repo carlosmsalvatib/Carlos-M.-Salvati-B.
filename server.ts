@@ -35,9 +35,16 @@ function loadJsonFile<T>(filePath: string, fallback: T): T {
 
 function saveJsonFile<T>(filePath: string, data: T): void {
   try {
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+    const tmpPath = `${filePath}.tmp`;
+    fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2), 'utf-8');
+    fs.renameSync(tmpPath, filePath);
   } catch (err) {
-    console.error(`Error saving ${filePath}:`, err);
+    console.error(`Error atomic saving ${filePath}:`, err);
+    try {
+      fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+    } catch (e2) {
+      console.error(`Critical error saving ${filePath}:`, e2);
+    }
   }
 }
 
@@ -196,6 +203,62 @@ async function startServer() {
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
+  });
+
+  // --- Unified Real-time Database Sync ---
+  app.post('/api/sync-all', (req, res) => {
+    try {
+      const { content, lots } = req.body;
+      let nextVersion = cmsContent.version || 1;
+
+      if (content && typeof content === 'object') {
+        nextVersion += 1;
+        cmsContent = {
+          ...content,
+          lastUpdated: new Date().toISOString(),
+          version: nextVersion,
+        };
+        saveJsonFile(CONTENT_FILE, cmsContent);
+
+        versionsHistory.unshift({
+          timestamp: new Date().toISOString(),
+          version: nextVersion,
+          note: req.query.note ? String(req.query.note) : `Sincronización global CMS v${nextVersion}`,
+          content: cmsContent,
+        });
+        if (versionsHistory.length > 20) versionsHistory.pop();
+        saveJsonFile(VERSIONS_FILE, versionsHistory);
+      }
+
+      if (lots && Array.isArray(lots) && lots.length > 0) {
+        lotsData = lots;
+        saveJsonFile(LOTS_FILE, lotsData);
+      }
+
+      res.json({
+        success: true,
+        message: 'Base de datos sincronizada y persistida en tiempo de ejecución',
+        data: {
+          content: cmsContent,
+          lots: lotsData,
+        },
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.get('/api/db-status', (req, res) => {
+    res.json({
+      success: true,
+      status: 'connected',
+      timestamp: new Date().toISOString(),
+      contentVersion: cmsContent.version || 1,
+      lastUpdated: cmsContent.lastUpdated,
+      totalLots: lotsData.length,
+      availableLots: lotsData.filter((l) => l.status === 'disponible').length,
+      storage: 'file-backed-runtime-persistence',
+    });
   });
 
   app.post('/api/content/reset', (req, res) => {

@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { CmsContent, LotItem, HousingModel, AppUser } from './types';
-import { getContent, getLots } from './lib/api';
+import { getContent, getLots, getLocalCachedContent, getLocalCachedLots } from './lib/api';
 import { initialCmsContent } from './data/initialContent';
 import { initialLots } from './data/initialLots';
 
@@ -84,9 +84,9 @@ const PAGE_METADATA: Record<PageId, { title: string; subtitle: string }> = {
 };
 
 export function App() {
-  const [content, setContent] = useState<CmsContent>(initialCmsContent);
-  const [lots, setLots] = useState<LotItem[]>(initialLots);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [content, setContent] = useState<CmsContent>(() => getLocalCachedContent() || initialCmsContent);
+  const [lots, setLots] = useState<LotItem[]>(() => getLocalCachedLots() || initialLots);
+  const [loading, setLoading] = useState<boolean>(false);
 
   // Multi-page routing state
   const [currentPage, setCurrentPage] = useState<PageId>('inicio');
@@ -137,24 +137,58 @@ export function App() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  // Fetch initial content and lots from backend
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const [remoteContent, remoteLots] = await Promise.all([
-          getContent().catch(() => initialCmsContent),
-          getLots().catch(() => initialLots),
-        ]);
-        if (remoteContent) setContent(remoteContent);
-        if (remoteLots && remoteLots.length > 0) setLots(remoteLots);
-      } catch (e) {
-        console.warn('Using initial seed state', e);
-      } finally {
-        setLoading(false);
+  // Fetch and synchronize content and lots from database in real-time
+  const loadData = useCallback(async () => {
+    try {
+      const [remoteContent, remoteLots] = await Promise.all([
+        getContent(),
+        getLots(),
+      ]);
+      if (remoteContent && remoteContent.site) {
+        setContent(remoteContent);
       }
+      if (remoteLots && Array.isArray(remoteLots) && remoteLots.length > 0) {
+        setLots(remoteLots);
+      }
+    } catch (e) {
+      console.warn('Error sincronizando con base de datos en tiempo de ejecución:', e);
     }
-    loadData();
   }, []);
+
+  useEffect(() => {
+    loadData();
+
+    // Listen to real-time events broadcasted when CMS saves or updates data
+    const handleDataUpdated = (e: any) => {
+      if (e.detail?.content) {
+        setContent(e.detail.content);
+      }
+      if (e.detail?.lots && Array.isArray(e.detail.lots)) {
+        setLots(e.detail.lots);
+      }
+    };
+    window.addEventListener('mdr_data_updated', handleDataUpdated);
+
+    // Cross-tab synchronization via storage event
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'mdr_runtime_cms_content_v2' && e.newValue) {
+        try {
+          setContent(JSON.parse(e.newValue));
+        } catch {}
+      }
+      if (e.key === 'mdr_runtime_lots_v2' && e.newValue) {
+        try {
+          setLots(JSON.parse(e.newValue));
+        } catch {}
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      window.removeEventListener('mdr_data_updated', handleDataUpdated);
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, [loadData]);
 
   // Navigate to a specific page
   const navigateTo = (page: string) => {
@@ -438,12 +472,20 @@ export function App() {
       {/* Full CMS Administration Modal (Accessible only after login) */}
       <CmsAdminModal
         isOpen={isCmsAdminOpen}
-        onClose={() => setIsCmsAdminOpen(false)}
+        onClose={() => {
+          setIsCmsAdminOpen(false);
+          // Refresca inmediatamente al salir del CMS para asegurar sincronización en tiempo de ejecución
+          loadData();
+        }}
         content={content}
         lots={lots}
         currentUser={currentUser}
-        onContentUpdated={(newContent) => setContent(newContent)}
-        onLotsUpdated={(newLots) => setLots(newLots)}
+        onContentUpdated={(newContent) => {
+          setContent(newContent);
+        }}
+        onLotsUpdated={(newLots) => {
+          setLots(newLots);
+        }}
       />
     </div>
   );

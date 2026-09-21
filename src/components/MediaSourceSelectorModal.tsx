@@ -23,6 +23,7 @@ import {
   detectMediaOrigin,
   ProcessedMediaFile,
 } from '../lib/mediaProcessor';
+import { uploadMediaToServer } from '../lib/api';
 
 export interface MediaSourceSelectorModalProps {
   isOpen: boolean;
@@ -149,13 +150,27 @@ export const MediaSourceSelectorModal: React.FC<MediaSourceSelectorModalProps> =
   });
 
   // Confirm Handlers
-  const handleConfirmUpload = () => {
+  const handleConfirmUpload = async () => {
     if (!uploadedFile) return;
-    onSelectMedia(uploadedFile.dataUrl, {
-      title: uploadedFile.name,
-      mediaType: uploadedFile.isVideo ? 'video' : 'image',
-    });
-    onClose();
+    setIsProcessing(true);
+    try {
+      let finalUrl = uploadedFile.dataUrl;
+      if (finalUrl.startsWith('data:')) {
+        try {
+          const uploadedUrl = await uploadMediaToServer(finalUrl, uploadedFile.name);
+          if (uploadedUrl) finalUrl = uploadedUrl;
+        } catch (uploadErr) {
+          console.warn('Fallback a dataUrl:', uploadErr);
+        }
+      }
+      onSelectMedia(finalUrl, {
+        title: uploadedFile.name,
+        mediaType: uploadedFile.isVideo ? 'video' : 'image',
+      });
+      onClose();
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleConfirmLibrary = (item?: ProjectMediaItem) => {

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { MediaSourceSelectorModal } from './MediaSourceSelectorModal';
 import { detectMediaOrigin, normalizeVideoUrl, readAndProcessMediaFile } from '../lib/mediaProcessor';
+import { uploadMediaToServer } from '../lib/api';
 
 export interface MediaFieldWithSourceSelectorProps {
   id?: string;
@@ -47,8 +48,21 @@ export const MediaFieldWithSourceSelector: React.FC<MediaFieldWithSourceSelector
   const handleDirectFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       try {
-        const processed = await readAndProcessMediaFile(e.target.files[0]);
-        onChange(processed.dataUrl);
+        const file = e.target.files[0];
+        const processed = await readAndProcessMediaFile(file);
+        let finalUrl = processed.dataUrl;
+
+        // Persist to server physical filesystem immediately to avoid huge base64 strings
+        if (finalUrl.startsWith('data:')) {
+          try {
+            const uploadedUrl = await uploadMediaToServer(finalUrl, file.name);
+            if (uploadedUrl) finalUrl = uploadedUrl;
+          } catch (uploadErr) {
+            console.warn('Fallback a dataUrl:', uploadErr);
+          }
+        }
+
+        onChange(finalUrl);
         if (onMetadataSelected) {
           onMetadataSelected({
             title: processed.name,

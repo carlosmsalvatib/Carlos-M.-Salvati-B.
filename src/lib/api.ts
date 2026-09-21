@@ -430,16 +430,68 @@ export async function deleteHousingModel(id: string): Promise<HousingModel[]> {
   return json.data;
 }
 
+/**
+ * Uploads a local base64/dataUrl file to the server and returns the permanent disk URL (/api/uploads/...)
+ */
+export async function uploadMediaToServer(
+  dataUrl: string,
+  filename?: string,
+  title?: string
+): Promise<string> {
+  if (!dataUrl || !dataUrl.startsWith('data:')) {
+    return dataUrl;
+  }
+  try {
+    const res = await fetch(`${API_BASE}/upload`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dataUrl, filename, title }),
+    });
+    const json = await res.json();
+    if (json.success && json.url) {
+      return json.url;
+    }
+  } catch (err) {
+    console.warn('Error subiendo archivo al servidor:', err);
+  }
+  return dataUrl;
+}
+
 export async function saveHousingModelsBulk(
   models: HousingModel[],
   section?: any
 ): Promise<HousingModel[]> {
-  saveLocalCache(undefined, undefined, models);
+  // Convert any data: URLs in images to permanent server disk URLs before saving
+  let processedModels = models;
+  try {
+    processedModels = await Promise.all(
+      models.map(async (model, mIdx) => {
+        if (!model.images || !Array.isArray(model.images)) return model;
+        const cleanedImages = await Promise.all(
+          model.images.map(async (img, imgIdx) => {
+            if (img && img.startsWith('data:')) {
+              try {
+                return await uploadMediaToServer(img, `modelo-${model.id || mIdx}-foto${imgIdx + 1}`);
+              } catch {
+                return img;
+              }
+            }
+            return img;
+          })
+        );
+        return { ...model, images: cleanedImages };
+      })
+    );
+  } catch (err) {
+    console.warn('Error procesando imágenes de modelos:', err);
+  }
+
+  saveLocalCache(undefined, undefined, processedModels);
   try {
     const res = await fetch(`${API_BASE}/models/bulk-save`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ models, section }),
+      body: JSON.stringify({ models: processedModels, section }),
     });
     const json = await parseJsonSafely<{
       success: boolean;
@@ -455,7 +507,7 @@ export async function saveHousingModelsBulk(
   } catch (err: any) {
     console.warn('Sincronización de modelos respaldada en local:', err);
   }
-  return models;
+  return processedModels;
 }
 
 export async function updateHousingModelsSettings(settings: {

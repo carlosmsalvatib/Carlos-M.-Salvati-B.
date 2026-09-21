@@ -11,6 +11,7 @@ import {
   saveAllCmsAndLots,
   fetchHousingModels,
   saveHousingModelsBulk,
+  uploadMediaToServer,
 } from '../lib/api';
 import { UsersCmsTab } from './UsersCmsTab';
 import {
@@ -214,8 +215,6 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
   useEffect(() => {
     if (activeTab === 'leads') {
       fetchLeads();
-    } else if (activeTab === 'modelos') {
-      refreshModelsFromDb();
     }
   }, [activeTab]);
 
@@ -282,13 +281,13 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
     await handleSaveAll(false);
   };
 
-  const handleCloseModal = () => {
+  const handleCloseModal = async () => {
     const hasContentChanges = JSON.stringify(formData) !== JSON.stringify(content);
     const hasLotChanges = JSON.stringify(localLots) !== JSON.stringify(lots);
 
     if (hasContentChanges || hasLotChanges) {
       // Auto-guarda y sincroniza al salir del CMS para que los cambios se reflejen de inmediato
-      handleSaveAll(true);
+      await handleSaveAll(true);
     } else {
       onClose();
     }
@@ -471,13 +470,22 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
     try {
       const currentModels = formData.housingModels?.models || [];
       // 1. Explicitly persist to dedicated models.json database
+      let savedModels = currentModels;
       if (currentModels.length > 0) {
-        await saveHousingModelsBulk(currentModels, formData.housingModels);
+        savedModels = await saveHousingModelsBulk(currentModels, formData.housingModels);
       }
+
+      const nextFormData = {
+        ...formData,
+        housingModels: {
+          ...formData.housingModels,
+          models: savedModels,
+        },
+      };
 
       // 2. Also persist to global CMS content and lots
       const result = await saveAllCmsAndLots(
-        formData,
+        nextFormData,
         localLots,
         `Actualización Modelos de Vivienda (${new Date().toLocaleTimeString('es-VE')})`
       );
@@ -612,10 +620,13 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
       }
       return m;
     });
-    setFormData({
+    const nextFormData = {
       ...formData,
       housingModels: { ...formData.housingModels, models: updated },
-    });
+    };
+    setFormData(nextFormData);
+    onContentUpdated(nextFormData);
+    saveHousingModelsBulk(updated, nextFormData.housingModels).catch(() => {});
   };
 
   const handleMoveModelImage = (modelId: string, fromIndex: number, toIndex: number) => {
@@ -629,10 +640,13 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
       }
       return m;
     });
-    setFormData({
+    const nextFormData = {
       ...formData,
       housingModels: { ...formData.housingModels, models: updated },
-    });
+    };
+    setFormData(nextFormData);
+    onContentUpdated(nextFormData);
+    saveHousingModelsBulk(updated, nextFormData.housingModels).catch(() => {});
   };
 
   const handleAddBenefitToModel = (modelId: string, text: string) => {
@@ -643,10 +657,13 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
       }
       return m;
     });
-    setFormData({
+    const nextFormData = {
       ...formData,
       housingModels: { ...formData.housingModels, models: updated },
-    });
+    };
+    setFormData(nextFormData);
+    onContentUpdated(nextFormData);
+    saveHousingModelsBulk(updated, nextFormData.housingModels).catch(() => {});
     setNewBenefitText('');
   };
 
@@ -659,10 +676,13 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
       }
       return m;
     });
-    setFormData({
+    const nextFormData = {
       ...formData,
       housingModels: { ...formData.housingModels, models: updated },
-    });
+    };
+    setFormData(nextFormData);
+    onContentUpdated(nextFormData);
+    saveHousingModelsBulk(updated, nextFormData.housingModels).catch(() => {});
   };
 
   const handleDeleteBenefit = (modelId: string, benefitIndex: number) => {
@@ -674,39 +694,65 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
       }
       return m;
     });
-    setFormData({
+    const nextFormData = {
       ...formData,
       housingModels: { ...formData.housingModels, models: updated },
-    });
+    };
+    setFormData(nextFormData);
+    onContentUpdated(nextFormData);
+    saveHousingModelsBulk(updated, nextFormData.housingModels).catch(() => {});
   };
 
-  const handleAddImageToModel = (modelId: string) => {
+  const handleAddImageToModel = async (modelId: string) => {
     if (!newImageUrl.trim()) return;
+    let finalUrl = newImageUrl.trim();
+    if (finalUrl.startsWith('data:')) {
+      try {
+        const uploaded = await uploadMediaToServer(finalUrl, `modelo-${modelId}-${Date.now()}`);
+        if (uploaded) finalUrl = uploaded;
+      } catch (err) {
+        console.warn('Error subiendo imagen:', err);
+      }
+    }
+
     const updatedModels = (formData.housingModels?.models || []).map((m) => {
       if (m.id === modelId) {
         return {
           ...m,
-          images: [...(m.images || []), newImageUrl.trim()],
+          images: [...(m.images || []), finalUrl],
         };
       }
       return m;
     });
-    setFormData({
+    const nextFormData = {
       ...formData,
       housingModels: {
         ...formData.housingModels,
         models: updatedModels,
       },
-    });
+    };
+    setFormData(nextFormData);
+    onContentUpdated(nextFormData);
     setNewImageUrl('');
+    saveHousingModelsBulk(updatedModels, nextFormData.housingModels).catch(() => {});
   };
 
-  const handleUpdateModelImage = (modelId: string, imageIndex: number, newUrl: string) => {
+  const handleUpdateModelImage = async (modelId: string, imageIndex: number, newUrl: string) => {
     if (!newUrl.trim()) return;
+    let finalUrl = newUrl.trim();
+    if (finalUrl.startsWith('data:')) {
+      try {
+        const uploaded = await uploadMediaToServer(finalUrl, `modelo-${modelId}-${imageIndex + 1}-${Date.now()}`);
+        if (uploaded) finalUrl = uploaded;
+      } catch (err) {
+        console.warn('Error subiendo imagen:', err);
+      }
+    }
+
     const updatedModels = (formData.housingModels?.models || []).map((m) => {
       if (m.id === modelId) {
         const nextImages = [...(m.images || [])];
-        nextImages[imageIndex] = newUrl.trim();
+        nextImages[imageIndex] = finalUrl;
         return {
           ...m,
           images: nextImages,
@@ -714,13 +760,16 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
       }
       return m;
     });
-    setFormData({
+    const nextFormData = {
       ...formData,
       housingModels: {
         ...formData.housingModels,
         models: updatedModels,
       },
-    });
+    };
+    setFormData(nextFormData);
+    onContentUpdated(nextFormData);
+    saveHousingModelsBulk(updatedModels, nextFormData.housingModels).catch(() => {});
   };
 
   const handleDeleteImageFromModel = (modelId: string, imageIndex: number) => {
@@ -735,13 +784,16 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
       }
       return m;
     });
-    setFormData({
+    const nextFormData = {
       ...formData,
       housingModels: {
         ...formData.housingModels,
         models: updatedModels,
       },
-    });
+    };
+    setFormData(nextFormData);
+    onContentUpdated(nextFormData);
+    saveHousingModelsBulk(updatedModels, nextFormData.housingModels).catch(() => {});
   };
 
   const handleUpdateLeadState = async (leadId: string, status: 'nuevo' | 'contactado' | 'cerrado') => {

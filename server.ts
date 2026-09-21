@@ -8,6 +8,7 @@ import { CmsContent, LotItem, LeadSubmission, AppUser, HousingModel } from './sr
 
 const PORT = 3000;
 const DATA_DIR = path.join(process.cwd(), 'data');
+const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
 const CONTENT_FILE = path.join(DATA_DIR, 'cms_content.json');
 const MODELS_FILE = path.join(DATA_DIR, 'models.json');
 const LOTS_FILE = path.join(DATA_DIR, 'lots.json');
@@ -15,9 +16,12 @@ const LEADS_FILE = path.join(DATA_DIR, 'leads.json');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const VERSIONS_FILE = path.join(DATA_DIR, 'versions.json');
 
-// Ensure data directory exists
+// Ensure data and uploads directories exist
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
 
 // In-memory or file-backed state
@@ -55,6 +59,10 @@ let modelsData: HousingModel[] = loadJsonFile<HousingModel[]>(
   cmsContent?.housingModels?.models || initialCmsContent.housingModels.models
 );
 
+if (!Array.isArray(modelsData) || modelsData.length === 0) {
+  modelsData = initialCmsContent.housingModels.models;
+}
+
 // Ensure bidirectional sync at startup
 if (!cmsContent.housingModels) {
   cmsContent.housingModels = { ...initialCmsContent.housingModels, models: modelsData };
@@ -62,6 +70,7 @@ if (!cmsContent.housingModels) {
   cmsContent.housingModels.models = modelsData;
 }
 saveJsonFile(MODELS_FILE, modelsData);
+saveJsonFile(CONTENT_FILE, cmsContent);
 
 let lotsData: LotItem[] = loadJsonFile<LotItem[]>(LOTS_FILE, initialLots);
 let leadsData: LeadSubmission[] = loadJsonFile<LeadSubmission[]>(LEADS_FILE, [
@@ -188,6 +197,59 @@ async function startServer() {
   // API Routes
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', time: new Date().toISOString() });
+  });
+
+  // Serve uploaded media files directly from disk
+  app.use('/api/uploads', express.static(UPLOADS_DIR));
+
+  // Upload endpoint to persist base64 data to physical files on disk
+  app.post('/api/upload', (req, res) => {
+    try {
+      const { dataUrl, filename, title } = req.body;
+      if (!dataUrl || typeof dataUrl !== 'string') {
+        return res.status(400).json({ success: false, error: 'dataUrl es requerido' });
+      }
+
+      // If already a relative path or web URL, return directly
+      if (!dataUrl.startsWith('data:')) {
+        return res.json({ success: true, url: dataUrl, filename: filename || 'file' });
+      }
+
+      const matches = dataUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+      if (!matches || matches.length !== 3) {
+        return res.status(400).json({ success: false, error: 'Formato base64 no válido' });
+      }
+
+      const mimeType = matches[1];
+      const base64Data = matches[2];
+      let ext = 'png';
+      if (mimeType.includes('jpeg') || mimeType.includes('jpg')) ext = 'jpg';
+      else if (mimeType.includes('webp')) ext = 'webp';
+      else if (mimeType.includes('svg')) ext = 'svg';
+      else if (mimeType.includes('mp4')) ext = 'mp4';
+      else if (mimeType.includes('pdf')) ext = 'pdf';
+
+      const baseName = (filename || title || 'media')
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '-')
+        .slice(0, 35)
+        .replace(/-+/g, '-');
+
+      const safeFileName = `${baseName || 'archivo'}-${Date.now()}.${ext}`;
+      const destPath = path.join(UPLOADS_DIR, safeFileName);
+      fs.writeFileSync(destPath, Buffer.from(base64Data, 'base64'));
+
+      const publicUrl = `/api/uploads/${safeFileName}`;
+      console.log(`[Upload] Archivo guardado con éxito: ${publicUrl}`);
+      res.json({
+        success: true,
+        url: publicUrl,
+        filename: safeFileName,
+      });
+    } catch (err: any) {
+      console.error('Error guardando archivo subido:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
   });
 
   // --- CMS Content Endpoints ---

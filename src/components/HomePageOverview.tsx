@@ -1,6 +1,7 @@
 import React from 'react';
-import { CmsContent, LotItem } from '../types';
+import { CmsContent, LotItem, HousingModel } from '../types';
 import { HeroSection } from './HeroSection';
+import { HousingModelsSection } from './HousingModelsSection';
 import {
   Sprout,
   Layers,
@@ -22,12 +23,16 @@ interface HomePageOverviewProps {
   content: CmsContent;
   lots: LotItem[];
   onNavigate: (pageId: string) => void;
+  onSelectModelForQuote?: (model: HousingModel) => void;
+  onOpenImageViewer?: (title: string, imageUrl: string, caption?: string) => void;
 }
 
 export const HomePageOverview: React.FC<HomePageOverviewProps> = ({
   content,
   lots,
   onNavigate,
+  onSelectModelForQuote,
+  onOpenImageViewer,
 }) => {
   const availableLotsCount = lots.filter((l) => l.status === 'disponible').length;
 
@@ -144,7 +149,7 @@ export const HomePageOverview: React.FC<HomePageOverviewProps> = ({
 
             <div className="p-3">
               <span className="block font-serif font-extrabold text-2xl sm:text-3xl text-amber-400">
-                2 Modelos
+                {(content.housingModels?.models || []).filter((m) => m && m.active !== false).length} Modelos
               </span>
               <span className="text-xs text-stone-400 uppercase tracking-wider font-semibold">
                 Casas en Bambú Guadua
@@ -162,6 +167,14 @@ export const HomePageOverview: React.FC<HomePageOverviewProps> = ({
           </div>
         </div>
       </section>
+
+      {/* 2.5 Catálogo Oficial de Modelos de Vivienda en la Sección Principal */}
+      <HousingModelsSection
+        content={content}
+        onSelectModelForQuote={onSelectModelForQuote}
+        onOpenImageViewer={onOpenImageViewer}
+        onNavigate={onNavigate}
+      />
 
       {/* 3. Directory of Project Pages (Each Section as a Dedicated Page) */}
       <section className="py-16 sm:py-20 bg-stone-100">

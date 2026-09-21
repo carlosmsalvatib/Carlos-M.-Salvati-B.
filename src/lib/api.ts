@@ -96,7 +96,13 @@ async function parseJsonSafely<T>(res: Response, fallbackErrorMsg: string): Prom
 export async function fetchCmsContent(): Promise<CmsContent> {
   const localCached = getLocalCachedContent();
   try {
-    const res = await fetch(`${API_BASE}/content`);
+    const res = await fetch(`${API_BASE}/content?_t=${Date.now()}`, {
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+      },
+    });
     const json = await parseJsonSafely<{ success: boolean; data: CmsContent }>(
       res,
       'Error al cargar contenido'
@@ -157,7 +163,13 @@ export async function resetCmsContent(): Promise<CmsContent> {
 export async function fetchLots(): Promise<LotItem[]> {
   const localCached = getLocalCachedLots();
   try {
-    const res = await fetch(`${API_BASE}/lots`);
+    const res = await fetch(`${API_BASE}/lots?_t=${Date.now()}`, {
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+      },
+    });
     const json = await parseJsonSafely<{ success: boolean; data: LotItem[] }>(
       res,
       'Error al cargar lotes'

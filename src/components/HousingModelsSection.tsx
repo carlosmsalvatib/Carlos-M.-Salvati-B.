@@ -31,8 +31,9 @@ export const HousingModelsSection: React.FC<HousingModelsSectionProps> = ({
   onOpenImageViewer,
   onNavigate,
 }) => {
-  const { housingModels } = content;
-  if (!housingModels.active) return null;
+  const housingModels = content?.housingModels;
+  if (!housingModels || housingModels.active === false) return null;
+  const models = (housingModels.models || []).filter((model) => model && model.active !== false);
 
   // Track active image index for each model: modelId -> number
   const [modelImageIndexes, setModelImageIndexes] = useState<Record<string, number>>({});
@@ -126,9 +127,7 @@ export const HousingModelsSection: React.FC<HousingModelsSectionProps> = ({
 
         {/* HOUSING MODELS GALLERY WITH DIRECTIONAL NAVIGATION & AMPLIFICATION */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-          {housingModels.models
-            .filter((model) => model.active !== false)
-            .map((model) => {
+          {models.map((model) => {
               const images = model.images && model.images.length > 0 ? model.images : ['/api/images/model-a-render'];
               const currentIndex = getActiveIndex(model.id, images.length);
               const currentImg = images[currentIndex];

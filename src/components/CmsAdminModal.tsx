@@ -209,6 +209,7 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
         localLots,
         `Sincronización global CMS (${new Date().toLocaleTimeString('es-VE')})`
       );
+      setFormData(result.content);
       onContentUpdated(result.content);
       onLotsUpdated(result.lots);
       setSaveSuccess(true);
@@ -431,6 +432,7 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
         localLots,
         `Actualización Modelos de Vivienda (${new Date().toLocaleTimeString('es-VE')})`
       );
+      setFormData(result.content);
       onContentUpdated(result.content);
       onLotsUpdated(result.lots);
       setModelsSaveSuccess(true);

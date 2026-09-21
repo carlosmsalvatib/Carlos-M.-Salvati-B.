@@ -353,7 +353,13 @@ export function App() {
         {/* Dynamic Multi-Page Content Area */}
         <main className="w-full">
           {currentPage === 'inicio' && (
-            <HomePageOverview content={content} lots={lots} onNavigate={navigateTo} />
+            <HomePageOverview
+              content={content}
+              lots={lots}
+              onNavigate={navigateTo}
+              onSelectModelForQuote={handleSelectModelForQuote}
+              onOpenImageViewer={handleOpenImageViewer}
+            />
           )}
 
           {currentPage === 'propuesta' && (
@@ -474,17 +480,15 @@ export function App() {
         isOpen={isCmsAdminOpen}
         onClose={() => {
           setIsCmsAdminOpen(false);
-          // Refresca inmediatamente al salir del CMS para asegurar sincronización en tiempo de ejecución
-          loadData();
         }}
         content={content}
         lots={lots}
         currentUser={currentUser}
         onContentUpdated={(newContent) => {
-          setContent(newContent);
+          setContent({ ...newContent });
         }}
         onLotsUpdated={(newLots) => {
-          setLots(newLots);
+          setLots([...newLots]);
         }}
       />
     </div>

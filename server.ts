@@ -4,11 +4,12 @@ import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import { initialCmsContent } from './src/data/initialContent';
 import { initialLots } from './src/data/initialLots';
-import { CmsContent, LotItem, LeadSubmission, AppUser } from './src/types';
+import { CmsContent, LotItem, LeadSubmission, AppUser, HousingModel } from './src/types';
 
 const PORT = 3000;
 const DATA_DIR = path.join(process.cwd(), 'data');
 const CONTENT_FILE = path.join(DATA_DIR, 'cms_content.json');
+const MODELS_FILE = path.join(DATA_DIR, 'models.json');
 const LOTS_FILE = path.join(DATA_DIR, 'lots.json');
 const LEADS_FILE = path.join(DATA_DIR, 'leads.json');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
@@ -49,6 +50,19 @@ function saveJsonFile<T>(filePath: string, data: T): void {
 }
 
 let cmsContent: CmsContent = loadJsonFile<CmsContent>(CONTENT_FILE, initialCmsContent);
+let modelsData: HousingModel[] = loadJsonFile<HousingModel[]>(
+  MODELS_FILE,
+  cmsContent?.housingModels?.models || initialCmsContent.housingModels.models
+);
+
+// Ensure bidirectional sync at startup
+if (!cmsContent.housingModels) {
+  cmsContent.housingModels = { ...initialCmsContent.housingModels, models: modelsData };
+} else {
+  cmsContent.housingModels.models = modelsData;
+}
+saveJsonFile(MODELS_FILE, modelsData);
+
 let lotsData: LotItem[] = loadJsonFile<LotItem[]>(LOTS_FILE, initialLots);
 let leadsData: LeadSubmission[] = loadJsonFile<LeadSubmission[]>(LEADS_FILE, [
   {
@@ -178,6 +192,14 @@ async function startServer() {
 
   // --- CMS Content Endpoints ---
   app.get('/api/content', (req, res) => {
+    res.set({
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      Pragma: 'no-cache',
+      Expires: '0',
+    });
+    if (cmsContent.housingModels) {
+      cmsContent.housingModels.models = modelsData;
+    }
     res.json({ success: true, data: cmsContent });
   });
 
@@ -190,10 +212,16 @@ async function startServer() {
 
       const nextVersion = (cmsContent.version || 1) + 1;
       cmsContent = {
+        ...cmsContent,
         ...updated,
         lastUpdated: new Date().toISOString(),
         version: nextVersion,
       };
+
+      if (updated.housingModels?.models && Array.isArray(updated.housingModels.models)) {
+        modelsData = updated.housingModels.models;
+        saveJsonFile(MODELS_FILE, modelsData);
+      }
 
       saveJsonFile(CONTENT_FILE, cmsContent);
 
@@ -222,10 +250,17 @@ async function startServer() {
       if (content && typeof content === 'object') {
         nextVersion += 1;
         cmsContent = {
+          ...cmsContent,
           ...content,
           lastUpdated: new Date().toISOString(),
           version: nextVersion,
         };
+
+        if (content.housingModels?.models && Array.isArray(content.housingModels.models)) {
+          modelsData = content.housingModels.models;
+          saveJsonFile(MODELS_FILE, modelsData);
+        }
+
         saveJsonFile(CONTENT_FILE, cmsContent);
 
         versionsHistory.unshift({
@@ -260,11 +295,17 @@ async function startServer() {
     res.json({
       success: true,
       status: 'connected',
+      uptime: process.uptime(),
       timestamp: new Date().toISOString(),
-      contentVersion: cmsContent.version || 1,
-      lastUpdated: cmsContent.lastUpdated,
+      modelsCount: modelsData.length,
+      lotsCount: lotsData.length,
+      leadsCount: leadsData.length,
+      usersCount: usersData.length,
       totalLots: lotsData.length,
       availableLots: lotsData.filter((l) => l.status === 'disponible').length,
+      contentVersion: cmsContent.version || 1,
+      lastUpdated: cmsContent.lastUpdated,
+      modelsSummary: modelsData.map((m) => ({ id: m.id, name: m.name, areaM2: m.areaM2, priceUsd: m.priceUsd, active: m.active })),
       storage: 'file-backed-runtime-persistence',
     });
   });
@@ -376,6 +417,233 @@ async function startServer() {
     lotsData = lotsData.filter((l) => l.id !== id && l.code !== id);
     saveJsonFile(LOTS_FILE, lotsData);
     res.json({ success: true, message: 'Lote eliminado' });
+  });
+
+  // --- Housing Models Management Endpoints ---
+  app.get('/api/models', (req, res) => {
+    res.set({
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      Pragma: 'no-cache',
+      Expires: '0',
+    });
+    res.json({
+      success: true,
+      data: modelsData,
+      total: modelsData.length,
+      section: cmsContent.housingModels
+        ? {
+            title: cmsContent.housingModels.title,
+            subtitle: cmsContent.housingModels.subtitle,
+            description: cmsContent.housingModels.description,
+            priceNotice: cmsContent.housingModels.priceNotice,
+            active: cmsContent.housingModels.active,
+          }
+        : null,
+    });
+  });
+
+  app.get('/api/models/:id', (req, res) => {
+    const { id } = req.params;
+    const model = modelsData.find((m) => m.id === id);
+    if (!model) {
+      return res.status(404).json({ success: false, error: 'Modelo no encontrado' });
+    }
+    res.json({ success: true, data: model });
+  });
+
+  app.post('/api/models', (req, res) => {
+    try {
+      const body = req.body;
+      if (!body.name) {
+        return res.status(400).json({ success: false, error: 'El nombre del modelo es requerido' });
+      }
+      const area = Number(body.areaM2) || 100;
+      const pm2 = Number(body.pricePerM2Usd) || 450;
+      const price = Number(body.priceUsd) || Math.round(area * pm2);
+
+      const newModel: HousingModel = {
+        id: body.id || `modelo-${body.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now().toString().slice(-4)}`,
+        name: body.name.trim(),
+        tagline: body.tagline?.trim() || 'Diseño bioclimático en Bambú Guadua',
+        areaM2: area,
+        pricePerM2Usd: pm2,
+        priceUsd: price,
+        description: body.description?.trim() || 'Vivienda campestre ecológica construida con estructura integral de Bambú Guadua.',
+        benefits: Array.isArray(body.benefits) && body.benefits.length > 0
+          ? body.benefits
+          : [
+              'Terrazas mirador con vistas a la cordillera',
+              'Ventilación bioclimática cruzada continua',
+              'Estructura sismorresistente en Bambú Guadua seleccionada',
+              'Losa flotante de concreto armada a 40 cm',
+            ],
+        specs: body.specs || {
+          levels: Number(body.levels) || 1,
+          bedrooms: Number(body.bedrooms) || 2,
+          bathrooms: Number(body.bathrooms) || 2,
+          terraceM2: Number(body.terraceM2) || 15,
+          foundation: body.foundation || 'Losa flotante armada a 40 cm',
+          structure: body.structure || 'Bambú Guadua angustifolia tratado e inmunizado',
+        },
+        images: Array.isArray(body.images) && body.images.length > 0 ? body.images : ['/api/images/model-a-render'],
+        brochurePdfUrl: body.brochurePdfUrl || '',
+        showPrice: body.showPrice !== false,
+        active: body.active !== false,
+      };
+
+      modelsData.push(newModel);
+      saveJsonFile(MODELS_FILE, modelsData);
+
+      // Keep cmsContent in sync
+      if (!cmsContent.housingModels) {
+        cmsContent.housingModels = { ...initialCmsContent.housingModels, models: modelsData };
+      } else {
+        cmsContent.housingModels.models = modelsData;
+      }
+      cmsContent.lastUpdated = new Date().toISOString();
+      saveJsonFile(CONTENT_FILE, cmsContent);
+
+      res.status(201).json({
+        success: true,
+        data: newModel,
+        models: modelsData,
+        message: 'Modelo de vivienda creado y sincronizado exitosamente en la base de datos',
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.put('/api/models/:id', (req, res) => {
+    try {
+      const { id } = req.params;
+      const index = modelsData.findIndex((m) => m.id === id);
+      if (index === -1) {
+        return res.status(404).json({ success: false, error: 'Modelo no encontrado' });
+      }
+
+      const current = modelsData[index];
+      const updated: HousingModel = {
+        ...current,
+        ...req.body,
+        id: current.id, // Immutable ID
+      };
+
+      if (req.body.areaM2 || req.body.pricePerM2Usd) {
+        const area = req.body.areaM2 !== undefined ? Number(req.body.areaM2) : current.areaM2;
+        const pm2 = req.body.pricePerM2Usd !== undefined ? Number(req.body.pricePerM2Usd) : current.pricePerM2Usd;
+        if (!req.body.priceUsd) {
+          updated.priceUsd = Math.round(area * pm2);
+        }
+      }
+
+      modelsData[index] = updated;
+      saveJsonFile(MODELS_FILE, modelsData);
+
+      if (!cmsContent.housingModels) {
+        cmsContent.housingModels = { ...initialCmsContent.housingModels, models: modelsData };
+      } else {
+        cmsContent.housingModels.models = modelsData;
+      }
+      cmsContent.lastUpdated = new Date().toISOString();
+      saveJsonFile(CONTENT_FILE, cmsContent);
+
+      res.json({
+        success: true,
+        data: updated,
+        models: modelsData,
+        message: 'Modelo de vivienda actualizado y grabado en la base de datos',
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.delete('/api/models/:id', (req, res) => {
+    try {
+      const { id } = req.params;
+      if (modelsData.length <= 1) {
+        return res.status(400).json({ success: false, error: 'Debe existir al menos un modelo en el catálogo' });
+      }
+      modelsData = modelsData.filter((m) => m.id !== id);
+      saveJsonFile(MODELS_FILE, modelsData);
+
+      if (!cmsContent.housingModels) {
+        cmsContent.housingModels = { ...initialCmsContent.housingModels, models: modelsData };
+      } else {
+        cmsContent.housingModels.models = modelsData;
+      }
+      cmsContent.lastUpdated = new Date().toISOString();
+      saveJsonFile(CONTENT_FILE, cmsContent);
+
+      res.json({
+        success: true,
+        data: modelsData,
+        message: 'Modelo eliminado de la base de datos',
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post('/api/models/bulk-save', (req, res) => {
+    try {
+      const { models, section } = req.body;
+      if (!Array.isArray(models)) {
+        return res.status(400).json({ success: false, error: 'models array is required' });
+      }
+      modelsData = models;
+      saveJsonFile(MODELS_FILE, modelsData);
+
+      if (!cmsContent.housingModels) {
+        cmsContent.housingModels = { ...initialCmsContent.housingModels, models: modelsData };
+      } else {
+        cmsContent.housingModels.models = modelsData;
+      }
+      if (section && typeof section === 'object') {
+        if (section.title !== undefined) cmsContent.housingModels.title = section.title;
+        if (section.subtitle !== undefined) cmsContent.housingModels.subtitle = section.subtitle;
+        if (section.description !== undefined) cmsContent.housingModels.description = section.description;
+        if (section.priceNotice !== undefined) cmsContent.housingModels.priceNotice = section.priceNotice;
+        if (section.active !== undefined) cmsContent.housingModels.active = section.active;
+      }
+      cmsContent.lastUpdated = new Date().toISOString();
+      saveJsonFile(CONTENT_FILE, cmsContent);
+
+      res.json({
+        success: true,
+        data: modelsData,
+        section: cmsContent.housingModels,
+        message: 'Catálogo de modelos y configuración de sección sincronizados exitosamente',
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.put('/api/housing-models-settings', (req, res) => {
+    try {
+      const { title, subtitle, description, priceNotice, active } = req.body;
+      if (!cmsContent.housingModels) {
+        cmsContent.housingModels = { ...initialCmsContent.housingModels, models: modelsData };
+      }
+      if (title !== undefined) cmsContent.housingModels.title = title;
+      if (subtitle !== undefined) cmsContent.housingModels.subtitle = subtitle;
+      if (description !== undefined) cmsContent.housingModels.description = description;
+      if (priceNotice !== undefined) cmsContent.housingModels.priceNotice = priceNotice;
+      if (active !== undefined) cmsContent.housingModels.active = active;
+
+      cmsContent.lastUpdated = new Date().toISOString();
+      saveJsonFile(CONTENT_FILE, cmsContent);
+
+      res.json({
+        success: true,
+        data: cmsContent.housingModels,
+        message: 'Configuración general de la sección de modelos guardada',
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
   });
 
   // --- Leads / Submissions Endpoints ---

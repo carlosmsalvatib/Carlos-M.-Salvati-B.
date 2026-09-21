@@ -1,0 +1,64 @@
+[
+  {
+    "id": "modelo-a",
+    "name": "Modelo A - Cabaña Andina",
+    "tagline": "Ideal para descanso familiar y fines de semana",
+    "areaM2": 90,
+    "priceUsd": 40500,
+    "pricePerM2Usd": 450,
+    "description": "Vivienda compacta y eficiente de un solo nivel. Posee 2 a 3 habitaciones, 2 baños completos, área social abierta y terraza con vistas panorámicas.",
+    "benefits": [
+      "Terrazas mirador con vistas a la cordillera",
+      "Ventilación cruzada que asegura frescura natural",
+      "Iluminación solar cenital en todas las áreas",
+      "Corredor perimetral con aleros generosos",
+      "Losa flotante de concreto a 40 cm de protección hídrica"
+    ],
+    "specs": {
+      "levels": 1,
+      "bedrooms": 2,
+      "bathrooms": 2,
+      "terraceM2": 15,
+      "foundation": "Losa flotante armada a 40 cm",
+      "structure": "Bambú Guadua angustifolia tratado e inmunizado"
+    },
+    "images": [
+      "/api/images/model-a-render",
+      "/api/images/model-a-floorplan"
+    ],
+    "brochurePdfUrl": "#ficha-modelo-a",
+    "showPrice": true,
+    "active": true
+  },
+  {
+    "id": "modelo-b",
+    "name": "Modelo B - Villa Campestre",
+    "tagline": "Amplitud, confort integral y terraza perimetral extendida",
+    "areaM2": 125,
+    "priceUsd": 56250,
+    "pricePerM2Usd": 450,
+    "description": "Nuestra propuesta más espaciosa: 3 amplias habitaciones, 2 baños, sala-comedor a doble altura, cocina campestre y terraza perimetral de 20 m².",
+    "benefits": [
+      "3 habitaciones con clóset y ventilación andina",
+      "Terraza mirador de 20 m² techada en teja o cubierta liviana",
+      "Cocina campestre integrada con barra americana",
+      "Corredor perimetral de 360 grados",
+      "Estructura sismorresistente con uniones apernadas de alta ingeniería"
+    ],
+    "specs": {
+      "levels": 1,
+      "bedrooms": 3,
+      "bathrooms": 2,
+      "terraceM2": 20,
+      "foundation": "Losa flotante de concreto armado a 40 cm",
+      "structure": "Guadua estructural colombiana seleccionada"
+    },
+    "images": [
+      "/api/images/model-b-render",
+      "/api/images/model-b-floorplan"
+    ],
+    "brochurePdfUrl": "#ficha-modelo-b",
+    "showPrice": true,
+    "active": true
+  }
+]

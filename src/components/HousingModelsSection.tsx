@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { CmsContent, HousingModel } from '../types';
+import { fetchHousingModels } from '../lib/api';
 import {
   Home,
   ShieldCheck,
@@ -16,6 +17,7 @@ import {
   FileText,
   Sparkles,
   Info,
+  RefreshCw,
 } from 'lucide-react';
 
 interface HousingModelsSectionProps {
@@ -31,9 +33,113 @@ export const HousingModelsSection: React.FC<HousingModelsSectionProps> = ({
   onOpenImageViewer,
   onNavigate,
 }) => {
-  const housingModels = content?.housingModels;
-  if (!housingModels || housingModels.active === false) return null;
-  const models = (housingModels.models || []).filter((model) => model && model.active !== false);
+  const defaultHousingModels = content?.housingModels;
+
+  // Local live state synchronized in real-time with the database
+  const [liveModels, setLiveModels] = useState<HousingModel[]>(() => {
+    return defaultHousingModels?.models && defaultHousingModels.models.length > 0
+      ? defaultHousingModels.models
+      : [];
+  });
+  const [liveSection, setLiveSection] = useState(defaultHousingModels);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<string>('');
+
+  // Fetch directly from database endpoint
+  const syncWithDatabase = useCallback(async () => {
+    setIsSyncing(true);
+    try {
+      const res = await fetchHousingModels();
+      if (res.models && Array.isArray(res.models) && res.models.length > 0) {
+        setLiveModels(res.models);
+      }
+      if (res.section) {
+        setLiveSection((prev) => ({ ...prev, ...res.section }));
+      }
+      setLastSyncTime(new Date().toLocaleTimeString('es-VE'));
+    } catch (e) {
+      console.warn('Error sincronizando modelos con base de datos:', e);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, []);
+
+  // Update when parent props change
+  useEffect(() => {
+    if (content?.housingModels?.models && content.housingModels.models.length > 0) {
+      setLiveModels(content.housingModels.models);
+    }
+    if (content?.housingModels) {
+      setLiveSection(content.housingModels);
+    }
+  }, [content]);
+
+  // Real-time synchronization listeners
+  useEffect(() => {
+    // Initial fetch from DB
+    syncWithDatabase();
+
+    // Listen to real-time events broadcasted when CMS saves or updates models
+    const handleModelsUpdated = (e: any) => {
+      if (e.detail?.models && Array.isArray(e.detail.models)) {
+        setLiveModels(e.detail.models);
+        setLastSyncTime(new Date().toLocaleTimeString('es-VE'));
+      }
+    };
+
+    const handleDataUpdated = (e: any) => {
+      if (e.detail?.models && Array.isArray(e.detail.models)) {
+        setLiveModels(e.detail.models);
+        setLastSyncTime(new Date().toLocaleTimeString('es-VE'));
+      } else if (e.detail?.content?.housingModels?.models) {
+        setLiveModels(e.detail.content.housingModels.models);
+        setLiveSection(e.detail.content.housingModels);
+        setLastSyncTime(new Date().toLocaleTimeString('es-VE'));
+      }
+    };
+
+    // Cross-tab storage synchronization
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'mdr_runtime_models_v2' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) {
+            setLiveModels(parsed);
+            setLastSyncTime(new Date().toLocaleTimeString('es-VE'));
+          }
+        } catch {}
+      }
+      if (e.key === 'mdr_runtime_cms_content_v2' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (parsed?.housingModels?.models) {
+            setLiveModels(parsed.housingModels.models);
+            setLiveSection(parsed.housingModels);
+            setLastSyncTime(new Date().toLocaleTimeString('es-VE'));
+          }
+        } catch {}
+      }
+    };
+
+    window.addEventListener('mdr_models_updated', handleModelsUpdated);
+    window.addEventListener('mdr_data_updated', handleDataUpdated);
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      window.removeEventListener('mdr_models_updated', handleModelsUpdated);
+      window.removeEventListener('mdr_data_updated', handleDataUpdated);
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, [syncWithDatabase]);
+
+  const activeSection = liveSection || defaultHousingModels;
+  if (!activeSection || activeSection.active === false) return null;
+
+  // Resolved models: prefer liveModels, fallback to content models
+  const rawModels = liveModels && liveModels.length > 0
+    ? liveModels
+    : defaultHousingModels?.models || [];
+  const models = rawModels.filter((model) => model && model.active !== false);
 
   // Track active image index for each model: modelId -> number
   const [modelImageIndexes, setModelImageIndexes] = useState<Record<string, number>>({});
@@ -75,18 +181,34 @@ export const HousingModelsSection: React.FC<HousingModelsSectionProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto mb-12 sm:mb-16">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-semibold mb-3">
-            <Home className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Bioconstrucción en Bambú Guadua & Diseños Arquitectónicos</span>
+          <div className="inline-flex flex-wrap items-center justify-center gap-2 mb-3">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-semibold">
+              <Home className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Bioconstrucción en Bambú Guadua & Diseños Arquitectónicos</span>
+            </div>
+
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-stone-800/90 text-stone-300 border border-stone-700/80 text-[11px]">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>DB en Vivo ({models.length} {models.length === 1 ? 'modelo' : 'modelos'})</span>
+              <button
+                onClick={syncWithDatabase}
+                disabled={isSyncing}
+                title="Actualizar datos desde la Base de Datos"
+                className="ml-1 p-0.5 rounded hover:bg-stone-700 text-stone-400 hover:text-amber-400 transition-colors"
+              >
+                <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin text-amber-400' : ''}`} />
+              </button>
+            </div>
           </div>
+
           <h2 className="font-serif text-3xl sm:text-4xl font-bold text-white tracking-tight mb-4" id="housing-models-title">
-            {housingModels.title || 'Casas Ecológicas Sismorresistentes en Bambú Guadua'}
+            {activeSection.title || 'Casas Ecológicas Sismorresistentes en Bambú Guadua'}
           </h2>
           <p className="text-stone-300 text-base sm:text-lg leading-relaxed mb-3" id="housing-models-desc">
-            {housingModels.description}
+            {activeSection.description}
           </p>
           <p className="text-xs text-amber-400/90 italic">
-            *{housingModels.priceNotice}
+            *{activeSection.priceNotice}
           </p>
         </div>
 

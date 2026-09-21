@@ -1,4 +1,4 @@
-import { CmsContent, LotItem, LeadSubmission, AppUser } from '../types';
+import { CmsContent, LotItem, LeadSubmission, AppUser, HousingModel } from '../types';
 import { initialCmsContent } from '../data/initialContent';
 import { initialLots } from '../data/initialLots';
 
@@ -6,6 +6,7 @@ export const API_BASE = '/api';
 
 const STORAGE_KEY_CONTENT = 'mdr_runtime_cms_content_v2';
 const STORAGE_KEY_LOTS = 'mdr_runtime_lots_v2';
+const STORAGE_KEY_MODELS = 'mdr_runtime_models_v2';
 const STORAGE_KEY_LAST_SAVED = 'mdr_runtime_last_saved_v2';
 
 /**
@@ -41,9 +42,29 @@ export function getLocalCachedLots(): LotItem[] | null {
 }
 
 /**
- * Saves content and lots to browser storage and dispatches live update event
+ * Retrieve cached Housing Models catalog from browser storage
  */
-export function saveLocalCache(content?: CmsContent, lots?: LotItem[]): void {
+export function getLocalCachedModels(): HousingModel[] | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_MODELS);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch {}
+  return null;
+}
+
+/**
+ * Saves content, lots, and models to browser storage and dispatches live update events
+ */
+export function saveLocalCache(
+  content?: CmsContent,
+  lots?: LotItem[],
+  models?: HousingModel[]
+): void {
   try {
     if (content) {
       localStorage.setItem(STORAGE_KEY_CONTENT, JSON.stringify(content));
@@ -51,14 +72,33 @@ export function saveLocalCache(content?: CmsContent, lots?: LotItem[]): void {
     if (lots && Array.isArray(lots)) {
       localStorage.setItem(STORAGE_KEY_LOTS, JSON.stringify(lots));
     }
+    const resolvedModels = models || content?.housingModels?.models;
+    if (resolvedModels && Array.isArray(resolvedModels)) {
+      localStorage.setItem(STORAGE_KEY_MODELS, JSON.stringify(resolvedModels));
+    }
     localStorage.setItem(STORAGE_KEY_LAST_SAVED, new Date().toISOString());
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(
         new CustomEvent('mdr_data_updated', {
-          detail: { content, lots, timestamp: Date.now() },
+          detail: {
+            content,
+            lots,
+            models: resolvedModels,
+            timestamp: Date.now(),
+          },
         })
       );
+      if (resolvedModels) {
+        window.dispatchEvent(
+          new CustomEvent('mdr_models_updated', {
+            detail: {
+              models: resolvedModels,
+              timestamp: Date.now(),
+            },
+          })
+        );
+      }
     }
   } catch (e) {
     console.warn('Almacenamiento local no disponible:', e);
@@ -277,6 +317,160 @@ export async function createLot(lot: Partial<LotItem>): Promise<LotItem> {
 export async function deleteLot(id: string): Promise<void> {
   const res = await fetch(`${API_BASE}/lots/${id}`, { method: 'DELETE' });
   await parseJsonSafely<{ success: boolean }>(res, 'Error al eliminar lote');
+}
+
+/**
+ * --- HOUSING MODELS REAL-TIME API CLIENT ---
+ */
+
+export interface FetchHousingModelsResponse {
+  models: HousingModel[];
+  section?: {
+    title?: string;
+    subtitle?: string;
+    description?: string;
+    priceNotice?: string;
+    active?: boolean;
+  };
+}
+
+export async function fetchHousingModels(): Promise<FetchHousingModelsResponse> {
+  const localCached = getLocalCachedModels();
+  try {
+    const res = await fetch(`${API_BASE}/models?_t=${Date.now()}`, {
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        Pragma: 'no-cache',
+      },
+    });
+    const json = await parseJsonSafely<{
+      success: boolean;
+      data: HousingModel[];
+      total: number;
+      section: any;
+    }>(res, 'Error al cargar modelos de vivienda');
+
+    if (json.data && Array.isArray(json.data)) {
+      saveLocalCache(undefined, undefined, json.data);
+      return { models: json.data, section: json.section };
+    }
+  } catch (err) {
+    console.warn('Conexión con servidor no disponible para modelos, usando cache local:', err);
+  }
+  return {
+    models: localCached || initialCmsContent.housingModels?.models || [],
+    section: {
+      title: initialCmsContent.housingModels?.title,
+      subtitle: initialCmsContent.housingModels?.subtitle,
+      description: initialCmsContent.housingModels?.description,
+      priceNotice: initialCmsContent.housingModels?.priceNotice,
+      active: initialCmsContent.housingModels?.active,
+    },
+  };
+}
+
+export const getHousingModels = fetchHousingModels;
+export const getModels = fetchHousingModels;
+
+export async function createHousingModel(model: Partial<HousingModel>): Promise<HousingModel> {
+  const res = await fetch(`${API_BASE}/models`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(model),
+  });
+  const json = await parseJsonSafely<{
+    success: boolean;
+    data: HousingModel;
+    models: HousingModel[];
+    message: string;
+  }>(res, 'Error al crear modelo');
+
+  if (json.models) {
+    saveLocalCache(undefined, undefined, json.models);
+  }
+  return json.data;
+}
+
+export async function updateHousingModel(
+  id: string,
+  model: Partial<HousingModel>
+): Promise<HousingModel> {
+  const res = await fetch(`${API_BASE}/models/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(model),
+  });
+  const json = await parseJsonSafely<{
+    success: boolean;
+    data: HousingModel;
+    models: HousingModel[];
+    message: string;
+  }>(res, 'Error al actualizar modelo');
+
+  if (json.models) {
+    saveLocalCache(undefined, undefined, json.models);
+  }
+  return json.data;
+}
+
+export async function deleteHousingModel(id: string): Promise<HousingModel[]> {
+  const res = await fetch(`${API_BASE}/models/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+  const json = await parseJsonSafely<{
+    success: boolean;
+    data: HousingModel[];
+    message: string;
+  }>(res, 'Error al eliminar modelo');
+
+  if (json.data) {
+    saveLocalCache(undefined, undefined, json.data);
+  }
+  return json.data;
+}
+
+export async function saveHousingModelsBulk(
+  models: HousingModel[],
+  section?: any
+): Promise<HousingModel[]> {
+  saveLocalCache(undefined, undefined, models);
+  try {
+    const res = await fetch(`${API_BASE}/models/bulk-save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ models, section }),
+    });
+    const json = await parseJsonSafely<{
+      success: boolean;
+      data: HousingModel[];
+      section: any;
+      message: string;
+    }>(res, 'Error al sincronizar modelos');
+
+    if (json.data) {
+      saveLocalCache(undefined, undefined, json.data);
+      return json.data;
+    }
+  } catch (err: any) {
+    console.warn('Sincronización de modelos respaldada en local:', err);
+  }
+  return models;
+}
+
+export async function updateHousingModelsSettings(settings: {
+  title?: string;
+  subtitle?: string;
+  description?: string;
+  priceNotice?: string;
+  active?: boolean;
+}): Promise<any> {
+  const res = await fetch(`${API_BASE}/housing-models-settings`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(settings),
+  });
+  return parseJsonSafely(res, 'Error al guardar ajustes de sección de modelos');
 }
 
 export async function fetchLeads(): Promise<LeadSubmission[]> {

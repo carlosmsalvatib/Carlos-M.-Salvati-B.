@@ -1,6 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { CmsContent, LotItem, LeadSubmission, LotStatus, AppUser, HousingModel, PropuestaVideo, MasterPlanBlueprint, UserLevel } from '../types';
-import { updateContent, updateLot, getLeads, updateLeadStatus, saveBulkLots, createLot, deleteLot, saveAllCmsAndLots } from '../lib/api';
+import {
+  updateContent,
+  updateLot,
+  getLeads,
+  updateLeadStatus,
+  saveBulkLots,
+  createLot,
+  deleteLot,
+  saveAllCmsAndLots,
+  fetchHousingModels,
+  saveHousingModelsBulk,
+} from '../lib/api';
 import { UsersCmsTab } from './UsersCmsTab';
 import {
   USER_LEVEL_DEFINITIONS,
@@ -182,9 +193,29 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
     setLocalLots(lots);
   }, [lots]);
 
+  const refreshModelsFromDb = async () => {
+    try {
+      const res = await fetchHousingModels();
+      if (res.models && Array.isArray(res.models) && res.models.length > 0) {
+        setFormData((prev) => ({
+          ...prev,
+          housingModels: {
+            ...(prev.housingModels || {}),
+            ...(res.section || {}),
+            models: res.models,
+          },
+        }));
+      }
+    } catch (e) {
+      console.warn('Error refrescando modelos desde DB:', e);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'leads') {
       fetchLeads();
+    } else if (activeTab === 'modelos') {
+      refreshModelsFromDb();
     }
   }, [activeTab]);
 
@@ -204,6 +235,17 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
     setSaving(true);
     setSavingLots(true);
     try {
+      // 1. Explicitly persist models to dedicated models database
+      const currentModels = formData.housingModels?.models || [];
+      if (currentModels.length > 0) {
+        try {
+          await saveHousingModelsBulk(currentModels, formData.housingModels);
+        } catch (e) {
+          console.warn('Error en sincronización dedicada de modelos:', e);
+        }
+      }
+
+      // 2. Persist all CMS and lots simultaneously
       const result = await saveAllCmsAndLots(
         formData,
         localLots,
@@ -427,6 +469,13 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
   const handleSaveModelsSection = async () => {
     setSavingModelsSection(true);
     try {
+      const currentModels = formData.housingModels?.models || [];
+      // 1. Explicitly persist to dedicated models.json database
+      if (currentModels.length > 0) {
+        await saveHousingModelsBulk(currentModels, formData.housingModels);
+      }
+
+      // 2. Also persist to global CMS content and lots
       const result = await saveAllCmsAndLots(
         formData,
         localLots,
@@ -437,9 +486,9 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
       onLotsUpdated(result.lots);
       setModelsSaveSuccess(true);
       setTimeout(() => setModelsSaveSuccess(false), 4000);
-    } catch (e) {
+    } catch (e: any) {
       console.error('Error guardando modelos:', e);
-      alert('Error al sincronizar modelos de vivienda con el servidor.');
+      alert('Error al sincronizar modelos de vivienda con el servidor: ' + (e?.message || e));
     } finally {
       setSavingModelsSection(false);
     }
@@ -1908,6 +1957,15 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2 self-end sm:self-center">
+                  <button
+                    type="button"
+                    onClick={refreshModelsFromDb}
+                    title="Recargar modelos desde la base de datos"
+                    className="px-3 py-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 hover:text-white border border-stone-700 text-xs font-semibold flex items-center gap-1.5 transition-all"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Recargar DB</span>
+                  </button>
                   {modelsSaveSuccess && (
                     <span className="text-xs text-emerald-400 flex items-center gap-1 font-semibold animate-pulse">
                       <CheckCircle2 className="w-4 h-4" />

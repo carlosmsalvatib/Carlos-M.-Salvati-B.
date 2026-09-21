@@ -1,6 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { CmsContent, LotItem, HousingModel, AppUser } from './types';
-import { getContent, getLots, getLocalCachedContent, getLocalCachedLots } from './lib/api';
+import {
+  getContent,
+  getLots,
+  getHousingModels,
+  getLocalCachedContent,
+  getLocalCachedLots,
+  getLocalCachedModels,
+} from './lib/api';
 import { initialCmsContent } from './data/initialContent';
 import { initialLots } from './data/initialLots';
 
@@ -137,18 +144,26 @@ export function App() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  // Fetch and synchronize content and lots from database in real-time
+  // Fetch and synchronize content, lots, and housing models from database in real-time
   const loadData = useCallback(async () => {
     try {
-      const [remoteContent, remoteLots] = await Promise.all([
+      const [remoteContent, remoteLots, remoteModelsRes] = await Promise.all([
         getContent(),
         getLots(),
+        getHousingModels().catch(() => null),
       ]);
       if (remoteContent && remoteContent.site) {
-        setContent(remoteContent);
+        if (remoteModelsRes?.models && Array.isArray(remoteModelsRes.models) && remoteModelsRes.models.length > 0) {
+          if (!remoteContent.housingModels) {
+            remoteContent.housingModels = { ...initialCmsContent.housingModels, models: remoteModelsRes.models };
+          } else {
+            remoteContent.housingModels.models = remoteModelsRes.models;
+          }
+        }
+        setContent({ ...remoteContent });
       }
       if (remoteLots && Array.isArray(remoteLots) && remoteLots.length > 0) {
-        setLots(remoteLots);
+        setLots([...remoteLots]);
       }
     } catch (e) {
       console.warn('Error sincronizando con base de datos en tiempo de ejecución:', e);
@@ -161,19 +176,55 @@ export function App() {
     // Listen to real-time events broadcasted when CMS saves or updates data
     const handleDataUpdated = (e: any) => {
       if (e.detail?.content) {
-        setContent(e.detail.content);
+        setContent({ ...e.detail.content });
+      } else if (e.detail?.models && Array.isArray(e.detail.models)) {
+        setContent((prev) => ({
+          ...prev,
+          housingModels: {
+            ...(prev.housingModels || initialCmsContent.housingModels),
+            models: e.detail.models,
+          },
+        }));
       }
       if (e.detail?.lots && Array.isArray(e.detail.lots)) {
-        setLots(e.detail.lots);
+        setLots([...e.detail.lots]);
       }
     };
+
+    const handleModelsUpdated = (e: any) => {
+      if (e.detail?.models && Array.isArray(e.detail.models)) {
+        setContent((prev) => ({
+          ...prev,
+          housingModels: {
+            ...(prev.housingModels || initialCmsContent.housingModels),
+            models: e.detail.models,
+          },
+        }));
+      }
+    };
+
     window.addEventListener('mdr_data_updated', handleDataUpdated);
+    window.addEventListener('mdr_models_updated', handleModelsUpdated);
 
     // Cross-tab synchronization via storage event
     const handleStorage = (e: StorageEvent) => {
       if (e.key === 'mdr_runtime_cms_content_v2' && e.newValue) {
         try {
           setContent(JSON.parse(e.newValue));
+        } catch {}
+      }
+      if (e.key === 'mdr_runtime_models_v2' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) {
+            setContent((prev) => ({
+              ...prev,
+              housingModels: {
+                ...(prev.housingModels || initialCmsContent.housingModels),
+                models: parsed,
+              },
+            }));
+          }
         } catch {}
       }
       if (e.key === 'mdr_runtime_lots_v2' && e.newValue) {
@@ -184,9 +235,19 @@ export function App() {
     };
     window.addEventListener('storage', handleStorage);
 
+    // Visibility / focus refresh: re-sync when tab becomes active
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadData();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
       window.removeEventListener('mdr_data_updated', handleDataUpdated);
+      window.removeEventListener('mdr_models_updated', handleModelsUpdated);
       window.removeEventListener('storage', handleStorage);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [loadData]);
 
@@ -196,6 +257,9 @@ export function App() {
     setCurrentPage(targetPage);
     window.location.hash = `#${targetPage}`;
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (targetPage === 'modelos' || targetPage === 'plan-maestro') {
+      loadData();
+    }
   };
 
   // Handler for CMS button: prompt credentials first if not logged in

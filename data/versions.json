@@ -1,5 +1,29 @@
 [
   {
+    "timestamp": "2026-09-21T22:55:44.343Z",
+    "version": 5,
+    "note": "Sincronización global CMS v5",
+    "content": {
+      "site": {
+        "projectName": "Test"
+      },
+      "housingModels": {
+        "title": "Titulo Actualizado En Vivo",
+        "models": [
+          {
+            "id": "m1",
+            "name": "Modelo Test Exitoso",
+            "areaM2": 150,
+            "priceUsd": 67500,
+            "active": true
+          }
+        ]
+      },
+      "lastUpdated": "2026-09-21T22:55:44.343Z",
+      "version": 5
+    }
+  },
+  {
     "timestamp": "2026-09-21T22:25:49.890Z",
     "version": 4,
     "note": "Sincronización global CMS v4",

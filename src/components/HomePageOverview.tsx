@@ -53,7 +53,7 @@ export const HomePageOverview: React.FC<HomePageOverviewProps> = ({
     {
       id: 'modelos',
       title: 'Casas en Bambú Guadua',
-      badge: 'Modelo A (120 m²) & B (180 m²)',
+      badge: `${(content.housingModels?.models || []).filter((m) => m.active !== false).length} Modelos Disponibles`,
       desc: 'Diseños sismorresistentes con ventilación cruzada y terrazas mirador. Galerías de imágenes ampliables con planos.',
       icon: <Home className="w-6 h-6 text-amber-600" />,
       accentColor: 'border-amber-200 hover:border-amber-500 bg-amber-50/40',

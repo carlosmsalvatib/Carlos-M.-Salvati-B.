@@ -102,14 +102,6 @@ export async function fetchCmsContent(): Promise<CmsContent> {
       'Error al cargar contenido'
     );
     if (json.data && json.data.site) {
-      // If the server data has a lower version or timestamp than local cached, prioritize local
-      const serverVersion = json.data.version || 1;
-      const localVersion = localCached?.version || 1;
-      if (localCached && localVersion > serverVersion) {
-        // Automatically sync our newer local cache to the server in the background
-        saveCmsContent(localCached).catch(() => {});
-        return localCached;
-      }
       saveLocalCache(json.data);
       return json.data;
     }

@@ -41,6 +41,10 @@ import {
   HardDrive,
   Globe,
   Edit3,
+  Copy,
+  ArrowUp,
+  ArrowDown,
+  CheckCircle2,
 } from 'lucide-react';
 import { MediaFieldWithSourceSelector } from './MediaFieldWithSourceSelector';
 import { MediaSourceSelectorModal } from './MediaSourceSelectorModal';
@@ -114,6 +118,41 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
   const [selectedModelId, setSelectedModelId] = useState<string>('modelo-a');
   const [newImageUrl, setNewImageUrl] = useState<string>('');
   const [editingModelImageIndex, setEditingModelImageIndex] = useState<number | null>(null);
+  const [isAddingNewModel, setIsAddingNewModel] = useState<boolean>(false);
+  const [modelsSaveSuccess, setModelsSaveSuccess] = useState<boolean>(false);
+  const [savingModelsSection, setSavingModelsSection] = useState<boolean>(false);
+  const [newBenefitText, setNewBenefitText] = useState<string>('');
+  const [newModelForm, setNewModelForm] = useState<{
+    name: string;
+    tagline: string;
+    areaM2: number;
+    pricePerM2Usd: number;
+    priceUsd: number;
+    description: string;
+    bedrooms: number;
+    bathrooms: number;
+    terraceM2: number;
+    levels: number;
+    foundation: string;
+    structure: string;
+    initialImage: string;
+    brochurePdfUrl: string;
+  }>({
+    name: '',
+    tagline: 'Vanguardia Bioclimática y Acabados de Campo',
+    areaM2: 100,
+    pricePerM2Usd: 450,
+    priceUsd: 45000,
+    description: 'Vivienda campestre ecológica construida con estructura integral de Bambú Guadua.',
+    bedrooms: 2,
+    bathrooms: 2,
+    terraceM2: 15,
+    levels: 1,
+    foundation: 'Losa flotante armada a 40 cm',
+    structure: 'Bambú Guadua angustifolia tratado e inmunizado',
+    initialImage: '/api/images/model-a-render',
+    brochurePdfUrl: '',
+  });
 
   // Video editing & creation inside propuesta
   const [editingVideoId, setEditingVideoId] = useState<string | null>(null);
@@ -379,14 +418,220 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
     });
   };
 
-  // HOUSING MODEL IMAGES MANAGEMENT (Requirement 10)
+  // HOUSING MODEL IMAGES MANAGEMENT (Requirement 10) & COMPLETE CRUD
   const currentSelectedModel =
-    formData.housingModels.models.find((m) => m.id === selectedModelId) ||
-    formData.housingModels.models[0];
+    formData.housingModels?.models?.find((m) => m.id === selectedModelId) ||
+    formData.housingModels?.models?.[0];
+
+  const handleSaveModelsSection = async () => {
+    setSavingModelsSection(true);
+    try {
+      const result = await saveAllCmsAndLots(
+        formData,
+        localLots,
+        `Actualización Modelos de Vivienda (${new Date().toLocaleTimeString('es-VE')})`
+      );
+      onContentUpdated(result.content);
+      onLotsUpdated(result.lots);
+      setModelsSaveSuccess(true);
+      setTimeout(() => setModelsSaveSuccess(false), 4000);
+    } catch (e) {
+      console.error('Error guardando modelos:', e);
+      alert('Error al sincronizar modelos de vivienda con el servidor.');
+    } finally {
+      setSavingModelsSection(false);
+    }
+  };
+
+  const handleCreateNewModel = () => {
+    if (!newModelForm.name.trim()) {
+      alert('Por favor ingrese el nombre del nuevo modelo.');
+      return;
+    }
+    const cleanId = `modelo-${newModelForm.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now().toString().slice(-4)}`;
+    const newModel: HousingModel = {
+      id: cleanId,
+      name: newModelForm.name.trim(),
+      tagline: newModelForm.tagline.trim() || 'Diseño bioclimático en Bambú Guadua',
+      areaM2: Number(newModelForm.areaM2) || 100,
+      pricePerM2Usd: Number(newModelForm.pricePerM2Usd) || 450,
+      priceUsd: Number(newModelForm.priceUsd) || ((Number(newModelForm.areaM2) || 100) * (Number(newModelForm.pricePerM2Usd) || 450)),
+      description: newModelForm.description.trim() || 'Vivienda campestre ecológica construida con estructura integral de Bambú Guadua.',
+      benefits: [
+        'Terrazas mirador con vistas a la cordillera',
+        'Ventilación bioclimática cruzada continua',
+        'Estructura sismorresistente en Bambú Guadua seleccionada',
+        'Losa flotante de concreto armada a 40 cm'
+      ],
+      specs: {
+        levels: Number(newModelForm.levels) || 1,
+        bedrooms: Number(newModelForm.bedrooms) || 2,
+        bathrooms: Number(newModelForm.bathrooms) || 2,
+        terraceM2: Number(newModelForm.terraceM2) || 15,
+        foundation: newModelForm.foundation || 'Losa flotante armada a 40 cm',
+        structure: newModelForm.structure || 'Bambú Guadua angustifolia tratado e inmunizado',
+      },
+      images: [newModelForm.initialImage || '/api/images/model-a-render'],
+      brochurePdfUrl: newModelForm.brochurePdfUrl || '',
+      showPrice: true,
+      active: true,
+    };
+
+    const nextModels = [...(formData.housingModels?.models || []), newModel];
+    setFormData({
+      ...formData,
+      housingModels: {
+        ...formData.housingModels,
+        models: nextModels,
+      },
+    });
+    setSelectedModelId(newModel.id);
+    setIsAddingNewModel(false);
+    setNewModelForm({
+      name: '',
+      tagline: 'Vanguardia Bioclimática y Acabados de Campo',
+      areaM2: 100,
+      pricePerM2Usd: 450,
+      priceUsd: 45000,
+      description: 'Vivienda campestre ecológica construida con estructura integral de Bambú Guadua.',
+      bedrooms: 2,
+      bathrooms: 2,
+      terraceM2: 15,
+      levels: 1,
+      foundation: 'Losa flotante armada a 40 cm',
+      structure: 'Bambú Guadua angustifolia tratado e inmunizado',
+      initialImage: '/api/images/model-a-render',
+      brochurePdfUrl: '',
+    });
+  };
+
+  const handleDeleteModel = (modelId: string) => {
+    if ((formData.housingModels?.models || []).length <= 1) {
+      alert('Debe existir al menos un modelo de vivienda en el catálogo.');
+      return;
+    }
+    const target = formData.housingModels?.models?.find((m) => m.id === modelId);
+    if (!confirm(`¿Está seguro de eliminar permanentemente el registro "${target?.name || modelId}"?`)) {
+      return;
+    }
+    const updated = (formData.housingModels?.models || []).filter((m) => m.id !== modelId);
+    setFormData({
+      ...formData,
+      housingModels: {
+        ...formData.housingModels,
+        models: updated,
+      },
+    });
+    if (selectedModelId === modelId && updated.length > 0) {
+      setSelectedModelId(updated[0].id);
+    }
+  };
+
+  const handleDuplicateModel = (modelId: string) => {
+    const target = formData.housingModels?.models?.find((m) => m.id === modelId);
+    if (!target) return;
+    const newId = `${target.id}-copia-${Date.now().toString().slice(-4)}`;
+    const duplicated: HousingModel = {
+      ...target,
+      id: newId,
+      name: `${target.name} (Copia)`,
+      images: [...(target.images || [])],
+      benefits: [...(target.benefits || [])],
+      specs: { ...(target.specs || { levels: 1, bedrooms: 2, bathrooms: 2, terraceM2: 15, foundation: 'Losa armada', structure: 'Bambú Guadua' }) },
+    };
+    const updated = [...(formData.housingModels?.models || []), duplicated];
+    setFormData({
+      ...formData,
+      housingModels: {
+        ...formData.housingModels,
+        models: updated,
+      },
+    });
+    setSelectedModelId(newId);
+  };
+
+  const handleSetCoverImage = (modelId: string, imageIndex: number) => {
+    if (imageIndex === 0) return;
+    const updated = (formData.housingModels?.models || []).map((m) => {
+      if (m.id === modelId) {
+        const imgs = [...(m.images || [])];
+        const [moved] = imgs.splice(imageIndex, 1);
+        imgs.unshift(moved);
+        return { ...m, images: imgs };
+      }
+      return m;
+    });
+    setFormData({
+      ...formData,
+      housingModels: { ...formData.housingModels, models: updated },
+    });
+  };
+
+  const handleMoveModelImage = (modelId: string, fromIndex: number, toIndex: number) => {
+    const updated = (formData.housingModels?.models || []).map((m) => {
+      if (m.id === modelId) {
+        const imgs = [...(m.images || [])];
+        if (toIndex < 0 || toIndex >= imgs.length) return m;
+        const [moved] = imgs.splice(fromIndex, 1);
+        imgs.splice(toIndex, 0, moved);
+        return { ...m, images: imgs };
+      }
+      return m;
+    });
+    setFormData({
+      ...formData,
+      housingModels: { ...formData.housingModels, models: updated },
+    });
+  };
+
+  const handleAddBenefitToModel = (modelId: string, text: string) => {
+    if (!text.trim()) return;
+    const updated = (formData.housingModels?.models || []).map((m) => {
+      if (m.id === modelId) {
+        return { ...m, benefits: [...(m.benefits || []), text.trim()] };
+      }
+      return m;
+    });
+    setFormData({
+      ...formData,
+      housingModels: { ...formData.housingModels, models: updated },
+    });
+    setNewBenefitText('');
+  };
+
+  const handleUpdateBenefit = (modelId: string, benefitIndex: number, newText: string) => {
+    const updated = (formData.housingModels?.models || []).map((m) => {
+      if (m.id === modelId) {
+        const b = [...(m.benefits || [])];
+        b[benefitIndex] = newText;
+        return { ...m, benefits: b };
+      }
+      return m;
+    });
+    setFormData({
+      ...formData,
+      housingModels: { ...formData.housingModels, models: updated },
+    });
+  };
+
+  const handleDeleteBenefit = (modelId: string, benefitIndex: number) => {
+    const updated = (formData.housingModels?.models || []).map((m) => {
+      if (m.id === modelId) {
+        const b = [...(m.benefits || [])];
+        b.splice(benefitIndex, 1);
+        return { ...m, benefits: b };
+      }
+      return m;
+    });
+    setFormData({
+      ...formData,
+      housingModels: { ...formData.housingModels, models: updated },
+    });
+  };
 
   const handleAddImageToModel = (modelId: string) => {
     if (!newImageUrl.trim()) return;
-    const updatedModels = formData.housingModels.models.map((m) => {
+    const updatedModels = (formData.housingModels?.models || []).map((m) => {
       if (m.id === modelId) {
         return {
           ...m,
@@ -407,7 +652,7 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
 
   const handleUpdateModelImage = (modelId: string, imageIndex: number, newUrl: string) => {
     if (!newUrl.trim()) return;
-    const updatedModels = formData.housingModels.models.map((m) => {
+    const updatedModels = (formData.housingModels?.models || []).map((m) => {
       if (m.id === modelId) {
         const nextImages = [...(m.images || [])];
         nextImages[imageIndex] = newUrl.trim();
@@ -428,7 +673,7 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
   };
 
   const handleDeleteImageFromModel = (modelId: string, imageIndex: number) => {
-    const updatedModels = formData.housingModels.models.map((m) => {
+    const updatedModels = (formData.housingModels?.models || []).map((m) => {
       if (m.id === modelId) {
         const nextImages = [...(m.images || [])];
         nextImages.splice(imageIndex, 1);
@@ -1645,40 +1890,373 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
             </div>
           )}
 
-          {/* TAB 6: MODELOS DE VIVIENDA & GESTIÓN DE MÚLTIPLES IMÁGENES (Requirement 10) */}
+          {/* TAB 6: MODELOS DE VIVIENDA & GESTIÓN INTEGRAL DE REGISTROS */}
           {activeTab === 'modelos' && (
-            <div className="space-y-6 max-w-4xl">
-              <div className="flex items-center justify-between border-b border-stone-800 pb-2">
+            <div className="space-y-6 max-w-4xl" id="cms-housing-models-manager">
+              {/* Header & Quick Save Bar */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-800 pb-3">
                 <div>
-                  <h3 className="font-serif text-lg font-bold text-white">
-                    Modelos de Vivienda & Gestión de Múltiples Imágenes
+                  <h3 className="font-serif text-lg font-bold text-white flex items-center gap-2">
+                    <Home className="w-5 h-5 text-amber-400" />
+                    <span>Catálogo de Modelos de Vivienda & Renders</span>
                   </h3>
                   <p className="text-xs text-stone-400">
-                    Agrega, modifica o elimina imágenes de cada modelo (renders 3D, planos de distribución, cortes, vistas).
+                    Crea, edita, duplica o elimina registros de casas en Bambú Guadua. Cada cambio se graba de inmediato en la base de datos.
                   </p>
+                </div>
+
+                <div className="flex items-center gap-2 self-end sm:self-center">
+                  {modelsSaveSuccess && (
+                    <span className="text-xs text-emerald-400 flex items-center gap-1 font-semibold animate-pulse">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>¡Guardado con éxito!</span>
+                    </span>
+                  )}
+                  <button
+                    id="btn-save-models-tab"
+                    type="button"
+                    disabled={savingModelsSection || levelInfo.isReadOnly}
+                    onClick={handleSaveModelsSection}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg transition-all ${
+                      levelInfo.isReadOnly
+                        ? 'bg-stone-800 text-stone-500 cursor-not-allowed'
+                        : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-950/50 hover:scale-[1.02]'
+                    }`}
+                  >
+                    {savingModelsSection ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Sincronizando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-3.5 h-3.5" />
+                        <span>Grabar Modelos en CMS</span>
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
 
-              {/* Model Selector Tabs */}
-              <div className="flex items-center gap-2 border-b border-stone-800 pb-3">
-                {formData.housingModels.models.map((model) => (
-                  <button
-                    key={model.id}
-                    onClick={() => setSelectedModelId(model.id)}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                      selectedModelId === model.id
-                        ? 'bg-amber-500 text-stone-950 shadow-md'
-                        : 'bg-stone-800 text-stone-300 hover:bg-stone-700'
-                    }`}
-                  >
-                    {model.name} ({model.areaM2} m²)
-                  </button>
-                ))}
+              {/* General Section Settings */}
+              <div className="bg-stone-900/60 p-4 rounded-2xl border border-stone-800 space-y-3 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-stone-200 text-xs flex items-center gap-1.5">
+                    <Settings className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Textos Generales de la Sección en la Web</span>
+                  </span>
+                  <label className="flex items-center gap-2 cursor-pointer text-stone-300">
+                    <input
+                      type="checkbox"
+                      checked={formData.housingModels?.active !== false}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          housingModels: { ...formData.housingModels, active: e.target.checked },
+                        })
+                      }
+                      className="rounded bg-stone-950 border-stone-700 text-amber-500 focus:ring-0"
+                    />
+                    <span>Sección Visible en la Web</span>
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-stone-400 mb-1 font-medium">Título de la Sección</label>
+                    <input
+                      type="text"
+                      value={formData.housingModels?.title || ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          housingModels: { ...formData.housingModels, title: e.target.value },
+                        })
+                      }
+                      className="w-full px-3 py-1.5 rounded-lg bg-stone-950 border border-stone-700 text-white text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-stone-400 mb-1 font-medium">Subtítulo de la Sección</label>
+                    <input
+                      type="text"
+                      value={formData.housingModels?.subtitle || ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          housingModels: { ...formData.housingModels, subtitle: e.target.value },
+                        })
+                      }
+                      className="w-full px-3 py-1.5 rounded-lg bg-stone-950 border border-stone-700 text-white text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-stone-400 mb-1 font-medium">Nota o Aviso de Costos de Construcción</label>
+                  <input
+                    type="text"
+                    value={formData.housingModels?.priceNotice || ''}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        housingModels: { ...formData.housingModels, priceNotice: e.target.value },
+                      })
+                    }
+                    className="w-full px-3 py-1.5 rounded-lg bg-stone-950 border border-stone-700 text-stone-300 text-xs"
+                  />
+                </div>
               </div>
 
-              {/* Current Model Edit Card */}
+              {/* Models List / Selector Bar with Add Button */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-stone-300 uppercase tracking-wider">
+                      Registros de Modelos ({(formData.housingModels?.models || []).length})
+                    </span>
+                  </div>
+
+                  <button
+                    id="btn-open-create-model"
+                    type="button"
+                    onClick={() => setIsAddingNewModel(!isAddingNewModel)}
+                    className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs flex items-center gap-1.5 transition-all shadow-md"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>{isAddingNewModel ? 'Cancelar Nuevo' : 'Nuevo Registro de Modelo'}</span>
+                  </button>
+                </div>
+
+                {/* Pill selector for models */}
+                <div className="flex flex-wrap items-center gap-2 border-b border-stone-800 pb-3">
+                  {(formData.housingModels?.models || []).map((model) => {
+                    const isSelected = (currentSelectedModel?.id || '') === model.id;
+                    return (
+                      <button
+                        key={model.id}
+                        type="button"
+                        id={`btn-select-model-${model.id}`}
+                        onClick={() => {
+                          setSelectedModelId(model.id);
+                          setIsAddingNewModel(false);
+                        }}
+                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                          isSelected
+                            ? 'bg-amber-500 text-stone-950 shadow-md ring-2 ring-amber-400/40'
+                            : 'bg-stone-900 border border-stone-800 text-stone-300 hover:bg-stone-800 hover:text-white'
+                        }`}
+                      >
+                        <span
+                          className={`w-2 h-2 rounded-full ${
+                            model.active !== false ? 'bg-emerald-400' : 'bg-stone-500'
+                          }`}
+                        />
+                        <span>{model.name}</span>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${isSelected ? 'bg-amber-600/40 text-stone-950' : 'bg-stone-800 text-stone-400'}`}>
+                          {model.areaM2} m²
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Inline Form to Create New Model */}
+              {isAddingNewModel && (
+                <div className="bg-amber-950/20 border-2 border-amber-500/60 rounded-2xl p-4 sm:p-5 space-y-4 text-xs">
+                  <div className="flex items-center justify-between border-b border-amber-500/30 pb-2">
+                    <h4 className="font-serif font-bold text-sm text-amber-300 flex items-center gap-2">
+                      <Plus className="w-4 h-4" />
+                      <span>Crear Nuevo Registro de Modelo de Vivienda</span>
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingNewModel(false)}
+                      className="text-stone-400 hover:text-white text-xs px-2 py-1 rounded bg-stone-900"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-stone-300 mb-1 font-semibold">Nombre del Modelo *</label>
+                      <input
+                        type="text"
+                        placeholder="Ej: Modelo C - Suite Mirador"
+                        value={newModelForm.name}
+                        onChange={(e) => setNewModelForm({ ...newModelForm, name: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg bg-stone-900 border border-stone-700 text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-stone-300 mb-1 font-semibold">Subtítulo / Tagline</label>
+                      <input
+                        type="text"
+                        placeholder="Ej: Bioclimático en 2 niveles"
+                        value={newModelForm.tagline}
+                        onChange={(e) => setNewModelForm({ ...newModelForm, tagline: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg bg-stone-900 border border-stone-700 text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-stone-300 mb-1 font-semibold">Superficie (m²)</label>
+                      <input
+                        type="number"
+                        value={newModelForm.areaM2}
+                        onChange={(e) => {
+                          const area = Number(e.target.value) || 0;
+                          setNewModelForm({
+                            ...newModelForm,
+                            areaM2: area,
+                            priceUsd: Math.round(area * newModelForm.pricePerM2Usd),
+                          });
+                        }}
+                        className="w-full px-3 py-2 rounded-lg bg-stone-900 border border-stone-700 text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-stone-300 mb-1 font-semibold">Precio USD / m²</label>
+                      <input
+                        type="number"
+                        value={newModelForm.pricePerM2Usd}
+                        onChange={(e) => {
+                          const pm2 = Number(e.target.value) || 0;
+                          setNewModelForm({
+                            ...newModelForm,
+                            pricePerM2Usd: pm2,
+                            priceUsd: Math.round(newModelForm.areaM2 * pm2),
+                          });
+                        }}
+                        className="w-full px-3 py-2 rounded-lg bg-stone-900 border border-stone-700 text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-stone-300 mb-1 font-semibold">Precio Total USD</label>
+                      <input
+                        type="number"
+                        value={newModelForm.priceUsd}
+                        onChange={(e) => setNewModelForm({ ...newModelForm, priceUsd: Number(e.target.value) || 0 })}
+                        className="w-full px-3 py-2 rounded-lg bg-stone-900 border border-stone-700 text-emerald-400 font-bold font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-stone-300 mb-1 font-semibold">Habitaciones / Baños</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="number"
+                          placeholder="Hab"
+                          value={newModelForm.bedrooms}
+                          onChange={(e) => setNewModelForm({ ...newModelForm, bedrooms: Number(e.target.value) || 1 })}
+                          className="w-full px-2 py-2 rounded-lg bg-stone-900 border border-stone-700 text-white"
+                        />
+                        <input
+                          type="number"
+                          placeholder="Baños"
+                          value={newModelForm.bathrooms}
+                          onChange={(e) => setNewModelForm({ ...newModelForm, bathrooms: Number(e.target.value) || 1 })}
+                          className="w-full px-2 py-2 rounded-lg bg-stone-900 border border-stone-700 text-white"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Initial Image with Source Selector */}
+                  <MediaFieldWithSourceSelector
+                    id="new-model-initial-image-selector"
+                    label="Imagen Principal de Portada / Render 3D"
+                    value={newModelForm.initialImage}
+                    onChange={(val) => setNewModelForm({ ...newModelForm, initialImage: val })}
+                    mediaType="image"
+                    placeholder="Seleccione archivo local, imagen de biblioteca o URL..."
+                    helperText="Puedes subir tu render desde el equipo o elegir uno preexistente."
+                  />
+
+                  <div className="flex justify-end gap-2 pt-2 border-t border-amber-500/20">
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingNewModel(false)}
+                      className="px-4 py-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs font-semibold"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      id="btn-confirm-create-model"
+                      type="button"
+                      onClick={handleCreateNewModel}
+                      className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs flex items-center gap-1.5 shadow-lg"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>Crear e Incorporar Modelo</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* CURRENT SELECTED MODEL EDIT CARD */}
               {currentSelectedModel && (
-                <div className="bg-stone-950 p-5 rounded-2xl border border-stone-800 space-y-5 text-xs">
+                <div className="bg-stone-950 p-5 rounded-2xl border border-stone-800 space-y-6 text-xs" id={`editor-model-${currentSelectedModel.id}`}>
+                  {/* Model Actions Bar */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 bg-stone-900/80 p-3 rounded-xl border border-stone-800">
+                    <div className="flex items-center gap-4">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={currentSelectedModel.active !== false}
+                          onChange={(e) => {
+                            const updated = (formData.housingModels?.models || []).map((m) =>
+                              m.id === currentSelectedModel.id ? { ...m, active: e.target.checked } : m
+                            );
+                            setFormData({ ...formData, housingModels: { ...formData.housingModels, models: updated } });
+                          }}
+                          className="rounded bg-stone-950 border-stone-700 text-emerald-500 focus:ring-0"
+                        />
+                        <span className="font-semibold text-stone-200">
+                          {currentSelectedModel.active !== false ? 'Activo en la Web' : 'Oculto en la Web'}
+                        </span>
+                      </label>
+
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={currentSelectedModel.showPrice !== false}
+                          onChange={(e) => {
+                            const updated = (formData.housingModels?.models || []).map((m) =>
+                              m.id === currentSelectedModel.id ? { ...m, showPrice: e.target.checked } : m
+                            );
+                            setFormData({ ...formData, housingModels: { ...formData.housingModels, models: updated } });
+                          }}
+                          className="rounded bg-stone-950 border-stone-700 text-amber-500 focus:ring-0"
+                        />
+                        <span className="text-stone-300">Mostrar Precio USD</span>
+                      </label>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleDuplicateModel(currentSelectedModel.id)}
+                        className="px-2.5 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-300 flex items-center gap-1.5 transition-all text-xs"
+                        title="Duplicar este modelo"
+                      >
+                        <Copy className="w-3.5 h-3.5 text-stone-400" />
+                        <span>Duplicar</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteModel(currentSelectedModel.id)}
+                        className="px-2.5 py-1.5 rounded-lg bg-red-950/60 hover:bg-red-900 border border-red-800/60 text-red-300 flex items-center gap-1.5 transition-all text-xs"
+                        title="Eliminar este modelo permanentemente"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Eliminar</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Main Attributes */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-stone-300 mb-1 font-semibold">Nombre del Modelo</label>
@@ -1686,8 +2264,22 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                         type="text"
                         value={currentSelectedModel.name}
                         onChange={(e) => {
-                          const updated = formData.housingModels.models.map((m) =>
+                          const updated = (formData.housingModels?.models || []).map((m) =>
                             m.id === currentSelectedModel.id ? { ...m, name: e.target.value } : m
+                          );
+                          setFormData({ ...formData, housingModels: { ...formData.housingModels, models: updated } });
+                        }}
+                        className="w-full px-3 py-2 rounded-lg bg-stone-900 border border-stone-700 text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-stone-300 mb-1 font-semibold">Subtítulo / Tagline</label>
+                      <input
+                        type="text"
+                        value={currentSelectedModel.tagline || ''}
+                        onChange={(e) => {
+                          const updated = (formData.housingModels?.models || []).map((m) =>
+                            m.id === currentSelectedModel.id ? { ...m, tagline: e.target.value } : m
                           );
                           setFormData({ ...formData, housingModels: { ...formData.housingModels, models: updated } });
                         }}
@@ -1700,10 +2292,27 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                         type="number"
                         value={currentSelectedModel.areaM2}
                         onChange={(e) => {
-                          const area = Number(e.target.value);
-                          const updated = formData.housingModels.models.map((m) =>
+                          const area = Number(e.target.value) || 0;
+                          const updated = (formData.housingModels?.models || []).map((m) =>
                             m.id === currentSelectedModel.id
-                              ? { ...m, areaM2: area, priceUsd: area * (m.pricePerM2Usd || 450) }
+                              ? { ...m, areaM2: area, priceUsd: Math.round(area * (m.pricePerM2Usd || 450)) }
+                              : m
+                          );
+                          setFormData({ ...formData, housingModels: { ...formData.housingModels, models: updated } });
+                        }}
+                        className="w-full px-3 py-2 rounded-lg bg-stone-900 border border-stone-700 text-white font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-stone-300 mb-1 font-semibold">Precio por m² (USD)</label>
+                      <input
+                        type="number"
+                        value={currentSelectedModel.pricePerM2Usd || 450}
+                        onChange={(e) => {
+                          const pm2 = Number(e.target.value) || 0;
+                          const updated = (formData.housingModels?.models || []).map((m) =>
+                            m.id === currentSelectedModel.id
+                              ? { ...m, pricePerM2Usd: pm2, priceUsd: Math.round(m.areaM2 * pm2) }
                               : m
                           );
                           setFormData({ ...formData, housingModels: { ...formData.housingModels, models: updated } });
@@ -1712,26 +2321,26 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                       />
                     </div>
                     <div>
-                      <label className="block text-stone-300 mb-1 font-semibold">Precio Total USD</label>
+                      <label className="block text-stone-300 mb-1 font-semibold">Precio Total de Construcción (USD)</label>
                       <input
                         type="number"
                         value={currentSelectedModel.priceUsd}
                         onChange={(e) => {
-                          const updated = formData.housingModels.models.map((m) =>
-                            m.id === currentSelectedModel.id ? { ...m, priceUsd: Number(e.target.value) } : m
+                          const updated = (formData.housingModels?.models || []).map((m) =>
+                            m.id === currentSelectedModel.id ? { ...m, priceUsd: Number(e.target.value) || 0 } : m
                           );
                           setFormData({ ...formData, housingModels: { ...formData.housingModels, models: updated } });
                         }}
-                        className="w-full px-3 py-2 rounded-lg bg-stone-900 border border-stone-700 text-white"
+                        className="w-full px-3 py-2 rounded-lg bg-stone-900 border border-stone-700 text-emerald-400 font-bold font-mono"
                       />
                     </div>
-                    <div className="sm:col-span-3">
-                      <label className="block text-stone-300 mb-1 font-semibold">Enlace a Ficha Técnica / Folleto en PDF</label>
+                    <div>
+                      <label className="block text-stone-300 mb-1 font-semibold">Ficha Técnica / Folleto PDF</label>
                       <input
                         type="text"
                         value={currentSelectedModel.brochurePdfUrl || ''}
                         onChange={(e) => {
-                          const updated = formData.housingModels.models.map((m) =>
+                          const updated = (formData.housingModels?.models || []).map((m) =>
                             m.id === currentSelectedModel.id ? { ...m, brochurePdfUrl: e.target.value } : m
                           );
                           setFormData({ ...formData, housingModels: { ...formData.housingModels, models: updated } });
@@ -1742,49 +2351,243 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                     </div>
                   </div>
 
-                  {/* MULTI-IMAGE GALLERY MANAGER */}
-                  <div className="pt-4 border-t border-stone-800 space-y-3">
+                  {/* Model Description */}
+                  <div>
+                    <label className="block text-stone-300 mb-1 font-semibold">Descripción Arquitectónica & Estilo Bioclimático</label>
+                    <textarea
+                      rows={3}
+                      value={currentSelectedModel.description || ''}
+                      onChange={(e) => {
+                        const updated = (formData.housingModels?.models || []).map((m) =>
+                          m.id === currentSelectedModel.id ? { ...m, description: e.target.value } : m
+                        );
+                        setFormData({ ...formData, housingModels: { ...formData.housingModels, models: updated } });
+                      }}
+                      className="w-full px-3 py-2 rounded-lg bg-stone-900 border border-stone-700 text-stone-200 text-xs"
+                    />
+                  </div>
+
+                  {/* Technical Specifications Specs */}
+                  <div className="p-4 rounded-xl bg-stone-900/70 border border-stone-800 space-y-3">
+                    <h4 className="font-serif font-bold text-stone-200 text-xs flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Especificaciones Técnicas del Modelo</span>
+                    </h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div>
+                        <label className="block text-stone-400 mb-1">Niveles / Plantas</label>
+                        <input
+                          type="number"
+                          value={currentSelectedModel.specs?.levels || 1}
+                          onChange={(e) => {
+                            const val = Number(e.target.value) || 1;
+                            const updated = (formData.housingModels?.models || []).map((m) =>
+                              m.id === currentSelectedModel.id
+                                ? { ...m, specs: { ...(m.specs || { levels: 1, bedrooms: 2, bathrooms: 2, terraceM2: 15, foundation: '', structure: '' }), levels: val } }
+                                : m
+                            );
+                            setFormData({ ...formData, housingModels: { ...formData.housingModels, models: updated } });
+                          }}
+                          className="w-full px-2.5 py-1.5 rounded-lg bg-stone-950 border border-stone-700 text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-stone-400 mb-1">Habitaciones</label>
+                        <input
+                          type="number"
+                          value={currentSelectedModel.specs?.bedrooms || 2}
+                          onChange={(e) => {
+                            const val = Number(e.target.value) || 1;
+                            const updated = (formData.housingModels?.models || []).map((m) =>
+                              m.id === currentSelectedModel.id
+                                ? { ...m, specs: { ...(m.specs || { levels: 1, bedrooms: 2, bathrooms: 2, terraceM2: 15, foundation: '', structure: '' }), bedrooms: val } }
+                                : m
+                            );
+                            setFormData({ ...formData, housingModels: { ...formData.housingModels, models: updated } });
+                          }}
+                          className="w-full px-2.5 py-1.5 rounded-lg bg-stone-950 border border-stone-700 text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-stone-400 mb-1">Baños Completos</label>
+                        <input
+                          type="number"
+                          value={currentSelectedModel.specs?.bathrooms || 2}
+                          onChange={(e) => {
+                            const val = Number(e.target.value) || 1;
+                            const updated = (formData.housingModels?.models || []).map((m) =>
+                              m.id === currentSelectedModel.id
+                                ? { ...m, specs: { ...(m.specs || { levels: 1, bedrooms: 2, bathrooms: 2, terraceM2: 15, foundation: '', structure: '' }), bathrooms: val } }
+                                : m
+                            );
+                            setFormData({ ...formData, housingModels: { ...formData.housingModels, models: updated } });
+                          }}
+                          className="w-full px-2.5 py-1.5 rounded-lg bg-stone-950 border border-stone-700 text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-stone-400 mb-1">Terraza Mirador (m²)</label>
+                        <input
+                          type="number"
+                          value={currentSelectedModel.specs?.terraceM2 || 15}
+                          onChange={(e) => {
+                            const val = Number(e.target.value) || 0;
+                            const updated = (formData.housingModels?.models || []).map((m) =>
+                              m.id === currentSelectedModel.id
+                                ? { ...m, specs: { ...(m.specs || { levels: 1, bedrooms: 2, bathrooms: 2, terraceM2: 15, foundation: '', structure: '' }), terraceM2: val } }
+                                : m
+                            );
+                            setFormData({ ...formData, housingModels: { ...formData.housingModels, models: updated } });
+                          }}
+                          className="w-full px-2.5 py-1.5 rounded-lg bg-stone-950 border border-stone-700 text-white"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-stone-400 mb-1">Cimentación</label>
+                        <input
+                          type="text"
+                          value={currentSelectedModel.specs?.foundation || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            const updated = (formData.housingModels?.models || []).map((m) =>
+                              m.id === currentSelectedModel.id
+                                ? { ...m, specs: { ...(m.specs || { levels: 1, bedrooms: 2, bathrooms: 2, terraceM2: 15, foundation: '', structure: '' }), foundation: val } }
+                                : m
+                            );
+                            setFormData({ ...formData, housingModels: { ...formData.housingModels, models: updated } });
+                          }}
+                          className="w-full px-2.5 py-1.5 rounded-lg bg-stone-950 border border-stone-700 text-white"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-stone-400 mb-1">Estructura</label>
+                        <input
+                          type="text"
+                          value={currentSelectedModel.specs?.structure || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            const updated = (formData.housingModels?.models || []).map((m) =>
+                              m.id === currentSelectedModel.id
+                                ? { ...m, specs: { ...(m.specs || { levels: 1, bedrooms: 2, bathrooms: 2, terraceM2: 15, foundation: '', structure: '' }), structure: val } }
+                                : m
+                            );
+                            setFormData({ ...formData, housingModels: { ...formData.housingModels, models: updated } });
+                          }}
+                          className="w-full px-2.5 py-1.5 rounded-lg bg-stone-950 border border-stone-700 text-white"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Benefits & Bullet Highlights */}
+                  <div className="p-4 rounded-xl bg-stone-900/70 border border-stone-800 space-y-3">
                     <div className="flex items-center justify-between">
+                      <h4 className="font-serif font-bold text-stone-200 text-xs flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Puntos Destacados & Beneficios del Modelo ({(currentSelectedModel.benefits || []).length})</span>
+                      </h4>
+                    </div>
+
+                    <div className="space-y-2">
+                      {(currentSelectedModel.benefits || []).map((b, bIdx) => (
+                        <div key={bIdx} className="flex items-center gap-2">
+                          <span className="text-amber-400 text-xs font-bold">•</span>
+                          <input
+                            type="text"
+                            value={b}
+                            onChange={(e) => handleUpdateBenefit(currentSelectedModel.id, bIdx, e.target.value)}
+                            className="flex-1 px-2.5 py-1.5 rounded-lg bg-stone-950 border border-stone-700 text-white text-xs"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteBenefit(currentSelectedModel.id, bIdx)}
+                            className="p-1.5 rounded bg-stone-800 hover:bg-red-900/70 text-stone-400 hover:text-red-300"
+                            title="Eliminar beneficio"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+
+                      {/* Add Benefit Input */}
+                      <div className="flex items-center gap-2 pt-2">
+                        <input
+                          type="text"
+                          placeholder="Agregar nuevo punto destacado o beneficio..."
+                          value={newBenefitText}
+                          onChange={(e) => setNewBenefitText(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddBenefitToModel(currentSelectedModel.id, newBenefitText);
+                            }
+                          }}
+                          className="flex-1 px-2.5 py-1.5 rounded-lg bg-stone-950 border border-dashed border-stone-700 text-white text-xs"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleAddBenefitToModel(currentSelectedModel.id, newBenefitText)}
+                          disabled={!newBenefitText.trim()}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
+                            newBenefitText.trim()
+                              ? 'bg-amber-500 text-stone-950 hover:bg-amber-400'
+                              : 'bg-stone-800 text-stone-500 cursor-not-allowed'
+                          }`}
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Agregar</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* MULTI-IMAGE GALLERY MANAGER WITH ORIGIN SOURCE SELECTOR */}
+                  <div className="pt-4 border-t border-stone-800 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                       <h4 className="font-serif font-bold text-white text-sm flex items-center gap-2">
                         <ImageIcon className="w-4 h-4 text-amber-400" />
-                        <span>Imágenes del Modelo ({currentSelectedModel.images?.length || 0} cargadas)</span>
+                        <span>Galería de Imágenes & Renders ({currentSelectedModel.images?.length || 0} imágenes)</span>
                       </h4>
                       <span className="text-[11px] text-stone-400">
-                        Navegables con flechas y ampliables en lightbox
+                        La primera imagen (#1) actúa como la portada del modelo en el catálogo
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                       {(currentSelectedModel.images || []).map((imgUrl, imgIdx) => {
                         const isEditingThisImage = editingModelImageIndex === imgIdx;
+                        const isCover = imgIdx === 0;
+
                         return (
-                          <React.Fragment key={imgIdx}>
-                            <div
-                              className={`relative rounded-xl overflow-hidden border bg-stone-900 group transition-all ${
-                                isEditingThisImage
-                                  ? 'border-amber-500 ring-2 ring-amber-500/40'
-                                  : 'border-stone-700 hover:border-stone-500'
-                              }`}
-                            >
+                          <div
+                            key={imgIdx}
+                            className={`p-2.5 rounded-xl border bg-stone-900 flex flex-col justify-between gap-2 transition-all ${
+                              isEditingThisImage
+                                ? 'border-amber-500 ring-2 ring-amber-500/40 bg-amber-950/10'
+                                : 'border-stone-700/80 hover:border-stone-500'
+                            }`}
+                          >
+                            <div className="relative rounded-lg overflow-hidden bg-black h-36">
                               <img
                                 src={imgUrl}
-                                alt={`Imagen ${imgIdx + 1}`}
-                                className="w-full h-28 object-cover"
+                                alt={`Render ${imgIdx + 1}`}
+                                className="w-full h-full object-cover"
                                 referrerPolicy="no-referrer"
                               />
-                              <div className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-black/80 text-[10px] text-stone-300 font-mono">
-                                #{imgIdx + 1}
+                              <div className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-black/80 text-[10px] font-mono text-stone-200">
+                                #{imgIdx + 1} {isCover && '· Portada'}
                               </div>
+
                               <div className="absolute top-1 right-1 flex items-center gap-1">
                                 <button
                                   type="button"
                                   onClick={() => setEditingModelImageIndex(isEditingThisImage ? null : imgIdx)}
-                                  className={`p-1 rounded text-white transition-opacity ${
+                                  className={`p-1.5 rounded transition-all ${
                                     isEditingThisImage
-                                      ? 'bg-amber-500 text-stone-950 font-bold opacity-100'
-                                      : 'bg-stone-900/90 hover:bg-stone-800 text-stone-200 opacity-90 hover:opacity-100'
+                                      ? 'bg-amber-500 text-stone-950 font-bold'
+                                      : 'bg-stone-900/90 hover:bg-stone-800 text-stone-200'
                                   }`}
-                                  title="Editar y cambiar archivo de esta imagen"
+                                  title="Editar archivo y cambiar origen de esta imagen"
                                 >
                                   <Edit3 className="w-3.5 h-3.5" />
                                 </button>
@@ -1794,7 +2597,7 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                                     if (editingModelImageIndex === imgIdx) setEditingModelImageIndex(null);
                                     handleDeleteImageFromModel(currentSelectedModel.id, imgIdx);
                                   }}
-                                  className="p-1 rounded bg-red-600 text-white hover:bg-red-500 opacity-90 hover:opacity-100 transition-opacity"
+                                  className="p-1.5 rounded bg-red-600/90 hover:bg-red-500 text-white"
                                   title="Eliminar imagen"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -1802,52 +2605,97 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                               </div>
                             </div>
 
-                            {/* INLINE REPLACEMENT SELECTOR FOR THIS IMAGE */}
+                            {/* Position and Cover Actions */}
+                            <div className="flex items-center justify-between gap-1 text-[11px] pt-1">
+                              {!isCover ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleSetCoverImage(currentSelectedModel.id, imgIdx)}
+                                  className="px-2 py-1 rounded bg-stone-800 hover:bg-amber-500 hover:text-stone-950 text-stone-300 font-medium"
+                                  title="Hacer portada principal"
+                                >
+                                  Hacer Portada
+                                </button>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 font-bold text-[10px] border border-emerald-800/60">
+                                  ✓ Portada Actual
+                                </span>
+                              )}
+
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  disabled={imgIdx === 0}
+                                  onClick={() => handleMoveModelImage(currentSelectedModel.id, imgIdx, imgIdx - 1)}
+                                  className={`p-1 rounded ${
+                                    imgIdx === 0
+                                      ? 'text-stone-600 cursor-not-allowed'
+                                      : 'bg-stone-800 text-stone-300 hover:bg-stone-700'
+                                  }`}
+                                  title="Mover hacia arriba / adelante"
+                                >
+                                  <ArrowUp className="w-3 h-3" />
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={imgIdx === (currentSelectedModel.images || []).length - 1}
+                                  onClick={() => handleMoveModelImage(currentSelectedModel.id, imgIdx, imgIdx + 1)}
+                                  className={`p-1 rounded ${
+                                    imgIdx === (currentSelectedModel.images || []).length - 1
+                                      ? 'text-stone-600 cursor-not-allowed'
+                                      : 'bg-stone-800 text-stone-300 hover:bg-stone-700'
+                                  }`}
+                                  title="Mover hacia abajo / atrás"
+                                >
+                                  <ArrowDown className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* INLINE SOURCE SELECTOR FOR THIS SPECIFIC IMAGE */}
                             {isEditingThisImage && (
-                              <div className="col-span-2 sm:col-span-4 p-3.5 rounded-xl bg-stone-900 border border-amber-500/70 space-y-2.5">
+                              <div className="mt-2 p-3 rounded-xl bg-stone-950 border border-amber-500/70 space-y-2">
                                 <div className="flex items-center justify-between">
-                                  <span className="font-semibold text-amber-400 text-xs flex items-center gap-1.5">
-                                    <Edit3 className="w-3.5 h-3.5" />
-                                    <span>
-                                      Cambiar Archivo de Imagen #{imgIdx + 1} · {currentSelectedModel.name}
-                                    </span>
+                                  <span className="font-semibold text-amber-400 text-[11px] flex items-center gap-1">
+                                    <Edit3 className="w-3 h-3" />
+                                    <span>Cambiar Archivo #{imgIdx + 1}</span>
                                   </span>
                                   <button
                                     type="button"
                                     onClick={() => setEditingModelImageIndex(null)}
-                                    className="px-2.5 py-1 rounded bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs"
+                                    className="px-2 py-0.5 rounded bg-stone-800 text-stone-300 text-[10px]"
                                   >
-                                    Listo / Cerrar
+                                    Listo
                                   </button>
                                 </div>
                                 <MediaFieldWithSourceSelector
                                   id={`edit-model-image-${currentSelectedModel.id}-${imgIdx}`}
-                                  label={`Seleccione el nuevo archivo para sustituir la imagen #${imgIdx + 1}`}
+                                  label={`Sustituir archivo para la imagen #${imgIdx + 1}`}
                                   value={imgUrl}
                                   onChange={(newUrl) => {
                                     handleUpdateModelImage(currentSelectedModel.id, imgIdx, newUrl);
                                   }}
                                   mediaType="image"
-                                  placeholder="Suba un archivo local, elija de la biblioteca o pegue URL..."
-                                  helperText="Sustituye la imagen de forma inmediata seleccionando origen: archivo de su equipo, biblioteca o enlace web."
+                                  placeholder="Archivo de tu equipo, biblioteca o URL..."
+                                  helperText="Actualiza el render inmediatamente."
                                 />
                               </div>
                             )}
-                          </React.Fragment>
+                          </div>
                         );
                       })}
                     </div>
 
-                    {/* ADD NEW IMAGE TO MODEL FORM WITH SOURCE SELECTOR */}
-                    <div className="pt-3 space-y-2.5 bg-stone-950/70 p-3.5 rounded-xl border border-stone-800">
+                    {/* ADD NEW IMAGE TO MODEL WITH COMPLETE SOURCE SELECTOR */}
+                    <div className="pt-3 space-y-3 bg-stone-900/60 p-4 rounded-xl border border-stone-800">
                       <MediaFieldWithSourceSelector
                         id="new-model-image-selector"
-                        label="Agregar Render o Imagen a la Galería del Modelo"
+                        label={`Agregar Nuevo Render o Plano a la Galería de ${currentSelectedModel.name}`}
                         value={newImageUrl}
                         onChange={setNewImageUrl}
                         mediaType="image"
-                        placeholder="Suba un archivo local, seleccione de la biblioteca del ranch o pegue una URL..."
-                        helperText="Soporta renders 3D de fachada, planos de corte, terrazas en Bambú Guadua y fotos del modelo."
+                        placeholder="Sube archivo desde tu computadora, elige de la biblioteca o pega URL..."
+                        helperText="Soporta renders 3D, axonometrías, cortes de arquitectura y fotografías en alta definición."
                       />
                       <div className="text-right pt-1">
                         <button
@@ -1866,6 +2714,36 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                         </button>
                       </div>
                     </div>
+                  </div>
+
+                  {/* BOTTOM SAVE ACTIONS FOR CURRENT MODEL */}
+                  <div className="pt-4 border-t border-stone-800 flex items-center justify-between">
+                    <div className="text-xs text-stone-400">
+                      Editando modelo: <span className="text-amber-400 font-semibold">{currentSelectedModel.name}</span> ({currentSelectedModel.id})
+                    </div>
+                    <button
+                      id="btn-save-models-tab-bottom"
+                      type="button"
+                      disabled={savingModelsSection || levelInfo.isReadOnly}
+                      onClick={handleSaveModelsSection}
+                      className={`px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg transition-all ${
+                        levelInfo.isReadOnly
+                          ? 'bg-stone-800 text-stone-500 cursor-not-allowed'
+                          : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-950/50 hover:scale-[1.02]'
+                      }`}
+                    >
+                      {savingModelsSection ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>Grabando en Servidor...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4" />
+                          <span>Guardar y Grabar Modelos en el CMS</span>
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
               )}

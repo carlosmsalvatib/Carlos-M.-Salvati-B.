@@ -20,13 +20,15 @@ export const SalesFinancingSection: React.FC<SalesFinancingSectionProps> = ({ co
 
   // Simulator State
   const [lotArea, setLotArea] = useState<number>(600);
-  const [selectedModel, setSelectedModel] = useState<'ninguno' | 'modelo-a' | 'modelo-b'>('ninguno');
+  const [selectedModel, setSelectedModel] = useState<string>('ninguno');
   const [selectedPlan, setSelectedPlan] = useState<string>('propio');
 
   const pricePerM2 = salesFinancing.pricePerM2Usd || 20;
   const lotTotalPrice = Math.round(lotArea * pricePerM2);
 
-  const housePrice = selectedModel === 'modelo-a' ? 40500 : selectedModel === 'modelo-b' ? 56250 : 0;
+  const activeHousingModels = (content.housingModels?.models || []).filter((m) => m.active !== false);
+  const selectedModelObj = activeHousingModels.find((m) => m.id === selectedModel);
+  const housePrice = selectedModelObj ? selectedModelObj.priceUsd : 0;
   const totalInvestment = lotTotalPrice + housePrice;
 
   // 50% initial + 6 monthly installments
@@ -40,7 +42,7 @@ export const SalesFinancingSection: React.FC<SalesFinancingSectionProps> = ({ co
       totalLotUsd: lotTotalPrice,
       initial50Usd: initial50,
       monthlyInstallmentUsd: monthlyInstallment,
-      selectedHouseModel: selectedModel !== 'ninguno' ? selectedModel : undefined,
+      selectedHouseModel: selectedModelObj ? `${selectedModelObj.name} (${selectedModelObj.areaM2} m²)` : undefined,
       totalCombinedUsd: totalInvestment,
     });
   };
@@ -201,31 +203,25 @@ export const SalesFinancingSection: React.FC<SalesFinancingSectionProps> = ({ co
                     <span className="text-[11px] text-stone-500">Sin modelo de casa</span>
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setSelectedModel('modelo-a')}
-                    className={`p-3 rounded-xl border text-left transition-all ${
-                      selectedModel === 'modelo-a'
-                        ? 'border-amber-500 bg-amber-50/60 ring-2 ring-amber-500/20'
-                        : 'border-stone-200 hover:bg-stone-50'
-                    }`}
-                  >
-                    <span className="block font-bold text-xs text-stone-900">Modelo A (90 m²)</span>
-                    <span className="text-[11px] text-amber-700 font-semibold">+ $40.500 USD</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setSelectedModel('modelo-b')}
-                    className={`p-3 rounded-xl border text-left transition-all ${
-                      selectedModel === 'modelo-b'
-                        ? 'border-amber-500 bg-amber-50/60 ring-2 ring-amber-500/20'
-                        : 'border-stone-200 hover:bg-stone-50'
-                    }`}
-                  >
-                    <span className="block font-bold text-xs text-stone-900">Modelo B (125 m²)</span>
-                    <span className="text-[11px] text-amber-700 font-semibold">+ $56.250 USD</span>
-                  </button>
+                  {activeHousingModels.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setSelectedModel(m.id)}
+                      className={`p-3 rounded-xl border text-left transition-all ${
+                        selectedModel === m.id
+                          ? 'border-amber-500 bg-amber-50/60 ring-2 ring-amber-500/20'
+                          : 'border-stone-200 hover:bg-stone-50'
+                      }`}
+                    >
+                      <span className="block font-bold text-xs text-stone-900 truncate">
+                        {m.name} ({m.areaM2} m²)
+                      </span>
+                      <span className="text-[11px] text-amber-700 font-semibold">
+                        + ${m.priceUsd.toLocaleString('es-VE')} USD
+                      </span>
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -275,9 +271,9 @@ export const SalesFinancingSection: React.FC<SalesFinancingSectionProps> = ({ co
                     <span className="font-bold text-stone-900">${lotTotalPrice.toLocaleString('es-VE')} USD</span>
                   </div>
 
-                  {housePrice > 0 && (
+                  {housePrice > 0 && selectedModelObj && (
                     <div className="flex justify-between text-amber-800">
-                      <span>Construcción ({selectedModel === 'modelo-a' ? 'Modelo A 90 m²' : 'Modelo B 125 m²'}):</span>
+                      <span>Construcción ({selectedModelObj.name} {selectedModelObj.areaM2} m²):</span>
                       <span className="font-bold">${housePrice.toLocaleString('es-VE')} USD</span>
                     </div>
                   )}

@@ -126,38 +126,48 @@ export const HousingModelsSection: React.FC<HousingModelsSectionProps> = ({
 
         {/* HOUSING MODELS GALLERY WITH DIRECTIONAL NAVIGATION & AMPLIFICATION */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-          {housingModels.models.map((model) => {
-            const images = model.images && model.images.length > 0 ? model.images : ['/api/images/model-a-render'];
-            const currentIndex = getActiveIndex(model.id, images.length);
-            const currentImg = images[currentIndex];
+          {housingModels.models
+            .filter((model) => model.active !== false)
+            .map((model) => {
+              const images = model.images && model.images.length > 0 ? model.images : ['/api/images/model-a-render'];
+              const currentIndex = getActiveIndex(model.id, images.length);
+              const currentImg = images[currentIndex];
 
-            return (
-              <div
-                key={model.id}
-                className="bg-stone-800/90 border border-stone-700/90 rounded-2xl overflow-hidden shadow-2xl hover:border-amber-400/50 transition-all flex flex-col justify-between"
-                id={`housing-model-card-${model.id}`}
-              >
-                <div>
-                  {/* Model Header */}
-                  <div className="p-4 sm:p-5 bg-stone-950 flex items-center justify-between border-b border-stone-800">
-                    <div>
-                      <h3 className="font-serif font-bold text-xl text-white">
-                        {model.name}
-                      </h3>
-                      <p className="text-xs text-amber-400 font-medium">
-                        {model.tagline}
-                      </p>
-                    </div>
+              return (
+                <div
+                  key={model.id}
+                  className="bg-stone-800/90 border border-stone-700/90 rounded-2xl overflow-hidden shadow-2xl hover:border-amber-400/50 transition-all flex flex-col justify-between"
+                  id={`housing-model-card-${model.id}`}
+                >
+                  <div>
+                    {/* Model Header */}
+                    <div className="p-4 sm:p-5 bg-stone-950 flex items-center justify-between border-b border-stone-800">
+                      <div>
+                        <h3 className="font-serif font-bold text-xl text-white">
+                          {model.name}
+                        </h3>
+                        <p className="text-xs text-amber-400 font-medium">
+                          {model.tagline}
+                        </p>
+                      </div>
 
-                    <div className="text-right">
-                      <span className="block font-mono font-extrabold text-lg text-emerald-400">
-                        ${model.priceUsd.toLocaleString('es-VE')} USD
-                      </span>
-                      <span className="text-[11px] text-stone-400">
-                        450 USD/m² ({model.areaM2} m²)
-                      </span>
+                      <div className="text-right">
+                        {model.showPrice !== false ? (
+                          <>
+                            <span className="block font-mono font-extrabold text-lg text-emerald-400">
+                              ${model.priceUsd.toLocaleString('es-VE')} USD
+                            </span>
+                            <span className="text-[11px] text-stone-400">
+                              {model.pricePerM2Usd || 450} USD/m² ({model.areaM2} m²)
+                            </span>
+                          </>
+                        ) : (
+                          <span className="inline-block px-2.5 py-1 rounded-full bg-stone-800 text-amber-300 text-xs font-semibold border border-stone-700">
+                            Precio a consultar
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
 
                   {/* Image Viewport with Directional Arrows */}
                   <div className="relative w-full h-72 sm:h-80 bg-stone-950 group overflow-hidden">

@@ -1,0 +1,59 @@
+{
+  "entities": {
+    "cms_content": {
+      "title": "Global CMS Content",
+      "description": "Sections, texts, site configuration and model references",
+      "properties": {
+        "site": { "type": "object", "description": "Global branding and metadata" },
+        "hero": { "type": "object", "description": "Hero section settings" },
+        "propuesta": { "type": "object", "description": "Propuesta and value proposition" },
+        "housingModels": { "type": "object", "description": "Housing models section settings and catalog" },
+        "masterPlan": { "type": "object", "description": "Master plan map and parameters" },
+        "salesFinancing": { "type": "object", "description": "Pricing and payment schemes" },
+        "socialImpact": { "type": "object", "description": "Social impact metrics" },
+        "faq": { "type": "object", "description": "Frequently asked questions" },
+        "updatedAt": { "type": "string", "description": "Last update timestamp" }
+      }
+    },
+    "housing_models": {
+      "title": "Housing Models",
+      "description": "Architectural bamboo home models",
+      "properties": {
+        "id": { "type": "string", "description": "Model ID" },
+        "name": { "type": "string", "description": "Model name" },
+        "tagline": { "type": "string", "description": "Subtitle" },
+        "areaM2": { "type": "number", "description": "Construction area in m²" },
+        "priceUsd": { "type": "number", "description": "Total price in USD" },
+        "pricePerM2Usd": { "type": "number", "description": "Price per m² in USD" },
+        "images": { "type": "array", "description": "Gallery of photo URLs and renders" },
+        "benefits": { "type": "array", "description": "Bullet points highlights" },
+        "specs": { "type": "object", "description": "Bedrooms, bathrooms, terrace, etc." }
+      }
+    },
+    "lots": {
+      "title": "Lots / Parcels",
+      "description": "Inventory of lots with availability status",
+      "properties": {
+        "id": { "type": "string", "description": "Lot unique ID" },
+        "code": { "type": "string", "description": "Display code e.g. L-01" },
+        "manzana": { "type": "string", "description": "Block identifier" },
+        "areaM2": { "type": "number", "description": "Lot area in m²" },
+        "status": { "type": "string", "description": "disponible | reservado | vendido" },
+        "priceUsdPerM2": { "type": "number", "description": "Price per m² in USD" },
+        "totalPriceUsd": { "type": "number", "description": "Total price in USD" }
+      }
+    },
+    "leads": {
+      "title": "Leads",
+      "description": "Customer contact submissions",
+      "properties": {
+        "id": { "type": "string", "description": "Lead ID" },
+        "fullName": { "type": "string", "description": "Contact name" },
+        "phone": { "type": "string", "description": "Phone number" },
+        "email": { "type": "string", "description": "Email address" },
+        "status": { "type": "string", "description": "nuevo | contactado | cerrado" },
+        "createdAt": { "type": "string", "description": "Submission date" }
+      }
+    }
+  }
+}

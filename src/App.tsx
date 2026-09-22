@@ -7,6 +7,9 @@ import {
   getLocalCachedContent,
   getLocalCachedLots,
   getLocalCachedModels,
+  subscribeToLiveContent,
+  subscribeToLiveModels,
+  subscribeToLiveLots,
 } from './lib/api';
 import { initialCmsContent } from './data/initialContent';
 import { initialLots } from './data/initialLots';
@@ -243,7 +246,42 @@ export function App() {
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
+    // Real-time Firestore continuous synchronization
+    const unsubContent = subscribeToLiveContent((remoteContent) => {
+      if (remoteContent && remoteContent.site) {
+        setContent((prev) => ({
+          ...prev,
+          ...remoteContent,
+          housingModels: remoteContent.housingModels?.models ? {
+            ...(prev.housingModels || initialCmsContent.housingModels),
+            ...remoteContent.housingModels,
+          } : prev.housingModels,
+        }));
+      }
+    });
+
+    const unsubModels = subscribeToLiveModels((remoteModels) => {
+      if (Array.isArray(remoteModels) && remoteModels.length > 0) {
+        setContent((prev) => ({
+          ...prev,
+          housingModels: {
+            ...(prev.housingModels || initialCmsContent.housingModels),
+            models: remoteModels,
+          },
+        }));
+      }
+    });
+
+    const unsubLots = subscribeToLiveLots((remoteLots) => {
+      if (Array.isArray(remoteLots) && remoteLots.length > 0) {
+        setLots([...remoteLots]);
+      }
+    });
+
     return () => {
+      unsubContent();
+      unsubModels();
+      unsubLots();
       window.removeEventListener('mdr_data_updated', handleDataUpdated);
       window.removeEventListener('mdr_models_updated', handleModelsUpdated);
       window.removeEventListener('storage', handleStorage);

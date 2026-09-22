@@ -1,6 +1,16 @@
 import { CmsContent, LotItem, LeadSubmission, AppUser, HousingModel } from '../types';
 import { initialCmsContent } from '../data/initialContent';
 import { initialLots } from '../data/initialLots';
+import {
+  db,
+  doc,
+  getDoc,
+  setDoc,
+  onSnapshot,
+  writeBatch,
+  collection,
+  getDocs,
+} from './firebase';
 
 export const API_BASE = '/api';
 
@@ -135,6 +145,22 @@ async function parseJsonSafely<T>(res: Response, fallbackErrorMsg: string): Prom
 
 export async function fetchCmsContent(): Promise<CmsContent> {
   const localCached = getLocalCachedContent();
+
+  // 1. Prioritize Cloud Firestore for global real-time synchronization
+  try {
+    const snap = await getDoc(doc(db, 'cms_content', 'global_content'));
+    if (snap.exists()) {
+      const data = snap.data() as CmsContent;
+      if (data && data.site) {
+        saveLocalCache(data);
+        return data;
+      }
+    }
+  } catch (fireErr) {
+    console.warn('Lectura de Firestore no disponible, recurriendo a servidor:', fireErr);
+  }
+
+  // 2. Fallback to Express backend
   try {
     const res = await fetch(`${API_BASE}/content?_t=${Date.now()}`, {
       cache: 'no-store',
@@ -161,6 +187,18 @@ export async function saveCmsContent(content: CmsContent, note?: string): Promis
   // 1. Guardar de inmediato en almacenamiento persistente del cliente
   saveLocalCache(content);
 
+  // 2. Persistir en Firebase Firestore (Nube)
+  try {
+    await setDoc(doc(db, 'cms_content', 'global_content'), {
+      ...content,
+      updatedAt: new Date().toISOString(),
+      _lastNote: note || '',
+    });
+  } catch (fireErr) {
+    console.warn('Guardado en Firestore no completado:', fireErr);
+  }
+
+  // 3. Persistir en servidor Express y disco local
   const query = note ? `?note=${encodeURIComponent(note)}` : '';
   try {
     const res = await fetch(`${API_BASE}/content${query}`, {
@@ -186,6 +224,10 @@ export async function resetCmsContent(): Promise<CmsContent> {
   try {
     localStorage.removeItem(STORAGE_KEY_CONTENT);
     localStorage.removeItem(STORAGE_KEY_LOTS);
+    await setDoc(doc(db, 'cms_content', 'global_content'), {
+      ...initialCmsContent,
+      updatedAt: new Date().toISOString(),
+    }).catch(() => {});
     const res = await fetch(`${API_BASE}/content/reset`, { method: 'POST' });
     const json = await parseJsonSafely<{ success: boolean; data: CmsContent }>(
       res,
@@ -202,6 +244,22 @@ export async function resetCmsContent(): Promise<CmsContent> {
 
 export async function fetchLots(): Promise<LotItem[]> {
   const localCached = getLocalCachedLots();
+
+  // 1. Firestore Cloud
+  try {
+    const snap = await getDoc(doc(db, 'lots_metadata', 'catalog'));
+    if (snap.exists()) {
+      const data = snap.data();
+      if (data?.lots && Array.isArray(data.lots) && data.lots.length > 0) {
+        saveLocalCache(undefined, data.lots);
+        return data.lots;
+      }
+    }
+  } catch (fireErr) {
+    console.warn('Firestore lots fallback a backend:', fireErr);
+  }
+
+  // 2. Backend Express
   try {
     const res = await fetch(`${API_BASE}/lots?_t=${Date.now()}`, {
       cache: 'no-store',
@@ -225,6 +283,21 @@ export async function fetchLots(): Promise<LotItem[]> {
 }
 
 export async function updateLot(id: string, updates: Partial<LotItem>): Promise<LotItem> {
+  // 1. Actualizar en Firestore
+  try {
+    await setDoc(doc(db, 'lots', id), updates, { merge: true });
+    const currentLots = getLocalCachedLots() || [];
+    const nextLots = currentLots.map((l) => (l.id === id ? { ...l, ...updates } : l));
+    saveLocalCache(undefined, nextLots);
+    setDoc(doc(db, 'lots_metadata', 'catalog'), {
+      lots: nextLots,
+      updatedAt: new Date().toISOString(),
+    }).catch(() => {});
+  } catch (fireErr) {
+    console.warn('Firestore updateLot error:', fireErr);
+  }
+
+  // 2. Actualizar en backend
   const res = await fetch(`${API_BASE}/lots/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -241,6 +314,24 @@ export async function saveBulkLots(lots: LotItem[]): Promise<LotItem[]> {
   // 1. Guardar de inmediato en almacenamiento local persistente
   saveLocalCache(undefined, lots);
 
+  // 2. Persistir en Firestore Cloud
+  try {
+    await setDoc(doc(db, 'lots_metadata', 'catalog'), {
+      lots,
+      updatedAt: new Date().toISOString(),
+    });
+    const batch = writeBatch(db);
+    for (const lot of lots.slice(0, 100)) {
+      if (lot.id) {
+        batch.set(doc(db, 'lots', lot.id), lot, { merge: true });
+      }
+    }
+    await batch.commit();
+  } catch (fireErr) {
+    console.warn('Error guardando lotes en Firestore:', fireErr);
+  }
+
+  // 3. Persistir en backend
   try {
     const res = await fetch(`${API_BASE}/lots/bulk-save`, {
       method: 'POST',
@@ -272,6 +363,33 @@ export async function saveAllCmsAndLots(
   // Guardar en cache persistente local de inmediato
   saveLocalCache(content, lots);
 
+  // 1. Guardar en Firebase Firestore
+  try {
+    const promises: Promise<any>[] = [
+      setDoc(doc(db, 'cms_content', 'global_content'), {
+        ...content,
+        updatedAt: new Date().toISOString(),
+        _lastNote: note || '',
+      }),
+      setDoc(doc(db, 'lots_metadata', 'catalog'), {
+        lots,
+        updatedAt: new Date().toISOString(),
+      }),
+    ];
+    if (content.housingModels?.models) {
+      promises.push(
+        setDoc(doc(db, 'housing_models', 'catalog'), {
+          models: content.housingModels.models,
+          updatedAt: new Date().toISOString(),
+        })
+      );
+    }
+    await Promise.all(promises);
+  } catch (fireErr) {
+    console.warn('Error guardando en Firestore durante saveAllCmsAndLots:', fireErr);
+  }
+
+  // 2. Guardar en backend Express
   try {
     const query = note ? `?note=${encodeURIComponent(note)}` : '';
     const res = await fetch(`${API_BASE}/sync-all${query}`, {
@@ -289,7 +407,6 @@ export async function saveAllCmsAndLots(
     }
   } catch (err) {
     console.warn('Sincronización con backend falló, respaldado en persistencia local:', err);
-    // Intentar guardar en endpoints individuales como respaldo
     try {
       await Promise.all([
         saveCmsContent(content, note),
@@ -302,6 +419,22 @@ export async function saveAllCmsAndLots(
 }
 
 export async function createLot(lot: Partial<LotItem>): Promise<LotItem> {
+  const lotId = lot.id || `lot-${Date.now()}`;
+  const fullLot = { ...lot, id: lotId } as LotItem;
+
+  try {
+    await setDoc(doc(db, 'lots', lotId), fullLot);
+    const current = getLocalCachedLots() || [];
+    const nextLots = [...current, fullLot];
+    saveLocalCache(undefined, nextLots);
+    setDoc(doc(db, 'lots_metadata', 'catalog'), {
+      lots: nextLots,
+      updatedAt: new Date().toISOString(),
+    }).catch(() => {});
+  } catch (fireErr) {
+    console.warn('Error agregando lote en Firestore:', fireErr);
+  }
+
   const res = await fetch(`${API_BASE}/lots`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -315,6 +448,19 @@ export async function createLot(lot: Partial<LotItem>): Promise<LotItem> {
 }
 
 export async function deleteLot(id: string): Promise<void> {
+  try {
+    await setDoc(doc(db, 'lots', id), { _deleted: true }, { merge: true });
+    const current = getLocalCachedLots() || [];
+    const nextLots = current.filter((l) => l.id !== id);
+    saveLocalCache(undefined, nextLots);
+    setDoc(doc(db, 'lots_metadata', 'catalog'), {
+      lots: nextLots,
+      updatedAt: new Date().toISOString(),
+    }).catch(() => {});
+  } catch (fireErr) {
+    console.warn('Error eliminando lote en Firestore:', fireErr);
+  }
+
   const res = await fetch(`${API_BASE}/lots/${id}`, { method: 'DELETE' });
   await parseJsonSafely<{ success: boolean }>(res, 'Error al eliminar lote');
 }
@@ -336,6 +482,22 @@ export interface FetchHousingModelsResponse {
 
 export async function fetchHousingModels(): Promise<FetchHousingModelsResponse> {
   const localCached = getLocalCachedModels();
+
+  // 1. Prioritize Cloud Firestore
+  try {
+    const snap = await getDoc(doc(db, 'housing_models', 'catalog'));
+    if (snap.exists()) {
+      const data = snap.data();
+      if (data?.models && Array.isArray(data.models) && data.models.length > 0) {
+        saveLocalCache(undefined, undefined, data.models);
+        return { models: data.models, section: data.section };
+      }
+    }
+  } catch (fireErr) {
+    console.warn('Firestore models fallback a backend:', fireErr);
+  }
+
+  // 2. Fallback to Express backend
   try {
     const res = await fetch(`${API_BASE}/models?_t=${Date.now()}`, {
       cache: 'no-store',
@@ -374,6 +536,22 @@ export const getHousingModels = fetchHousingModels;
 export const getModels = fetchHousingModels;
 
 export async function createHousingModel(model: Partial<HousingModel>): Promise<HousingModel> {
+  const modelId = model.id || `modelo-${Date.now()}`;
+  const fullModel = { ...model, id: modelId } as HousingModel;
+
+  try {
+    await setDoc(doc(db, 'housing_models', modelId), fullModel);
+    const current = getLocalCachedModels() || [];
+    const nextModels = [...current, fullModel];
+    saveLocalCache(undefined, undefined, nextModels);
+    setDoc(doc(db, 'housing_models', 'catalog'), {
+      models: nextModels,
+      updatedAt: new Date().toISOString(),
+    }).catch(() => {});
+  } catch (fireErr) {
+    console.warn('Error guardando nuevo modelo en Firestore:', fireErr);
+  }
+
   const res = await fetch(`${API_BASE}/models`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -396,6 +574,19 @@ export async function updateHousingModel(
   id: string,
   model: Partial<HousingModel>
 ): Promise<HousingModel> {
+  try {
+    await setDoc(doc(db, 'housing_models', id), model, { merge: true });
+    const current = getLocalCachedModels() || [];
+    const nextModels = current.map((m) => (m.id === id ? { ...m, ...model } : m));
+    saveLocalCache(undefined, undefined, nextModels);
+    setDoc(doc(db, 'housing_models', 'catalog'), {
+      models: nextModels,
+      updatedAt: new Date().toISOString(),
+    }).catch(() => {});
+  } catch (fireErr) {
+    console.warn('Error actualizando modelo en Firestore:', fireErr);
+  }
+
   const res = await fetch(`${API_BASE}/models/${encodeURIComponent(id)}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -415,6 +606,19 @@ export async function updateHousingModel(
 }
 
 export async function deleteHousingModel(id: string): Promise<HousingModel[]> {
+  try {
+    await setDoc(doc(db, 'housing_models', id), { _deleted: true }, { merge: true });
+    const current = getLocalCachedModels() || [];
+    const nextModels = current.filter((m) => m.id !== id);
+    saveLocalCache(undefined, undefined, nextModels);
+    setDoc(doc(db, 'housing_models', 'catalog'), {
+      models: nextModels,
+      updatedAt: new Date().toISOString(),
+    }).catch(() => {});
+  } catch (fireErr) {
+    console.warn('Error eliminando modelo en Firestore:', fireErr);
+  }
+
   const res = await fetch(`${API_BASE}/models/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   });
@@ -487,6 +691,39 @@ export async function saveHousingModelsBulk(
   }
 
   saveLocalCache(undefined, undefined, processedModels);
+
+  // 1. Guardar en Firebase Firestore
+  try {
+    await setDoc(doc(db, 'housing_models', 'catalog'), {
+      models: processedModels,
+      section: section || null,
+      updatedAt: new Date().toISOString(),
+    });
+    for (const m of processedModels) {
+      if (m.id) {
+        await setDoc(doc(db, 'housing_models', m.id), m);
+      }
+    }
+    // Sincronizar también con cms_content global en Firestore
+    const contentSnap = await getDoc(doc(db, 'cms_content', 'global_content'));
+    if (contentSnap.exists()) {
+      const cData = contentSnap.data() as CmsContent;
+      if (cData) {
+        await setDoc(doc(db, 'cms_content', 'global_content'), {
+          ...cData,
+          housingModels: {
+            ...(cData.housingModels || {}),
+            models: processedModels,
+          },
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    }
+  } catch (fireErr) {
+    console.warn('Error guardando modelos en Firestore:', fireErr);
+  }
+
+  // 2. Guardar en backend Express
   try {
     const res = await fetch(`${API_BASE}/models/bulk-save`, {
       method: 'POST',
@@ -526,6 +763,19 @@ export async function updateHousingModelsSettings(settings: {
 }
 
 export async function fetchLeads(): Promise<LeadSubmission[]> {
+  // 1. Intentar cargar desde Firebase Firestore
+  try {
+    const snap = await getDocs(collection(db, 'leads'));
+    if (!snap.empty) {
+      const list: LeadSubmission[] = [];
+      snap.forEach((d) => list.push(d.data() as LeadSubmission));
+      return list.sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
+    }
+  } catch (fireErr) {
+    console.warn('Firestore leads fallback a servidor:', fireErr);
+  }
+
+  // 2. Servidor backend
   try {
     const res = await fetch(`${API_BASE}/leads`);
     const json = await parseJsonSafely<{ success: boolean; data: LeadSubmission[] }>(
@@ -539,19 +789,54 @@ export async function fetchLeads(): Promise<LeadSubmission[]> {
 }
 
 export async function submitLead(payload: Partial<LeadSubmission>): Promise<LeadSubmission> {
-  const res = await fetch(`${API_BASE}/leads`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  const json = await parseJsonSafely<{ success: boolean; data: LeadSubmission }>(
-    res,
-    'Error al enviar solicitud'
-  );
-  return json.data;
+  const leadId = payload.id || `lead-${Date.now()}`;
+  const completeLead: LeadSubmission = {
+    id: leadId,
+    timestamp: new Date().toISOString(),
+    fullName: payload.fullName || 'Interesado',
+    email: payload.email || '',
+    phone: payload.phone || '',
+    profileInterest: payload.profileInterest || 'general',
+    message: payload.message || '',
+    lotPreference: payload.lotPreference || '',
+    modelPreference: payload.modelPreference || '',
+    source: payload.source || 'formulario',
+    status: 'nuevo',
+  };
+
+  // 1. Guardar en Firebase Firestore
+  try {
+    await setDoc(doc(db, 'leads', leadId), completeLead);
+  } catch (fireErr) {
+    console.warn('Error registrando lead en Firestore:', fireErr);
+  }
+
+  // 2. Servidor backend
+  try {
+    const res = await fetch(`${API_BASE}/leads`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(completeLead),
+    });
+    const json = await parseJsonSafely<{ success: boolean; data: LeadSubmission }>(
+      res,
+      'Error al enviar solicitud'
+    );
+    return json.data;
+  } catch {
+    return completeLead;
+  }
 }
 
 export async function updateLeadStatus(id: string, status: LeadSubmission['status']): Promise<LeadSubmission> {
+  // 1. Firestore
+  try {
+    await setDoc(doc(db, 'leads', id), { status }, { merge: true });
+  } catch (fireErr) {
+    console.warn('Error actualizando lead en Firestore:', fireErr);
+  }
+
+  // 2. Servidor backend
   const res = await fetch(`${API_BASE}/leads/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -631,6 +916,17 @@ const DEFAULT_USERS_SEED: AppUser[] = [
 // --- Users Management API (5 Levels) ---
 export async function fetchUsers(): Promise<AppUser[]> {
   try {
+    const snap = await getDocs(collection(db, 'users'));
+    if (!snap.empty) {
+      const list: AppUser[] = [];
+      snap.forEach((d) => list.push(d.data() as AppUser));
+      return list;
+    }
+  } catch (fireErr) {
+    console.warn('Firestore users fallback:', fireErr);
+  }
+
+  try {
     const res = await fetch(`${API_BASE}/users`);
     const json = await parseJsonSafely<{ success: boolean; data: AppUser[] }>(
       res,
@@ -648,11 +944,29 @@ export async function fetchUsers(): Promise<AppUser[]> {
 }
 
 export async function createUser(user: Partial<AppUser>): Promise<AppUser> {
+  const userId = user.id || 'user-' + Date.now();
+  const newUser: AppUser = {
+    id: userId,
+    username: (user.username || 'usuario').toLowerCase().trim(),
+    name: user.name || 'Nuevo Usuario',
+    email: user.email || '',
+    level: user.level || 4,
+    levelName: user.levelName || 'Vendedor',
+    active: user.active !== undefined ? user.active : true,
+    createdAt: new Date().toISOString(),
+  };
+
+  try {
+    await setDoc(doc(db, 'users', userId), newUser);
+  } catch (fireErr) {
+    console.warn('Error guardando usuario en Firestore:', fireErr);
+  }
+
   try {
     const res = await fetch(`${API_BASE}/users`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(user),
+      body: JSON.stringify(newUser),
     });
     const json = await parseJsonSafely<{ success: boolean; data: AppUser }>(
       res,
@@ -660,17 +974,6 @@ export async function createUser(user: Partial<AppUser>): Promise<AppUser> {
     );
     return json.data;
   } catch (err: any) {
-    // If backend fails, persist locally
-    const newUser: AppUser = {
-      id: 'user-' + Date.now(),
-      username: (user.username || 'usuario').toLowerCase().trim(),
-      name: user.name || 'Nuevo Usuario',
-      email: user.email || '',
-      level: user.level || 4,
-      levelName: user.levelName || 'Vendedor',
-      active: user.active !== undefined ? user.active : true,
-      createdAt: new Date().toISOString(),
-    };
     try {
       const current = await fetchUsers();
       localStorage.setItem('mdr_users_cache', JSON.stringify([...current, newUser]));
@@ -680,6 +983,12 @@ export async function createUser(user: Partial<AppUser>): Promise<AppUser> {
 }
 
 export async function updateUser(id: string, updates: Partial<AppUser>): Promise<AppUser> {
+  try {
+    await setDoc(doc(db, 'users', id), updates, { merge: true });
+  } catch (fireErr) {
+    console.warn('Error actualizando usuario en Firestore:', fireErr);
+  }
+
   try {
     const res = await fetch(`${API_BASE}/users/${id}`, {
       method: 'PUT',
@@ -705,6 +1014,12 @@ export async function updateUser(id: string, updates: Partial<AppUser>): Promise
 
 export async function deleteUser(id: string): Promise<void> {
   try {
+    await setDoc(doc(db, 'users', id), { active: false }, { merge: true });
+  } catch (fireErr) {
+    console.warn('Error desactivando usuario en Firestore:', fireErr);
+  }
+
+  try {
     const res = await fetch(`${API_BASE}/users/${id}`, { method: 'DELETE' });
     await parseJsonSafely<{ success: boolean }>(res, 'Error al eliminar usuario');
   } catch (err: any) {
@@ -713,6 +1028,61 @@ export async function deleteUser(id: string): Promise<void> {
     try {
       localStorage.setItem('mdr_users_cache', JSON.stringify(filtered));
     } catch {}
+  }
+}
+
+/**
+ * --- REAL-TIME FIRESTORE LISTENERS ---
+ * Enables instantaneous sync when any CMS user updates content, models, or lots.
+ */
+export function subscribeToLiveContent(callback: (content: CmsContent) => void): () => void {
+  try {
+    return onSnapshot(doc(db, 'cms_content', 'global_content'), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data() as CmsContent;
+        if (data && data.site) {
+          saveLocalCache(data);
+          callback(data);
+        }
+      }
+    });
+  } catch (err) {
+    console.warn('Error iniciando suscripción en tiempo real a Firestore:', err);
+    return () => {};
+  }
+}
+
+export function subscribeToLiveModels(callback: (models: HousingModel[]) => void): () => void {
+  try {
+    return onSnapshot(doc(db, 'housing_models', 'catalog'), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data?.models && Array.isArray(data.models)) {
+          saveLocalCache(undefined, undefined, data.models);
+          callback(data.models);
+        }
+      }
+    });
+  } catch (err) {
+    console.warn('Error iniciando suscripción de modelos a Firestore:', err);
+    return () => {};
+  }
+}
+
+export function subscribeToLiveLots(callback: (lots: LotItem[]) => void): () => void {
+  try {
+    return onSnapshot(doc(db, 'lots_metadata', 'catalog'), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data?.lots && Array.isArray(data.lots)) {
+          saveLocalCache(undefined, data.lots);
+          callback(data.lots);
+        }
+      }
+    });
+  } catch (err) {
+    console.warn('Error iniciando suscripción de lotes a Firestore:', err);
+    return () => {};
   }
 }
 

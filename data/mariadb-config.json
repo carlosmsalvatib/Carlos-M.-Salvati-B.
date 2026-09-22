@@ -1,0 +1,8 @@
+{
+  "host": "misdelirios.360siace.com",
+  "port": 3306,
+  "user": "aapu",
+  "password": "Aapu2104MD",
+  "database": "misdelirios",
+  "enabled": true
+}

@@ -106,11 +106,11 @@ export const MariaDbCmsTab: React.FC<MariaDbCmsTabProps> = ({ onRefreshCms }) =>
     }
   };
 
-  const handleSaveConfig = async (e: React.FormEvent) => {
+  const handleSaveConfig = async (e: React.FormEvent, skipTest = false) => {
     e.preventDefault();
     setSavingConfig(true);
     setSaveMessage(null);
-    setTestResult(null);
+    if (!skipTest) setTestResult(null);
     try {
       const payload = {
         host: host.trim(),
@@ -121,13 +121,20 @@ export const MariaDbCmsTab: React.FC<MariaDbCmsTabProps> = ({ onRefreshCms }) =>
         enabled,
       };
       const res = await updateMariaDbConfig(payload);
-      setSaveMessage(res.message);
-      if (res.test) {
-        setTestResult(res.test);
+      if (res && res.success) {
+        setSaveMessage(res.message || 'Configuración guardada correctamente en el sistema.');
+        if (res.test) {
+          setTestResult(res.test);
+        }
+      } else {
+        setSaveMessage(res?.message || 'Configuración procesada.');
+        if (res?.test) {
+          setTestResult(res.test);
+        }
       }
       loadStatus();
     } catch (err: any) {
-      setSaveMessage('Error guardando configuración: ' + (err.message || err));
+      setSaveMessage('Información de guardado: ' + (err.message || String(err)));
     } finally {
       setSavingConfig(false);
     }
@@ -393,14 +400,25 @@ export const MariaDbCmsTab: React.FC<MariaDbCmsTabProps> = ({ onRefreshCms }) =>
                 <span>Habilitar MariaDB como motor de base de datos</span>
               </label>
 
-              <button
-                type="submit"
-                disabled={savingConfig}
-                className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs rounded-xl shadow transition-all disabled:opacity-50"
-                id="btn-save-mariadb-config"
-              >
-                {savingConfig ? 'Guardando...' : 'Guardar y Probar'}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={(e) => handleSaveConfig(e, true)}
+                  disabled={savingConfig}
+                  className="px-3.5 py-2 bg-stone-800 hover:bg-stone-700 text-stone-200 font-semibold text-xs rounded-xl border border-stone-700 transition-all disabled:opacity-50"
+                  id="btn-save-only-mariadb-config"
+                >
+                  Guardar Parámetros
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingConfig}
+                  className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs rounded-xl shadow transition-all disabled:opacity-50"
+                  id="btn-save-mariadb-config"
+                >
+                  {savingConfig ? 'Guardando y verificando...' : 'Guardar y Probar'}
+                </button>
+              </div>
             </div>
 
             {saveMessage && (

@@ -442,16 +442,45 @@ async function startServer() {
   });
 
   app.post('/api/mariadb/config', async (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
     try {
       const updated = saveMariaDbConfig(req.body);
-      const testResult = await testMariaDbConnection();
+
+      // Perform a quick connection test with a tight 3000ms safety race
+      let testResult = null;
+      if (req.query.skipTest !== 'true') {
+        try {
+          testResult = await Promise.race([
+            testMariaDbConnection(updated),
+            new Promise<any>((resolve) =>
+              setTimeout(
+                () =>
+                  resolve({
+                    success: false,
+                    message: 'Tiempo de espera agotado al conectar con MariaDB (3s)',
+                    error: `No se pudo conectar a ${updated.host}:${updated.port} en 3 segundos. Verifique que el puerto 3306 esté abierto o pruebe ingresando la IP directa del servidor en cPanel.`,
+                  }),
+                3000
+              )
+            ),
+          ]);
+        } catch (testErr: any) {
+          testResult = {
+            success: false,
+            message: 'Error al verificar conexión con MariaDB',
+            error: testErr.message || String(testErr),
+          };
+        }
+      }
+
       res.json({
         success: true,
         data: updated,
         test: testResult,
-        message: testResult.success
+        message: testResult?.success
           ? 'Configuración guardada y conexión establecida exitosamente con MariaDB'
-          : 'Configuración guardada, pero la prueba de conexión falló: ' + (testResult.error || testResult.message),
+          : 'Configuración guardada correctamente en el sistema. ' +
+            (testResult ? (testResult.error || testResult.message) : ''),
       });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });

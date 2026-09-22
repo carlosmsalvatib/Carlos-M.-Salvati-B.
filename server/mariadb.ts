@@ -138,7 +138,7 @@ export async function testMariaDbConnection(configOverride?: Partial<MariaDbConf
         user: cfg.user,
         password: cfg.password,
         database: cfg.database,
-        connectTimeout: 5000,
+        connectTimeout: 2500,
       });
     } catch (dbErr: any) {
       // If database does not exist, try connecting without database to check credentials
@@ -148,7 +148,7 @@ export async function testMariaDbConnection(configOverride?: Partial<MariaDbConf
           port: cfg.port,
           user: cfg.user,
           password: cfg.password,
-          connectTimeout: 5000,
+          connectTimeout: 2500,
         });
         const [dbRows]: any = await rootConn.query('SHOW DATABASES;');
         const availableDbs = dbRows.map((r: any) => Object.values(r)[0]);

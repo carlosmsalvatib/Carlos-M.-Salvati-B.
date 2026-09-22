@@ -1337,12 +1337,20 @@ export async function testMariaDbConnection(configOverride?: any): Promise<{
   error?: string;
   databases?: string[];
 }> {
-  const res = await fetch(`${API_BASE}/mariadb/test`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(configOverride || {}),
-  });
-  return await res.json();
+  try {
+    const res = await fetch(`${API_BASE}/mariadb/test`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(configOverride || {}),
+    });
+    return await parseJsonSafely(res, 'Error al probar conexión con MariaDB');
+  } catch (err: any) {
+    return {
+      success: false,
+      message: 'Fallo de comunicación al probar MariaDB',
+      error: err.message || String(err),
+    };
+  }
 }
 
 export async function updateMariaDbConfig(config: any): Promise<{
@@ -1351,12 +1359,21 @@ export async function updateMariaDbConfig(config: any): Promise<{
   test: any;
   message: string;
 }> {
-  const res = await fetch(`${API_BASE}/mariadb/config`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(config),
-  });
-  return await res.json();
+  try {
+    const res = await fetch(`${API_BASE}/mariadb/config`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    return await parseJsonSafely(res, 'Error al guardar configuración de MariaDB');
+  } catch (err: any) {
+    return {
+      success: false,
+      data: config,
+      test: null,
+      message: 'Error al enviar configuración: ' + (err.message || String(err)),
+    };
+  }
 }
 
 export async function runMariaDbMigration(): Promise<{
@@ -1364,10 +1381,17 @@ export async function runMariaDbMigration(): Promise<{
   message: string;
   details?: any;
 }> {
-  const res = await fetch(`${API_BASE}/mariadb/migrate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-  });
-  return await res.json();
+  try {
+    const res = await fetch(`${API_BASE}/mariadb/migrate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return await parseJsonSafely(res, 'Error al ejecutar migración a MariaDB');
+  } catch (err: any) {
+    return {
+      success: false,
+      message: 'Error al solicitar migración: ' + (err.message || String(err)),
+    };
+  }
 }
 

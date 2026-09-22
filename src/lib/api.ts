@@ -1308,3 +1308,66 @@ export async function loginAdmin(
   throw new Error('Credenciales inválidas. Verifique su usuario y contraseña.');
 }
 
+export interface MariaDbStatusResponse {
+  connected: boolean;
+  error: string | null;
+  lastChecked: string | null;
+  tablesCreated: boolean;
+  config: {
+    host: string;
+    port: number;
+    user: string;
+    database: string;
+    enabled: boolean;
+  };
+}
+
+export async function fetchMariaDbStatus(): Promise<MariaDbStatusResponse> {
+  const res = await fetch(`${API_BASE}/mariadb/status`);
+  const json = await parseJsonSafely<{ success: boolean; data: MariaDbStatusResponse }>(
+    res,
+    'Error obteniendo estado de MariaDB'
+  );
+  return json.data;
+}
+
+export async function testMariaDbConnection(configOverride?: any): Promise<{
+  success: boolean;
+  message: string;
+  error?: string;
+  databases?: string[];
+}> {
+  const res = await fetch(`${API_BASE}/mariadb/test`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(configOverride || {}),
+  });
+  return await res.json();
+}
+
+export async function updateMariaDbConfig(config: any): Promise<{
+  success: boolean;
+  data: any;
+  test: any;
+  message: string;
+}> {
+  const res = await fetch(`${API_BASE}/mariadb/config`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(config),
+  });
+  return await res.json();
+}
+
+export async function runMariaDbMigration(): Promise<{
+  success: boolean;
+  message: string;
+  details?: any;
+}> {
+  const res = await fetch(`${API_BASE}/mariadb/migrate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  return await res.json();
+}
+

@@ -11,7 +11,8 @@ export type CmsTabType =
   | 'financiamiento'
   | 'sostenibilidad'
   | 'usuarios'
-  | 'leads';
+  | 'leads'
+  | 'mariadb';
 
 export interface UserLevelInfo {
   level: UserLevel;
@@ -64,6 +65,7 @@ export const USER_LEVEL_DEFINITIONS: Record<UserLevel, UserLevelInfo> = {
       'sostenibilidad',
       'usuarios',
       'leads',
+      'mariadb',
     ],
     canEditContent: true,
     canEditLots: true,
@@ -101,6 +103,7 @@ export const USER_LEVEL_DEFINITIONS: Record<UserLevel, UserLevelInfo> = {
       'sostenibilidad',
       'usuarios',
       'leads',
+      'mariadb',
     ],
     canEditContent: true,
     canEditLots: true,

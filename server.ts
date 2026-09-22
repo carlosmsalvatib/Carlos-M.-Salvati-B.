@@ -5,6 +5,21 @@ import { createServer as createViteServer } from 'vite';
 import { initialCmsContent } from './src/data/initialContent';
 import { initialLots } from './src/data/initialLots';
 import { CmsContent, LotItem, LeadSubmission, AppUser, HousingModel } from './src/types';
+import {
+  getMariaDbStatus,
+  getCurrentConfig as getMariaDbCurrentConfig,
+  saveConfig as saveMariaDbConfig,
+  testMariaDbConnection,
+  ensureMariaDbTables,
+  getMariaDbContent,
+  saveMariaDbContent,
+  getMariaDbLots,
+  saveMariaDbLots,
+  getMariaDbModels,
+  saveMariaDbModels,
+  saveMariaDbLead,
+  migrateAllToMariaDb,
+} from './server/mariadb';
 
 const PORT = 3000;
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -345,6 +360,11 @@ async function startServer() {
       saveJsonFile(VERSIONS_FILE, versionsHistory);
 
       res.json({ success: true, data: cmsContent, message: 'Contenido actualizado y publicado con éxito' });
+
+      // Asynchronously replicate to MariaDB if configured
+      saveMariaDbContent(cmsContent, nextVersion, req.query.note ? String(req.query.note) : undefined).catch((e) => {
+        console.warn('[MariaDB] Sync content warning:', e.message);
+      });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
@@ -389,6 +409,15 @@ async function startServer() {
         saveJsonFile(LOTS_FILE, lotsData);
       }
 
+      // Asynchronously replicate to MariaDB
+      saveMariaDbContent(cmsContent, nextVersion, req.query.note ? String(req.query.note) : undefined).catch(() => {});
+      if (lotsData && lotsData.length > 0) {
+        saveMariaDbLots(lotsData).catch(() => {});
+      }
+      if (modelsData && modelsData.length > 0) {
+        saveMariaDbModels(modelsData).catch(() => {});
+      }
+
       res.json({
         success: true,
         message: 'Base de datos sincronizada y persistida en tiempo de ejecución',
@@ -397,6 +426,47 @@ async function startServer() {
           lots: lotsData,
         },
       });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // --- MariaDB Dedicated Management Endpoints ---
+  app.get('/api/mariadb/status', (req, res) => {
+    res.json({ success: true, data: getMariaDbStatus() });
+  });
+
+  app.post('/api/mariadb/test', async (req, res) => {
+    const result = await testMariaDbConnection(req.body);
+    res.json(result);
+  });
+
+  app.post('/api/mariadb/config', async (req, res) => {
+    try {
+      const updated = saveMariaDbConfig(req.body);
+      const testResult = await testMariaDbConnection();
+      res.json({
+        success: true,
+        data: updated,
+        test: testResult,
+        message: testResult.success
+          ? 'Configuración guardada y conexión establecida exitosamente con MariaDB'
+          : 'Configuración guardada, pero la prueba de conexión falló: ' + (testResult.error || testResult.message),
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post('/api/mariadb/migrate', async (req, res) => {
+    try {
+      const result = await migrateAllToMariaDb({
+        content: cmsContent,
+        lots: lotsData,
+        models: modelsData,
+        leads: leadsData,
+      });
+      res.json(result);
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
@@ -497,6 +567,7 @@ async function startServer() {
     }
     lotsData = lots;
     saveJsonFile(LOTS_FILE, lotsData);
+    saveMariaDbLots(lotsData).catch(() => {});
     res.json({ success: true, message: 'Inventario de disponibilidad grabado y actualizado exitosamente', data: lotsData });
   });
 
@@ -722,6 +793,8 @@ async function startServer() {
       }
       cmsContent.lastUpdated = new Date().toISOString();
       saveJsonFile(CONTENT_FILE, cmsContent);
+      saveMariaDbModels(modelsData).catch(() => {});
+      saveMariaDbContent(cmsContent).catch(() => {});
 
       res.json({
         success: true,
@@ -786,6 +859,7 @@ async function startServer() {
 
     leadsData.unshift(newLead);
     saveJsonFile(LEADS_FILE, leadsData);
+    saveMariaDbLead(newLead).catch(() => {});
     res.status(201).json({ success: true, message: 'Solicitud enviada correctamente', data: newLead });
   });
 

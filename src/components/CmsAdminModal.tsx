@@ -14,6 +14,7 @@ import {
   uploadMediaToServer,
 } from '../lib/api';
 import { UsersCmsTab } from './UsersCmsTab';
+import { MariaDbCmsTab } from './MariaDbCmsTab';
 import {
   USER_LEVEL_DEFINITIONS,
   getUserLevelInfo,
@@ -57,6 +58,7 @@ import {
   ArrowUp,
   ArrowDown,
   CheckCircle2,
+  Database,
 } from 'lucide-react';
 import { MediaFieldWithSourceSelector } from './MediaFieldWithSourceSelector';
 import { MediaSourceSelectorModal } from './MediaSourceSelectorModal';
@@ -1088,6 +1090,22 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
             <Users className="w-3.5 h-3.5" />
             <span>Prospectos ({leadsList.length})</span>
             {!canAccessTab(userLevel, 'leads') && <Lock className="w-3 h-3 text-stone-500 ml-0.5" />}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('mariadb')}
+            className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
+              activeTab === 'mariadb'
+                ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-stone-950 font-bold shadow-md'
+                : canAccessTab(userLevel, 'mariadb')
+                ? 'text-amber-300 hover:bg-stone-800 border border-amber-500/30'
+                : 'text-stone-500 hover:bg-stone-900 opacity-60'
+            }`}
+            id="tab-cms-mariadb"
+          >
+            <Database className="w-3.5 h-3.5 text-amber-400" />
+            <span>Base de Datos MariaDB</span>
+            {!canAccessTab(userLevel, 'mariadb') && <Lock className="w-3 h-3 text-stone-500 ml-0.5" />}
           </button>
         </div>
 
@@ -3079,6 +3097,11 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                 </div>
               </div>
             </div>
+          )}
+
+          {/* TAB 12: MARIADB MANAGEMENT & MIGRATION */}
+          {activeTab === 'mariadb' && (
+            <MariaDbCmsTab />
           )}
           </>
           )}

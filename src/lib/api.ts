@@ -116,6 +116,39 @@ export function saveLocalCache(
 }
 
 /**
+ * Wraps a Firestore Promise with a strict defensive timeout.
+ * Prevents the UI from ever hanging or freezing if Firestore encounters
+ * quota exhaustion (RESOURCE_EXHAUSTED), backoff retry loops, or network latency.
+ */
+export async function withFirestoreTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs = 2500,
+  fallback?: T
+): Promise<T | undefined> {
+  let timer: any;
+  const timeout = new Promise<T>((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error(`Firestore timeout (${timeoutMs}ms)`));
+    }, timeoutMs);
+  });
+
+  try {
+    const result = await Promise.race([promise, timeout]);
+    clearTimeout(timer);
+    return result;
+  } catch (err: any) {
+    clearTimeout(timer);
+    const msg = err?.message || String(err);
+    if (msg.includes('RESOURCE_EXHAUSTED') || msg.includes('Quota limit exceeded')) {
+      console.warn('Firebase Firestore: Límite de cuota gratuita alcanzado. Operando con sincronización backend de alta velocidad.');
+    } else {
+      console.warn('Firebase Firestore timeout/error:', msg);
+    }
+    return fallback;
+  }
+}
+
+/**
  * Safely parses response as JSON without crashing with "JSON.parse: unexpected character"
  * if the server returns HTML (e.g. 404/502/SPA fallback).
  */
@@ -146,10 +179,10 @@ async function parseJsonSafely<T>(res: Response, fallbackErrorMsg: string): Prom
 export async function fetchCmsContent(): Promise<CmsContent> {
   const localCached = getLocalCachedContent();
 
-  // 1. Prioritize Cloud Firestore for global real-time synchronization
+  // 1. Prioritize Cloud Firestore with defensive timeout (max 2000ms)
   try {
-    const snap = await getDoc(doc(db, 'cms_content', 'global_content'));
-    if (snap.exists()) {
+    const snap = await withFirestoreTimeout(getDoc(doc(db, 'cms_content', 'global_content')), 2000);
+    if (snap && snap.exists()) {
       const data = snap.data() as CmsContent;
       if (data && data.site) {
         saveLocalCache(data);
@@ -187,13 +220,16 @@ export async function saveCmsContent(content: CmsContent, note?: string): Promis
   // 1. Guardar de inmediato en almacenamiento persistente del cliente
   saveLocalCache(content);
 
-  // 2. Persistir en Firebase Firestore (Nube)
+  // 2. Persistir en Firebase Firestore (Nube) con timeout de seguridad (nunca cuelga la UI)
   try {
-    await setDoc(doc(db, 'cms_content', 'global_content'), {
-      ...content,
-      updatedAt: new Date().toISOString(),
-      _lastNote: note || '',
-    });
+    await withFirestoreTimeout(
+      setDoc(doc(db, 'cms_content', 'global_content'), {
+        ...content,
+        updatedAt: new Date().toISOString(),
+        _lastNote: note || '',
+      }),
+      2500
+    );
   } catch (fireErr) {
     console.warn('Guardado en Firestore no completado:', fireErr);
   }
@@ -242,13 +278,44 @@ export async function resetCmsContent(): Promise<CmsContent> {
   return initialCmsContent;
 }
 
+/**
+ * Recursively scans an object or array and uploads any `data:` base64 strings to disk via `/api/upload`.
+ * Returns the object with clean permanent URLs.
+ */
+export async function cleanBase64DataUrls<T>(obj: T): Promise<T> {
+  if (!obj) return obj;
+  if (typeof obj === 'string') {
+    if (obj.startsWith('data:')) {
+      try {
+        const uploaded = await uploadMediaToServer(obj);
+        return uploaded as unknown as T;
+      } catch {
+        return obj;
+      }
+    }
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    const cleaned = await Promise.all(obj.map((item) => cleanBase64DataUrls(item)));
+    return cleaned as unknown as T;
+  }
+  if (typeof obj === 'object') {
+    const res: any = {};
+    for (const key of Object.keys(obj)) {
+      res[key] = await cleanBase64DataUrls((obj as any)[key]);
+    }
+    return res as T;
+  }
+  return obj;
+}
+
 export async function fetchLots(): Promise<LotItem[]> {
   const localCached = getLocalCachedLots();
 
-  // 1. Firestore Cloud
+  // 1. Firestore Cloud con timeout defensivo (2000ms)
   try {
-    const snap = await getDoc(doc(db, 'lots_metadata', 'catalog'));
-    if (snap.exists()) {
+    const snap = await withFirestoreTimeout(getDoc(doc(db, 'lots_metadata', 'catalog')), 2000);
+    if (snap && snap.exists()) {
       const data = snap.data();
       if (data?.lots && Array.isArray(data.lots) && data.lots.length > 0) {
         saveLocalCache(undefined, data.lots);
@@ -283,19 +350,19 @@ export async function fetchLots(): Promise<LotItem[]> {
 }
 
 export async function updateLot(id: string, updates: Partial<LotItem>): Promise<LotItem> {
-  // 1. Actualizar en Firestore
-  try {
-    await setDoc(doc(db, 'lots', id), updates, { merge: true });
-    const currentLots = getLocalCachedLots() || [];
-    const nextLots = currentLots.map((l) => (l.id === id ? { ...l, ...updates } : l));
-    saveLocalCache(undefined, nextLots);
+  const currentLots = getLocalCachedLots() || [];
+  const nextLots = currentLots.map((l) => (l.id === id ? { ...l, ...updates } : l));
+  saveLocalCache(undefined, nextLots);
+
+  // 1. Actualizar en Firestore en segundo plano con timeout
+  withFirestoreTimeout(setDoc(doc(db, 'lots', id), updates, { merge: true }), 2000).catch(() => {});
+  withFirestoreTimeout(
     setDoc(doc(db, 'lots_metadata', 'catalog'), {
       lots: nextLots,
       updatedAt: new Date().toISOString(),
-    }).catch(() => {});
-  } catch (fireErr) {
-    console.warn('Firestore updateLot error:', fireErr);
-  }
+    }),
+    2000
+  ).catch(() => {});
 
   // 2. Actualizar en backend
   const res = await fetch(`${API_BASE}/lots/${id}`, {
@@ -312,23 +379,23 @@ export async function updateLot(id: string, updates: Partial<LotItem>): Promise<
 
 export async function saveBulkLots(lots: LotItem[]): Promise<LotItem[]> {
   // 1. Guardar de inmediato en almacenamiento local persistente
-  saveLocalCache(undefined, lots);
-
-  // 2. Persistir en Firestore Cloud
+  let cleanLots = lots;
   try {
-    await setDoc(doc(db, 'lots_metadata', 'catalog'), {
-      lots,
-      updatedAt: new Date().toISOString(),
-    });
-    const batch = writeBatch(db);
-    for (const lot of lots.slice(0, 100)) {
-      if (lot.id) {
-        batch.set(doc(db, 'lots', lot.id), lot, { merge: true });
-      }
-    }
-    await batch.commit();
+    cleanLots = await cleanBase64DataUrls(lots);
+  } catch {}
+  saveLocalCache(undefined, cleanLots);
+
+  // 2. Persistir en Firestore Cloud de manera atómica y optimizada (1 documento catálogo)
+  try {
+    await withFirestoreTimeout(
+      setDoc(doc(db, 'lots_metadata', 'catalog'), {
+        lots: cleanLots,
+        updatedAt: new Date().toISOString(),
+      }),
+      2500
+    );
   } catch (fireErr) {
-    console.warn('Error guardando lotes en Firestore:', fireErr);
+    console.warn('Error guardando catálogo de lotes en Firestore:', fireErr);
   }
 
   // 3. Persistir en backend
@@ -336,7 +403,7 @@ export async function saveBulkLots(lots: LotItem[]): Promise<LotItem[]> {
     const res = await fetch(`${API_BASE}/lots/bulk-save`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ lots }),
+      body: JSON.stringify({ lots: cleanLots }),
     });
     const json = await parseJsonSafely<{ success: boolean; data: LotItem[] }>(
       res,
@@ -349,53 +416,71 @@ export async function saveBulkLots(lots: LotItem[]): Promise<LotItem[]> {
   } catch (err: any) {
     console.warn('Inventario respaldado en persistencia local por desconexión:', err);
   }
-  return lots;
+  return cleanLots;
 }
 
 /**
- * Operación unificada para guardar Contenido y Lotes simultáneamente con garantía de persistencia
+ * Operación unificada para guardar Contenido y Lotes simultáneamente con garantía de persistencia.
+ * Protegida con sanitización automática de imágenes y timeout estricto para evitar congelamientos.
  */
 export async function saveAllCmsAndLots(
   content: CmsContent,
   lots: LotItem[],
   note?: string
 ): Promise<{ content: CmsContent; lots: LotItem[] }> {
-  // Guardar en cache persistente local de inmediato
-  saveLocalCache(content, lots);
-
-  // 1. Guardar en Firebase Firestore
+  // 1. Sanitizar previamente cualquier imagen base64 para aligerar la carga y evitar superar límites
+  let cleanContent = content;
+  let cleanLots = lots;
   try {
-    const promises: Promise<any>[] = [
-      setDoc(doc(db, 'cms_content', 'global_content'), {
-        ...content,
-        updatedAt: new Date().toISOString(),
-        _lastNote: note || '',
-      }),
-      setDoc(doc(db, 'lots_metadata', 'catalog'), {
-        lots,
-        updatedAt: new Date().toISOString(),
-      }),
-    ];
-    if (content.housingModels?.models) {
-      promises.push(
-        setDoc(doc(db, 'housing_models', 'catalog'), {
-          models: content.housingModels.models,
-          updatedAt: new Date().toISOString(),
-        })
-      );
-    }
-    await Promise.all(promises);
-  } catch (fireErr) {
-    console.warn('Error guardando en Firestore durante saveAllCmsAndLots:', fireErr);
+    [cleanContent, cleanLots] = await Promise.all([
+      cleanBase64DataUrls(content),
+      cleanBase64DataUrls(lots),
+    ]);
+  } catch (cleanErr) {
+    console.warn('Error limpiando imágenes en saveAllCmsAndLots:', cleanErr);
   }
 
-  // 2. Guardar en backend Express
+  // 2. Guardar en cache persistente local de inmediato para feedback instantáneo
+  saveLocalCache(cleanContent, cleanLots);
+
+  // 3. Guardar en Firebase Firestore con timeout de seguridad (máximo 2500ms)
+  // Si la cuota de Firebase está agotada o hay latencia, el timeout permite continuar sin congelar la app
+  try {
+    const firestoreWrites = async () => {
+      const promises: Promise<any>[] = [
+        setDoc(doc(db, 'cms_content', 'global_content'), {
+          ...cleanContent,
+          updatedAt: new Date().toISOString(),
+          _lastNote: note || '',
+        }),
+        setDoc(doc(db, 'lots_metadata', 'catalog'), {
+          lots: cleanLots,
+          updatedAt: new Date().toISOString(),
+        }),
+      ];
+      if (cleanContent.housingModels?.models) {
+        promises.push(
+          setDoc(doc(db, 'housing_models', 'catalog'), {
+            models: cleanContent.housingModels.models,
+            updatedAt: new Date().toISOString(),
+          })
+        );
+      }
+      await Promise.all(promises);
+    };
+
+    await withFirestoreTimeout(firestoreWrites(), 2500);
+  } catch (fireErr) {
+    console.warn('Advertencia en Firestore durante saveAllCmsAndLots (continuando con backend):', fireErr);
+  }
+
+  // 4. Guardar en backend Express (persistencia garantizada en disco del servidor)
   try {
     const query = note ? `?note=${encodeURIComponent(note)}` : '';
     const res = await fetch(`${API_BASE}/sync-all${query}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content, lots }),
+      body: JSON.stringify({ content: cleanContent, lots: cleanLots }),
     });
     const json = await parseJsonSafely<{
       success: boolean;
@@ -409,13 +494,13 @@ export async function saveAllCmsAndLots(
     console.warn('Sincronización con backend falló, respaldado en persistencia local:', err);
     try {
       await Promise.all([
-        saveCmsContent(content, note),
-        saveBulkLots(lots),
+        saveCmsContent(cleanContent, note),
+        saveBulkLots(cleanLots),
       ]);
     } catch {}
   }
 
-  return { content, lots };
+  return { content: cleanContent, lots: cleanLots };
 }
 
 export async function createLot(lot: Partial<LotItem>): Promise<LotItem> {
@@ -646,11 +731,15 @@ export async function uploadMediaToServer(
     return dataUrl;
   }
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
     const res = await fetch(`${API_BASE}/upload`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ dataUrl, filename, title }),
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
     const json = await res.json();
     if (json.success && json.url) {
       return json.url;
@@ -668,62 +757,43 @@ export async function saveHousingModelsBulk(
   // Convert any data: URLs in images to permanent server disk URLs before saving
   let processedModels = models;
   try {
-    processedModels = await Promise.all(
-      models.map(async (model, mIdx) => {
-        if (!model.images || !Array.isArray(model.images)) return model;
-        const cleanedImages = await Promise.all(
-          model.images.map(async (img, imgIdx) => {
-            if (img && img.startsWith('data:')) {
-              try {
-                return await uploadMediaToServer(img, `modelo-${model.id || mIdx}-foto${imgIdx + 1}`);
-              } catch {
-                return img;
-              }
-            }
-            return img;
-          })
-        );
-        return { ...model, images: cleanedImages };
-      })
-    );
+    processedModels = await cleanBase64DataUrls(models);
   } catch (err) {
     console.warn('Error procesando imágenes de modelos:', err);
   }
 
   saveLocalCache(undefined, undefined, processedModels);
 
-  // 1. Guardar en Firebase Firestore
+  // 1. Guardar en Firebase Firestore con timeout de seguridad (máximo 2500ms)
   try {
-    await setDoc(doc(db, 'housing_models', 'catalog'), {
-      models: processedModels,
-      section: section || null,
-      updatedAt: new Date().toISOString(),
-    });
-    for (const m of processedModels) {
-      if (m.id) {
-        await setDoc(doc(db, 'housing_models', m.id), m);
+    const firestoreWrite = async () => {
+      await setDoc(doc(db, 'housing_models', 'catalog'), {
+        models: processedModels,
+        section: section || null,
+        updatedAt: new Date().toISOString(),
+      });
+      // Sincronizar también con cms_content global en Firestore
+      const contentSnap = await getDoc(doc(db, 'cms_content', 'global_content'));
+      if (contentSnap.exists()) {
+        const cData = contentSnap.data() as CmsContent;
+        if (cData) {
+          await setDoc(doc(db, 'cms_content', 'global_content'), {
+            ...cData,
+            housingModels: {
+              ...(cData.housingModels || {}),
+              models: processedModels,
+            },
+            updatedAt: new Date().toISOString(),
+          });
+        }
       }
-    }
-    // Sincronizar también con cms_content global en Firestore
-    const contentSnap = await getDoc(doc(db, 'cms_content', 'global_content'));
-    if (contentSnap.exists()) {
-      const cData = contentSnap.data() as CmsContent;
-      if (cData) {
-        await setDoc(doc(db, 'cms_content', 'global_content'), {
-          ...cData,
-          housingModels: {
-            ...(cData.housingModels || {}),
-            models: processedModels,
-          },
-          updatedAt: new Date().toISOString(),
-        });
-      }
-    }
+    };
+    await withFirestoreTimeout(firestoreWrite(), 2500);
   } catch (fireErr) {
     console.warn('Error guardando modelos en Firestore:', fireErr);
   }
 
-  // 2. Guardar en backend Express
+  // 2. Guardar en backend Express (persistencia en disco)
   try {
     const res = await fetch(`${API_BASE}/models/bulk-save`, {
       method: 'POST',

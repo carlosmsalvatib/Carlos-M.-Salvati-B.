@@ -202,6 +202,48 @@ async function startServer() {
   // Serve uploaded media files directly from disk
   app.use('/api/uploads', express.static(UPLOADS_DIR));
 
+  // Helper function to recursively detect and persist base64 data URLs as real physical files
+  function sanitizeAndPersistMedia<T>(obj: T): T {
+    if (!obj) return obj;
+    if (typeof obj === 'string') {
+      if (obj.startsWith('data:')) {
+        try {
+          const commaIdx = obj.indexOf(',');
+          if (commaIdx !== -1) {
+            const metaPart = obj.slice(0, commaIdx).toLowerCase();
+            const rawBase64 = obj.slice(commaIdx + 1).replace(/\s+/g, '');
+            let ext = 'png';
+            if (metaPart.includes('jpeg') || metaPart.includes('jpg')) ext = 'jpg';
+            else if (metaPart.includes('webp')) ext = 'webp';
+            else if (metaPart.includes('svg')) ext = 'svg';
+            else if (metaPart.includes('gif')) ext = 'gif';
+            else if (metaPart.includes('mp4')) ext = 'mp4';
+            else if (metaPart.includes('pdf')) ext = 'pdf';
+
+            const safeFileName = `media-${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
+            const destPath = path.join(UPLOADS_DIR, safeFileName);
+            fs.writeFileSync(destPath, Buffer.from(rawBase64, 'base64'));
+            return `/api/uploads/${safeFileName}` as unknown as T;
+          }
+        } catch (e) {
+          console.warn('[Media Sanitizer] Error guardando archivo:', e);
+        }
+      }
+      return obj;
+    }
+    if (Array.isArray(obj)) {
+      return obj.map((item) => sanitizeAndPersistMedia(item)) as unknown as T;
+    }
+    if (typeof obj === 'object') {
+      const res: any = {};
+      for (const key of Object.keys(obj)) {
+        res[key] = sanitizeAndPersistMedia((obj as any)[key]);
+      }
+      return res as T;
+    }
+    return obj;
+  }
+
   // Upload endpoint to persist base64 data to physical files on disk
   app.post('/api/upload', (req, res) => {
     try {
@@ -215,32 +257,34 @@ async function startServer() {
         return res.json({ success: true, url: dataUrl, filename: filename || 'file' });
       }
 
-      const matches = dataUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-      if (!matches || matches.length !== 3) {
+      const commaIdx = dataUrl.indexOf(',');
+      if (commaIdx === -1) {
         return res.status(400).json({ success: false, error: 'Formato base64 no válido' });
       }
 
-      const mimeType = matches[1];
-      const base64Data = matches[2];
-      let ext = 'png';
-      if (mimeType.includes('jpeg') || mimeType.includes('jpg')) ext = 'jpg';
-      else if (mimeType.includes('webp')) ext = 'webp';
-      else if (mimeType.includes('svg')) ext = 'svg';
-      else if (mimeType.includes('mp4')) ext = 'mp4';
-      else if (mimeType.includes('pdf')) ext = 'pdf';
+      const metaPart = dataUrl.slice(0, commaIdx).toLowerCase();
+      const rawBase64 = dataUrl.slice(commaIdx + 1).replace(/\s+/g, '');
 
-      const baseName = (filename || title || 'media')
+      let ext = 'png';
+      if (metaPart.includes('jpeg') || metaPart.includes('jpg')) ext = 'jpg';
+      else if (metaPart.includes('webp')) ext = 'webp';
+      else if (metaPart.includes('svg')) ext = 'svg';
+      else if (metaPart.includes('gif')) ext = 'gif';
+      else if (metaPart.includes('mp4')) ext = 'mp4';
+      else if (metaPart.includes('pdf')) ext = 'pdf';
+
+      const baseName = (filename || title || 'archivo')
         .toLowerCase()
         .replace(/[^a-z0-9]/g, '-')
         .slice(0, 35)
         .replace(/-+/g, '-');
 
-      const safeFileName = `${baseName || 'archivo'}-${Date.now()}.${ext}`;
+      const safeFileName = `${baseName || 'media'}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${ext}`;
       const destPath = path.join(UPLOADS_DIR, safeFileName);
-      fs.writeFileSync(destPath, Buffer.from(base64Data, 'base64'));
+      fs.writeFileSync(destPath, Buffer.from(rawBase64, 'base64'));
 
       const publicUrl = `/api/uploads/${safeFileName}`;
-      console.log(`[Upload] Archivo guardado con éxito: ${publicUrl}`);
+      console.log(`[Upload] Archivo guardado con éxito en disco: ${publicUrl}`);
       res.json({
         success: true,
         url: publicUrl,
@@ -267,10 +311,13 @@ async function startServer() {
 
   app.post('/api/content', (req, res) => {
     try {
-      const updated = req.body;
+      let updated = req.body;
       if (!updated || typeof updated !== 'object') {
         return res.status(400).json({ success: false, error: 'Invalid payload' });
       }
+
+      // Automatically convert any embedded base64 images into physical disk files
+      updated = sanitizeAndPersistMedia(updated);
 
       const nextVersion = (cmsContent.version || 1) + 1;
       cmsContent = {
@@ -306,10 +353,12 @@ async function startServer() {
   // --- Unified Real-time Database Sync ---
   app.post('/api/sync-all', (req, res) => {
     try {
-      const { content, lots } = req.body;
+      let { content, lots } = req.body;
       let nextVersion = cmsContent.version || 1;
 
+      // Automatically convert any embedded base64 images into physical disk files
       if (content && typeof content === 'object') {
+        content = sanitizeAndPersistMedia(content);
         nextVersion += 1;
         cmsContent = {
           ...cmsContent,
@@ -336,7 +385,7 @@ async function startServer() {
       }
 
       if (lots && Array.isArray(lots) && lots.length > 0) {
-        lotsData = lots;
+        lotsData = sanitizeAndPersistMedia(lots);
         saveJsonFile(LOTS_FILE, lotsData);
       }
 
@@ -650,10 +699,11 @@ async function startServer() {
 
   app.post('/api/models/bulk-save', (req, res) => {
     try {
-      const { models, section } = req.body;
+      let { models, section } = req.body;
       if (!Array.isArray(models)) {
         return res.status(400).json({ success: false, error: 'models array is required' });
       }
+      models = sanitizeAndPersistMedia(models);
       modelsData = models;
       saveJsonFile(MODELS_FILE, modelsData);
 
@@ -663,11 +713,12 @@ async function startServer() {
         cmsContent.housingModels.models = modelsData;
       }
       if (section && typeof section === 'object') {
-        if (section.title !== undefined) cmsContent.housingModels.title = section.title;
-        if (section.subtitle !== undefined) cmsContent.housingModels.subtitle = section.subtitle;
-        if (section.description !== undefined) cmsContent.housingModels.description = section.description;
-        if (section.priceNotice !== undefined) cmsContent.housingModels.priceNotice = section.priceNotice;
-        if (section.active !== undefined) cmsContent.housingModels.active = section.active;
+        const cleanSection = sanitizeAndPersistMedia(section);
+        if (cleanSection.title !== undefined) cmsContent.housingModels.title = cleanSection.title;
+        if (cleanSection.subtitle !== undefined) cmsContent.housingModels.subtitle = cleanSection.subtitle;
+        if (cleanSection.description !== undefined) cmsContent.housingModels.description = cleanSection.description;
+        if (cleanSection.priceNotice !== undefined) cmsContent.housingModels.priceNotice = cleanSection.priceNotice;
+        if (cleanSection.active !== undefined) cmsContent.housingModels.active = cleanSection.active;
       }
       cmsContent.lastUpdated = new Date().toISOString();
       saveJsonFile(CONTENT_FILE, cmsContent);

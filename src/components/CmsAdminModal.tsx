@@ -234,25 +234,19 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
     setSaving(true);
     setSavingLots(true);
     try {
-      // 1. Explicitly persist models to dedicated models database
-      const currentModels = formData.housingModels?.models || [];
-      if (currentModels.length > 0) {
-        try {
-          await saveHousingModelsBulk(currentModels, formData.housingModels);
-        } catch (e) {
-          console.warn('Error en sincronización dedicada de modelos:', e);
-        }
-      }
-
-      // 2. Persist all CMS and lots simultaneously
+      // Persist all CMS, housing models, and lots simultaneously with automatic image conversion
       const result = await saveAllCmsAndLots(
         formData,
         localLots,
         `Sincronización global CMS (${new Date().toLocaleTimeString('es-VE')})`
       );
-      setFormData(result.content);
-      onContentUpdated(result.content);
-      onLotsUpdated(result.lots);
+      if (result && result.content) {
+        setFormData(result.content);
+        onContentUpdated(result.content);
+      }
+      if (result && result.lots) {
+        onLotsUpdated(result.lots);
+      }
       setSaveSuccess(true);
       setLotsSaveSuccess(true);
       setTimeout(() => {
@@ -263,8 +257,9 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
       if (shouldClose) {
         onClose();
       }
-    } catch (err) {
-      alert('Error guardando en la base de datos: ' + err);
+    } catch (err: any) {
+      console.error('Error guardando en base de datos:', err);
+      alert('Aviso al guardar en la base de datos: ' + (err?.message || err));
     } finally {
       setSaving(false);
       setSavingLots(false);

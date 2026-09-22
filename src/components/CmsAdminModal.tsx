@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { CmsContent, LotItem, LeadSubmission, LotStatus, AppUser, HousingModel, PropuestaVideo, MasterPlanBlueprint, UserLevel } from '../types';
 import {
   updateContent,
@@ -59,6 +59,8 @@ import {
   ArrowDown,
   CheckCircle2,
   Database,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { MediaFieldWithSourceSelector } from './MediaFieldWithSourceSelector';
 import { MediaSourceSelectorModal } from './MediaSourceSelectorModal';
@@ -118,6 +120,35 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
       }
     }
   }, [userLevel]);
+
+  // Horizontal scroll container reference and helpers for CMS section tabs
+  const tabsContainerRef = useRef<HTMLDivElement>(null);
+
+  const scrollTabs = (direction: 'left' | 'right') => {
+    if (tabsContainerRef.current) {
+      const scrollAmount = 260;
+      tabsContainerRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth',
+      });
+    }
+  };
+
+  const handleTabsWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    if (tabsContainerRef.current && Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      tabsContainerRef.current.scrollLeft += e.deltaY;
+    }
+  };
+
+  // Ensure active tab stays visible in the scrollable view
+  useEffect(() => {
+    if (tabsContainerRef.current) {
+      const activeEl = tabsContainerRef.current.querySelector<HTMLElement>('[data-active="true"]');
+      if (activeEl) {
+        activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+      }
+    }
+  }, [activeTab]);
 
   const [formData, setFormData] = useState<CmsContent>(content);
   const [localLots, setLocalLots] = useState<LotItem[]>(lots);
@@ -923,189 +954,233 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
           </div>
         )}
 
-        {/* CMS SECTION TABS (Each section has its own CMS) */}
-        <div className="flex overflow-x-auto bg-stone-950/80 border-b border-stone-800 px-4 py-2 gap-1.5 text-xs scrollbar-none">
+        {/* CMS SECTION TABS (Each section has its own CMS) WITH HORIZONTAL SCROLLBAR & CONTROLS */}
+        <div className="relative flex items-center bg-stone-950/95 border-b border-stone-800 px-1" id="cms-tabs-wrapper">
+          {/* Scroll Left Button */}
           <button
-            onClick={() => setActiveTab('general')}
-            className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
-              activeTab === 'general'
-                ? 'bg-amber-500 text-stone-950 font-bold shadow'
-                : canAccessTab(userLevel, 'general')
-                ? 'text-stone-300 hover:bg-stone-800'
-                : 'text-stone-500 hover:bg-stone-900 opacity-60'
-            }`}
+            type="button"
+            onClick={() => scrollTabs('left')}
+            className="flex items-center justify-center w-7 h-8 my-1 rounded-lg bg-stone-900/90 hover:bg-stone-800 text-stone-300 hover:text-amber-400 border border-stone-800/80 transition-colors shrink-0 shadow-sm mr-1 cursor-pointer"
+            title="Desplazar pestañas a la izquierda"
+            aria-label="Desplazar pestañas a la izquierda"
+            id="btn-scroll-tabs-left"
           >
-            <Settings className="w-3.5 h-3.5" />
-            <span>General & WhatsApp</span>
-            {!canAccessTab(userLevel, 'general') && <Lock className="w-3 h-3 text-stone-500 ml-0.5" />}
+            <ChevronLeft className="w-4 h-4" />
           </button>
 
-          <button
-            onClick={() => setActiveTab('hero')}
-            className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
-              activeTab === 'hero'
-                ? 'bg-amber-500 text-stone-950 font-bold shadow'
-                : canAccessTab(userLevel, 'hero')
-                ? 'text-stone-300 hover:bg-stone-800'
-                : 'text-stone-500 hover:bg-stone-900 opacity-60'
-            }`}
+          {/* Scrollable Tabs Track */}
+          <div
+            ref={tabsContainerRef}
+            onWheel={handleTabsWheel}
+            className="flex-1 flex overflow-x-auto cms-tabs-scrollbar py-2 px-1 gap-1.5 text-xs scroll-smooth select-none items-center"
+            id="cms-tabs-container"
           >
-            <Home className="w-3.5 h-3.5" />
-            <span>Hero / Inicio</span>
-            {!canAccessTab(userLevel, 'hero') && <Lock className="w-3 h-3 text-stone-500 ml-0.5" />}
-          </button>
+            <button
+              onClick={() => setActiveTab('general')}
+              data-active={activeTab === 'general'}
+              className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${
+                activeTab === 'general'
+                  ? 'bg-amber-500 text-stone-950 font-bold shadow'
+                  : canAccessTab(userLevel, 'general')
+                  ? 'text-stone-300 hover:bg-stone-800'
+                  : 'text-stone-500 hover:bg-stone-900 opacity-60'
+              }`}
+            >
+              <Settings className="w-3.5 h-3.5" />
+              <span>General & WhatsApp</span>
+              {!canAccessTab(userLevel, 'general') && <Lock className="w-3 h-3 text-stone-500 ml-0.5" />}
+            </button>
 
-          <button
-            onClick={() => setActiveTab('propuesta')}
-            className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
-              activeTab === 'propuesta'
-                ? 'bg-amber-500 text-stone-950 font-bold shadow'
-                : canAccessTab(userLevel, 'propuesta')
-                ? 'text-stone-300 hover:bg-stone-800'
-                : 'text-stone-500 hover:bg-stone-900 opacity-60'
-            }`}
-          >
-            <Video className="w-3.5 h-3.5 text-amber-300" />
-            <span>Propuesta (Videos Render)</span>
-            {!canAccessTab(userLevel, 'propuesta') && <Lock className="w-3 h-3 text-stone-500 ml-0.5" />}
-          </button>
+            <button
+              onClick={() => setActiveTab('hero')}
+              data-active={activeTab === 'hero'}
+              className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${
+                activeTab === 'hero'
+                  ? 'bg-amber-500 text-stone-950 font-bold shadow'
+                  : canAccessTab(userLevel, 'hero')
+                  ? 'text-stone-300 hover:bg-stone-800'
+                  : 'text-stone-500 hover:bg-stone-900 opacity-60'
+              }`}
+            >
+              <Home className="w-3.5 h-3.5" />
+              <span>Hero / Inicio</span>
+              {!canAccessTab(userLevel, 'hero') && <Lock className="w-3 h-3 text-stone-500 ml-0.5" />}
+            </button>
 
-          <button
-            onClick={() => setActiveTab('planMaestro')}
-            className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
-              activeTab === 'planMaestro'
-                ? 'bg-amber-500 text-stone-950 font-bold shadow'
-                : canAccessTab(userLevel, 'planMaestro')
-                ? 'text-stone-300 hover:bg-stone-800'
-                : 'text-stone-500 hover:bg-stone-900 opacity-60'
-            }`}
-          >
-            <FileText className="w-3.5 h-3.5 text-blue-300" />
-            <span>Plan Maestro (Planos)</span>
-            {!canAccessTab(userLevel, 'planMaestro') && <Lock className="w-3 h-3 text-stone-500 ml-0.5" />}
-          </button>
+            <button
+              onClick={() => setActiveTab('propuesta')}
+              data-active={activeTab === 'propuesta'}
+              className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${
+                activeTab === 'propuesta'
+                  ? 'bg-amber-500 text-stone-950 font-bold shadow'
+                  : canAccessTab(userLevel, 'propuesta')
+                  ? 'text-stone-300 hover:bg-stone-800'
+                  : 'text-stone-500 hover:bg-stone-900 opacity-60'
+              }`}
+            >
+              <Video className="w-3.5 h-3.5 text-amber-300" />
+              <span>Propuesta (Videos Render)</span>
+              {!canAccessTab(userLevel, 'propuesta') && <Lock className="w-3 h-3 text-stone-500 ml-0.5" />}
+            </button>
 
-          <button
-            onClick={() => setActiveTab('lotes')}
-            className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
-              activeTab === 'lotes'
-                ? 'bg-amber-500 text-stone-950 font-bold shadow'
-                : canAccessTab(userLevel, 'lotes')
-                ? 'text-stone-300 hover:bg-stone-800'
-                : 'text-stone-500 hover:bg-stone-900 opacity-60'
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5 text-emerald-300" />
-            <span>Lotes & Disponibilidad ({localLots.length})</span>
-            {!canAccessTab(userLevel, 'lotes') && <Lock className="w-3 h-3 text-stone-500 ml-0.5" />}
-          </button>
+            <button
+              onClick={() => setActiveTab('planMaestro')}
+              data-active={activeTab === 'planMaestro'}
+              className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${
+                activeTab === 'planMaestro'
+                  ? 'bg-amber-500 text-stone-950 font-bold shadow'
+                  : canAccessTab(userLevel, 'planMaestro')
+                  ? 'text-stone-300 hover:bg-stone-800'
+                  : 'text-stone-500 hover:bg-stone-900 opacity-60'
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5 text-blue-300" />
+              <span>Plan Maestro (Planos)</span>
+              {!canAccessTab(userLevel, 'planMaestro') && <Lock className="w-3 h-3 text-stone-500 ml-0.5" />}
+            </button>
 
-          <button
-            onClick={() => setActiveTab('modelos')}
-            className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
-              activeTab === 'modelos'
-                ? 'bg-amber-500 text-stone-950 font-bold shadow'
-                : canAccessTab(userLevel, 'modelos')
-                ? 'text-stone-300 hover:bg-stone-800'
-                : 'text-stone-500 hover:bg-stone-900 opacity-60'
-            }`}
-          >
-            <ImageIcon className="w-3.5 h-3.5 text-amber-300" />
-            <span>Modelos (Múltiples Imágenes)</span>
-            {!canAccessTab(userLevel, 'modelos') && <Lock className="w-3 h-3 text-stone-500 ml-0.5" />}
-          </button>
+            <button
+              onClick={() => setActiveTab('lotes')}
+              data-active={activeTab === 'lotes'}
+              className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${
+                activeTab === 'lotes'
+                  ? 'bg-amber-500 text-stone-950 font-bold shadow'
+                  : canAccessTab(userLevel, 'lotes')
+                  ? 'text-stone-300 hover:bg-stone-800'
+                  : 'text-stone-500 hover:bg-stone-900 opacity-60'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5 text-emerald-300" />
+              <span>Lotes & Disponibilidad ({localLots.length})</span>
+              {!canAccessTab(userLevel, 'lotes') && <Lock className="w-3 h-3 text-stone-500 ml-0.5" />}
+            </button>
 
-          <button
-            onClick={() => setActiveTab('ubicacion')}
-            className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
-              activeTab === 'ubicacion'
-                ? 'bg-amber-500 text-stone-950 font-bold shadow'
-                : canAccessTab(userLevel, 'ubicacion')
-                ? 'text-stone-300 hover:bg-stone-800'
-                : 'text-stone-500 hover:bg-stone-900 opacity-60'
-            }`}
-          >
-            <MapPin className="w-3.5 h-3.5" />
-            <span>Ubicación</span>
-            {!canAccessTab(userLevel, 'ubicacion') && <Lock className="w-3 h-3 text-stone-500 ml-0.5" />}
-          </button>
+            <button
+              onClick={() => setActiveTab('modelos')}
+              data-active={activeTab === 'modelos'}
+              className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${
+                activeTab === 'modelos'
+                  ? 'bg-amber-500 text-stone-950 font-bold shadow'
+                  : canAccessTab(userLevel, 'modelos')
+                  ? 'text-stone-300 hover:bg-stone-800'
+                  : 'text-stone-500 hover:bg-stone-900 opacity-60'
+              }`}
+            >
+              <ImageIcon className="w-3.5 h-3.5 text-amber-300" />
+              <span>Modelos (Múltiples Imágenes)</span>
+              {!canAccessTab(userLevel, 'modelos') && <Lock className="w-3 h-3 text-stone-500 ml-0.5" />}
+            </button>
 
-          <button
-            onClick={() => setActiveTab('financiamiento')}
-            className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
-              activeTab === 'financiamiento'
-                ? 'bg-amber-500 text-stone-950 font-bold shadow'
-                : canAccessTab(userLevel, 'financiamiento')
-                ? 'text-stone-300 hover:bg-stone-800'
-                : 'text-stone-500 hover:bg-stone-900 opacity-60'
-            }`}
-          >
-            <DollarSign className="w-3.5 h-3.5" />
-            <span>Financiamiento</span>
-            {!canAccessTab(userLevel, 'financiamiento') && <Lock className="w-3 h-3 text-stone-500 ml-0.5" />}
-          </button>
+            <button
+              onClick={() => setActiveTab('ubicacion')}
+              data-active={activeTab === 'ubicacion'}
+              className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${
+                activeTab === 'ubicacion'
+                  ? 'bg-amber-500 text-stone-950 font-bold shadow'
+                  : canAccessTab(userLevel, 'ubicacion')
+                  ? 'text-stone-300 hover:bg-stone-800'
+                  : 'text-stone-500 hover:bg-stone-900 opacity-60'
+              }`}
+            >
+              <MapPin className="w-3.5 h-3.5" />
+              <span>Ubicación</span>
+              {!canAccessTab(userLevel, 'ubicacion') && <Lock className="w-3 h-3 text-stone-500 ml-0.5" />}
+            </button>
 
-          <button
-            onClick={() => setActiveTab('sostenibilidad')}
-            className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
-              activeTab === 'sostenibilidad'
-                ? 'bg-amber-500 text-stone-950 font-bold shadow'
-                : canAccessTab(userLevel, 'sostenibilidad')
-                ? 'text-stone-300 hover:bg-stone-800'
-                : 'text-stone-500 hover:bg-stone-900 opacity-60'
-            }`}
-          >
-            <TreePine className="w-3.5 h-3.5" />
-            <span>Sostenibilidad</span>
-            {!canAccessTab(userLevel, 'sostenibilidad') && <Lock className="w-3 h-3 text-stone-500 ml-0.5" />}
-          </button>
+            <button
+              onClick={() => setActiveTab('financiamiento')}
+              data-active={activeTab === 'financiamiento'}
+              className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${
+                activeTab === 'financiamiento'
+                  ? 'bg-amber-500 text-stone-950 font-bold shadow'
+                  : canAccessTab(userLevel, 'financiamiento')
+                  ? 'text-stone-300 hover:bg-stone-800'
+                  : 'text-stone-500 hover:bg-stone-900 opacity-60'
+              }`}
+            >
+              <DollarSign className="w-3.5 h-3.5" />
+              <span>Financiamiento</span>
+              {!canAccessTab(userLevel, 'financiamiento') && <Lock className="w-3 h-3 text-stone-500 ml-0.5" />}
+            </button>
 
-          {/* REQUIREMENT: Editable users section with 5 levels */}
-          <button
-            onClick={() => setActiveTab('usuarios')}
-            className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
-              activeTab === 'usuarios'
-                ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-stone-950 font-bold shadow-md'
-                : canAccessTab(userLevel, 'usuarios')
-                ? 'text-amber-300 hover:bg-stone-800 border border-amber-500/30'
-                : 'text-stone-500 hover:bg-stone-900 opacity-60'
-            }`}
-            id="tab-cms-usuarios"
-          >
-            <Shield className="w-3.5 h-3.5 text-amber-400" />
-            <span>Usuarios (5 Niveles)</span>
-            {!canAccessTab(userLevel, 'usuarios') && <Lock className="w-3 h-3 text-stone-500 ml-0.5" />}
-          </button>
+            <button
+              onClick={() => setActiveTab('sostenibilidad')}
+              data-active={activeTab === 'sostenibilidad'}
+              className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${
+                activeTab === 'sostenibilidad'
+                  ? 'bg-amber-500 text-stone-950 font-bold shadow'
+                  : canAccessTab(userLevel, 'sostenibilidad')
+                  ? 'text-stone-300 hover:bg-stone-800'
+                  : 'text-stone-500 hover:bg-stone-900 opacity-60'
+              }`}
+            >
+              <TreePine className="w-3.5 h-3.5" />
+              <span>Sostenibilidad</span>
+              {!canAccessTab(userLevel, 'sostenibilidad') && <Lock className="w-3 h-3 text-stone-500 ml-0.5" />}
+            </button>
 
-          <button
-            onClick={() => setActiveTab('leads')}
-            className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
-              activeTab === 'leads'
-                ? 'bg-amber-500 text-stone-950 font-bold shadow'
-                : canAccessTab(userLevel, 'leads')
-                ? 'text-stone-300 hover:bg-stone-800'
-                : 'text-stone-500 hover:bg-stone-900 opacity-60'
-            }`}
-          >
-            <Users className="w-3.5 h-3.5" />
-            <span>Prospectos ({leadsList.length})</span>
-            {!canAccessTab(userLevel, 'leads') && <Lock className="w-3 h-3 text-stone-500 ml-0.5" />}
-          </button>
+            {/* REQUIREMENT: Editable users section with 5 levels */}
+            <button
+              onClick={() => setActiveTab('usuarios')}
+              data-active={activeTab === 'usuarios'}
+              className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${
+                activeTab === 'usuarios'
+                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-stone-950 font-bold shadow-md'
+                  : canAccessTab(userLevel, 'usuarios')
+                  ? 'text-amber-300 hover:bg-stone-800 border border-amber-500/30'
+                  : 'text-stone-500 hover:bg-stone-900 opacity-60'
+              }`}
+              id="tab-cms-usuarios"
+            >
+              <Shield className="w-3.5 h-3.5 text-amber-400" />
+              <span>Usuarios (5 Niveles)</span>
+              {!canAccessTab(userLevel, 'usuarios') && <Lock className="w-3 h-3 text-stone-500 ml-0.5" />}
+            </button>
 
+            <button
+              onClick={() => setActiveTab('leads')}
+              data-active={activeTab === 'leads'}
+              className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${
+                activeTab === 'leads'
+                  ? 'bg-amber-500 text-stone-950 font-bold shadow'
+                  : canAccessTab(userLevel, 'leads')
+                  ? 'text-stone-300 hover:bg-stone-800'
+                  : 'text-stone-500 hover:bg-stone-900 opacity-60'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>Prospectos ({leadsList.length})</span>
+              {!canAccessTab(userLevel, 'leads') && <Lock className="w-3 h-3 text-stone-500 ml-0.5" />}
+            </button>
+
+            <button
+              onClick={() => setActiveTab('mariadb')}
+              data-active={activeTab === 'mariadb'}
+              className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${
+                activeTab === 'mariadb'
+                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-stone-950 font-bold shadow-md'
+                  : canAccessTab(userLevel, 'mariadb')
+                  ? 'text-amber-300 hover:bg-stone-800 border border-amber-500/30'
+                  : 'text-stone-500 hover:bg-stone-900 opacity-60'
+              }`}
+              id="tab-cms-mariadb"
+            >
+              <Database className="w-3.5 h-3.5 text-amber-400" />
+              <span>Base de Datos MariaDB</span>
+              {!canAccessTab(userLevel, 'mariadb') && <Lock className="w-3 h-3 text-stone-500 ml-0.5" />}
+            </button>
+          </div>
+
+          {/* Scroll Right Button */}
           <button
-            onClick={() => setActiveTab('mariadb')}
-            className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
-              activeTab === 'mariadb'
-                ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-stone-950 font-bold shadow-md'
-                : canAccessTab(userLevel, 'mariadb')
-                ? 'text-amber-300 hover:bg-stone-800 border border-amber-500/30'
-                : 'text-stone-500 hover:bg-stone-900 opacity-60'
-            }`}
-            id="tab-cms-mariadb"
+            type="button"
+            onClick={() => scrollTabs('right')}
+            className="flex items-center justify-center w-7 h-8 my-1 rounded-lg bg-stone-900/90 hover:bg-stone-800 text-stone-300 hover:text-amber-400 border border-stone-800/80 transition-colors shrink-0 shadow-sm ml-1 cursor-pointer"
+            title="Desplazar pestañas a la derecha"
+            aria-label="Desplazar pestañas a la derecha"
+            id="btn-scroll-tabs-right"
           >
-            <Database className="w-3.5 h-3.5 text-amber-400" />
-            <span>Base de Datos MariaDB</span>
-            {!canAccessTab(userLevel, 'mariadb') && <Lock className="w-3 h-3 text-stone-500 ml-0.5" />}
+            <ChevronRight className="w-4 h-4" />
           </button>
         </div>
 

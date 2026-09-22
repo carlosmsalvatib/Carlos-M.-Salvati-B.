@@ -25,3 +25,31 @@ html {
   background: #78716c;
 }
 
+/* Custom scrollbar for horizontal CMS tabs navigation */
+.cms-tabs-scrollbar {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #78716c #1c1917;
+}
+
+.cms-tabs-scrollbar::-webkit-scrollbar {
+  height: 7px;
+}
+
+.cms-tabs-scrollbar::-webkit-scrollbar-track {
+  background: #1c1917;
+  border-radius: 9999px;
+  margin: 0 4px;
+}
+
+.cms-tabs-scrollbar::-webkit-scrollbar-thumb {
+  background: #57534e;
+  border-radius: 9999px;
+  border: 1px solid #292524;
+}
+
+.cms-tabs-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #d97706;
+}
+

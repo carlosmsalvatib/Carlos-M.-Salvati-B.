@@ -19,6 +19,7 @@ import {
   testMariaDbConnection,
   updateMariaDbConfig,
   runMariaDbMigration,
+  extractErrorMessage,
   MariaDbStatusResponse,
 } from '../lib/api';
 
@@ -121,7 +122,7 @@ export const MariaDbCmsTab: React.FC<MariaDbCmsTabProps> = ({ onRefreshCms }) =>
       setTestResult({
         success: false,
         message: 'Error de comunicación al probar MariaDB',
-        error: err.message || String(err),
+        error: extractErrorMessage(err, 'No se pudo comunicar con el servidor'),
       });
     } finally {
       setTesting(false);
@@ -156,7 +157,7 @@ export const MariaDbCmsTab: React.FC<MariaDbCmsTabProps> = ({ onRefreshCms }) =>
       }
       loadStatus();
     } catch (err: any) {
-      setSaveMessage('Información de guardado: ' + (err.message || String(err)));
+      setSaveMessage('Información de guardado: ' + extractErrorMessage(err));
     } finally {
       setSavingConfig(false);
     }
@@ -270,9 +271,11 @@ export const MariaDbCmsTab: React.FC<MariaDbCmsTabProps> = ({ onRefreshCms }) =>
                 {testResult.error && (
                   <div className="space-y-2">
                     <p className="text-stone-300 font-mono bg-black/40 p-2.5 rounded-lg border border-stone-800/80 break-words">
-                      {testResult.error}
+                      {typeof testResult.error === 'string' ? testResult.error : JSON.stringify(testResult.error, null, 2)}
                     </p>
-                    {(testResult.error.includes('Access denied') || testResult.error.includes('MySQL Remoto')) && (
+                    {(String(testResult.error).includes('Access denied') ||
+                    String(testResult.error).includes('MySQL Remoto') ||
+                    String(testResult.error).includes('denegó el acceso')) && (
                       <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 text-stone-200 text-[11px] space-y-1.5">
                         <p className="font-bold text-amber-300 flex items-center gap-1.5">
                           <Info className="w-3.5 h-3.5 shrink-0" />

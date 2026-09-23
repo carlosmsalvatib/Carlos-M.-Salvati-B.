@@ -149,6 +149,31 @@ export async function withFirestoreTimeout<T>(
 }
 
 /**
+ * Safely extract a string error message from any error or payload object
+ */
+export function extractErrorMessage(errOrPayload: any, fallback = 'Error inesperado'): string {
+  if (!errOrPayload) return fallback;
+  if (typeof errOrPayload === 'string') return errOrPayload;
+  if (typeof errOrPayload.message === 'string' && errOrPayload.message && errOrPayload.message !== '[object Object]') {
+    return errOrPayload.message;
+  }
+  if (typeof errOrPayload.error === 'string' && errOrPayload.error && errOrPayload.error !== '[object Object]') {
+    return errOrPayload.error;
+  }
+  if (errOrPayload.error && typeof errOrPayload.error === 'object') {
+    return extractErrorMessage(errOrPayload.error, fallback);
+  }
+  if (errOrPayload.detail && typeof errOrPayload.detail === 'string') return errOrPayload.detail;
+  if (errOrPayload.details && typeof errOrPayload.details === 'string') return errOrPayload.details;
+  try {
+    const serialized = JSON.stringify(errOrPayload);
+    return serialized === '{}' ? fallback : serialized;
+  } catch {
+    return String(errOrPayload) || fallback;
+  }
+}
+
+/**
  * Safely parses response as JSON without crashing with "JSON.parse: unexpected character"
  * if the server returns HTML (e.g. 404/502/SPA fallback).
  */
@@ -170,7 +195,11 @@ async function parseJsonSafely<T>(res: Response, fallbackErrorMsg: string): Prom
   }
 
   if (!res.ok) {
-    throw new Error(parsed?.error || fallbackErrorMsg || `Error en la solicitud (${res.status})`);
+    const errorDetail = extractErrorMessage(
+      parsed,
+      fallbackErrorMsg || `Error en la solicitud (${res.status})`
+    );
+    throw new Error(errorDetail);
   }
 
   return parsed;
@@ -1376,10 +1405,11 @@ export async function testMariaDbConnection(configOverride?: any): Promise<{
     });
     return await parseJsonSafely(res, 'Error al probar conexión con MariaDB');
   } catch (err: any) {
+    const errorMsg = extractErrorMessage(err, 'No se pudo comunicar con el servidor MariaDB');
     return {
       success: false,
       message: 'Fallo de comunicación al probar MariaDB',
-      error: err.message || String(err),
+      error: errorMsg,
     };
   }
 }
@@ -1403,14 +1433,14 @@ export async function updateMariaDbConfig(config: any): Promise<{
     });
     return await parseJsonSafely(res, 'Error al guardar configuración de MariaDB');
   } catch (err: any) {
-    // If backend route returned 404 (e.g. proxying or server reload), provide a non-fatal message
+    const errorMsg = extractErrorMessage(err, 'El servidor no pudo procesar la solicitud');
     return {
       success: true,
       data: config,
       test: {
         success: false,
         message: 'Configuración preservada localmente',
-        error: 'El backend reportó: ' + (err.message || String(err)) + '. Sus parámetros quedaron guardados en su navegador.',
+        error: errorMsg,
       },
       message: 'Configuración guardada en el cliente local (El servidor sincronizará en la próxima conexión).',
     };
@@ -1425,13 +1455,13 @@ export async function runMariaDbMigration(): Promise<{
   try {
     const res = await fetch(`${API_BASE}/mariadb/migrate`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     });
     return await parseJsonSafely(res, 'Error al ejecutar migración a MariaDB');
   } catch (err: any) {
     return {
       success: false,
-      message: 'Error al solicitar migración: ' + (err.message || String(err)),
+      message: 'Error al solicitar migración: ' + extractErrorMessage(err),
     };
   }
 }

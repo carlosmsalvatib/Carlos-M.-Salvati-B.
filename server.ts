@@ -441,10 +441,28 @@ async function startServer() {
     res.setHeader('Content-Type', 'application/json');
     try {
       const payload = req.method === 'POST' || req.method === 'PUT' ? req.body : undefined;
-      const result = await testMariaDbConnection(payload);
+      // Safety timeout: Never exceed 3500ms so Cloud Run / Nginx (5000ms) never times out
+      const result = await Promise.race([
+        testMariaDbConnection(payload),
+        new Promise<any>((resolve) =>
+          setTimeout(
+            () =>
+              resolve({
+                success: false,
+                message: 'Tiempo de espera agotado al conectar con MariaDB (3.5s)',
+                error: `El servidor MariaDB en '${payload?.host || 'el host especificado'}' no respondió en 3.5 segundos. Posibles causas: 1) El puerto 3306 está bloqueado por firewall en el hosting. 2) Se debe ingresar a cPanel -> "MySQL Remoto" y agregar el comodín '%' para autorizar la conexión. 3) Use la IP directa en lugar de nombres de dominio con CDN.`,
+              }),
+            3500
+          )
+        ),
+      ]);
       res.json(result);
     } catch (err: any) {
-      res.status(500).json({ success: false, message: 'Error interno al probar MariaDB', error: err.message });
+      res.json({
+        success: false,
+        message: 'Fallo al conectar con MariaDB',
+        error: err?.message || String(err),
+      });
     }
   });
 
@@ -498,7 +516,7 @@ async function startServer() {
             (testResult ? (testResult.error || testResult.message) : ''),
       });
     } catch (err: any) {
-      res.status(500).json({ success: false, error: err.message });
+      res.json({ success: false, error: err?.message || String(err) });
     }
   });
 

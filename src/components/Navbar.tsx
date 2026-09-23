@@ -40,7 +40,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'contacto', label: 'Contacto' },
   ];
 
-  const rawPhone = content.site.contactWhatsapp || content.site.phone || '+584147187596';
+  const rawPhone = content.site.contactWhatsapp || content.site.phone || '+584147114245';
   const cleanWhatsapp = rawPhone.replace(/\D/g, '');
   const whatsappUrl = `https://wa.me/${cleanWhatsapp}?text=${encodeURIComponent(
     content.contactForm?.whatsappMessageTemplate ||
@@ -205,7 +205,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors shadow-md"
             >
               <MessageCircle className="w-4 h-4 fill-current" />
-              Chatear por WhatsApp (+58 414-7187596)
+              Chatear por WhatsApp (+58 414-7114245)
             </a>
           </div>
         </div>

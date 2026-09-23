@@ -41,19 +41,26 @@ let lastStatus = {
 };
 
 function loadSavedConfig(): MariaDbConfig {
+  let saved: Partial<MariaDbConfig> = {};
   try {
     if (fs.existsSync(CONFIG_FILE)) {
-      const saved = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
-      const merged = { ...defaultConfig, ...saved };
-      if (merged.host) {
-        merged.host = sanitizeHost(merged.host);
-      }
-      return merged;
+      saved = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
     }
   } catch (err) {
     console.warn('[MariaDB] Error leyendo configuración guardada:', err);
   }
-  return { ...defaultConfig };
+
+  // Secrets from environment variables take priority or provide secure defaults
+  const merged: MariaDbConfig = {
+    host: sanitizeHost(process.env.MARIADB_HOST || saved.host || defaultConfig.host),
+    port: Number(process.env.MARIADB_PORT || saved.port || defaultConfig.port),
+    user: process.env.MARIADB_USER || saved.user || defaultConfig.user,
+    password: process.env.MARIADB_PASSWORD || saved.password || defaultConfig.password,
+    database: process.env.MARIADB_DATABASE || saved.database || defaultConfig.database,
+    enabled: saved.enabled !== undefined ? saved.enabled : defaultConfig.enabled,
+  };
+
+  return merged;
 }
 
 export function saveConfig(cfg: Partial<MariaDbConfig>): MariaDbConfig {

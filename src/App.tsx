@@ -390,7 +390,7 @@ export function App() {
     );
   }
 
-  const rawPhone = content.site.contactWhatsapp || content.site.phone || '+584147187596';
+  const rawPhone = content.site.contactWhatsapp || content.site.phone || '+584147114245';
   const cleanWhatsapp = rawPhone.replace(/\D/g, '');
   const whatsappUrl = `https://wa.me/${cleanWhatsapp}?text=${encodeURIComponent(
     content.contactForm.whatsappMessageTemplate ||
@@ -549,7 +549,7 @@ export function App() {
         rel="noopener noreferrer"
         className="fixed bottom-6 right-6 z-40 flex items-center gap-2.5 px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full shadow-2xl hover:shadow-emerald-600/50 transform hover:scale-105 transition-all duration-200 group border-2 border-emerald-400/40"
         id="floating-whatsapp-cta"
-        aria-label="Contactar por WhatsApp (+58 414-7187596)"
+        aria-label="Contactar por WhatsApp (+58 414-7114245)"
       >
         <MessageCircle className="w-6 h-6 fill-current animate-bounce" />
         <div className="flex flex-col text-left">

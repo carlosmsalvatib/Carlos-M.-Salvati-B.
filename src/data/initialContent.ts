@@ -6,8 +6,8 @@ export const initialCmsContent: CmsContent = {
     fullName: 'COMPLEJO URBANÍSTICO AGROPRODUCTIVO Y TURÍSTICO MIS DELIRIOS RANCH',
     tagline: 'Refugio y Tranquilidad Garantizada',
     logoUrl: '/api/images/logo',
-    contactPhone: '+58 414-7187596',
-    contactWhatsapp: '+58 414-7187596',
+    contactPhone: '+58 414-7114245',
+    contactWhatsapp: '+58 414-7114245',
     contactEmail: 'ventas@misdeliriosranch.com',
     salesOfficeAddress: 'Aldea Sabana Larga - Sector Salomón, Cordero, Municipio Andrés Bello, estado Táchira, Venezuela',
     socialMedia: {

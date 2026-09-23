@@ -10,6 +10,7 @@ export type CmsTabType =
   | 'ubicacion'
   | 'financiamiento'
   | 'sostenibilidad'
+  | 'contacto'
   | 'usuarios'
   | 'leads'
   | 'mariadb';
@@ -63,6 +64,7 @@ export const USER_LEVEL_DEFINITIONS: Record<UserLevel, UserLevelInfo> = {
       'ubicacion',
       'financiamiento',
       'sostenibilidad',
+      'contacto',
       'usuarios',
       'leads',
       'mariadb',
@@ -101,6 +103,7 @@ export const USER_LEVEL_DEFINITIONS: Record<UserLevel, UserLevelInfo> = {
       'ubicacion',
       'financiamiento',
       'sostenibilidad',
+      'contacto',
       'usuarios',
       'leads',
       'mariadb',
@@ -136,6 +139,7 @@ export const USER_LEVEL_DEFINITIONS: Record<UserLevel, UserLevelInfo> = {
       'modelos',
       'ubicacion',
       'sostenibilidad',
+      'contacto',
       'lotes',
       'leads',
     ],
@@ -164,7 +168,7 @@ export const USER_LEVEL_DEFINITIONS: Record<UserLevel, UserLevelInfo> = {
       'Consulta de simulador y modalidades de financiamiento',
       'Consulta del plano maestro para ubicar parcelas',
     ],
-    allowedTabs: ['lotes', 'leads', 'financiamiento', 'planMaestro'],
+    allowedTabs: ['lotes', 'leads', 'financiamiento', 'planMaestro', 'contacto'],
     canEditContent: false,
     canEditLots: true,
     canDeleteLots: false,
@@ -199,6 +203,7 @@ export const USER_LEVEL_DEFINITIONS: Record<UserLevel, UserLevelInfo> = {
       'ubicacion',
       'financiamiento',
       'sostenibilidad',
+      'contacto',
       'leads',
     ],
     canEditContent: false,

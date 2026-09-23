@@ -61,6 +61,13 @@ import {
   Database,
   ChevronLeft,
   ChevronRight,
+  MessageCircle,
+  Phone,
+  Mail,
+  Send,
+  Instagram,
+  Facebook,
+  Youtube,
 } from 'lucide-react';
 import { MediaFieldWithSourceSelector } from './MediaFieldWithSourceSelector';
 import { MediaSourceSelectorModal } from './MediaSourceSelectorModal';
@@ -1119,6 +1126,23 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
               {!canAccessTab(userLevel, 'sostenibilidad') && <Lock className="w-3 h-3 text-stone-500 ml-0.5" />}
             </button>
 
+            <button
+              onClick={() => setActiveTab('contacto')}
+              data-active={activeTab === 'contacto'}
+              className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${
+                activeTab === 'contacto'
+                  ? 'bg-amber-500 text-stone-950 font-bold shadow'
+                  : canAccessTab(userLevel, 'contacto')
+                  ? 'text-stone-300 hover:bg-stone-800'
+                  : 'text-stone-500 hover:bg-stone-900 opacity-60'
+              }`}
+              id="tab-cms-contacto"
+            >
+              <MessageCircle className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Contacto & Canales</span>
+              {!canAccessTab(userLevel, 'contacto') && <Lock className="w-3 h-3 text-stone-500 ml-0.5" />}
+            </button>
+
             {/* REQUIREMENT: Editable users section with 5 levels */}
             <button
               onClick={() => setActiveTab('usuarios')}
@@ -1260,38 +1284,96 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-stone-300 mb-1 font-semibold">Teléfono / WhatsApp Oficial *</label>
+                  <label className="block text-stone-300 mb-1 font-semibold">Teléfono Directo de Llamadas *</label>
                   <input
                     type="text"
-                    value={formData.site.phone}
+                    value={formData.site.contactPhone || (formData.site as any).phone || ''}
                     onChange={(e) =>
-                      setFormData({ ...formData, site: { ...formData.site, phone: e.target.value } })
+                      setFormData({
+                        ...formData,
+                        site: {
+                          ...formData.site,
+                          contactPhone: e.target.value,
+                          phone: e.target.value,
+                        },
+                        contactForm: {
+                          ...formData.contactForm,
+                          directPhone: e.target.value,
+                        },
+                      })
                     }
                     placeholder="+58-414-7114245"
                     className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white"
                   />
                   <p className="text-[10px] text-stone-400 mt-1">
-                    Número vinculado al botón interactivo de WhatsApp en todo el sitio.
+                    Línea telefónica directa para llamadas de clientes.
                   </p>
                 </div>
                 <div>
-                  <label className="block text-stone-300 mb-1 font-semibold">Correo Electrónico</label>
+                  <label className="block text-stone-300 mb-1 font-semibold">WhatsApp Oficial de Atención *</label>
+                  <input
+                    type="text"
+                    value={formData.site.contactWhatsapp || formData.site.contactPhone || (formData.site as any).phone || ''}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        site: {
+                          ...formData.site,
+                          contactWhatsapp: e.target.value,
+                        },
+                        contactForm: {
+                          ...formData.contactForm,
+                          directWhatsapp: e.target.value,
+                        },
+                      })
+                    }
+                    placeholder="+58-414-7114245"
+                    className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white"
+                  />
+                  <p className="text-[10px] text-stone-400 mt-1">
+                    Número vinculado al botón flotante y enlaces directos de WhatsApp.
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-stone-300 mb-1 font-semibold">Correo Electrónico Oficial</label>
                   <input
                     type="email"
-                    value={formData.site.email}
+                    value={formData.site.contactEmail || (formData.site as any).email || ''}
                     onChange={(e) =>
-                      setFormData({ ...formData, site: { ...formData.site, email: e.target.value } })
+                      setFormData({
+                        ...formData,
+                        site: {
+                          ...formData.site,
+                          contactEmail: e.target.value,
+                          email: e.target.value,
+                        },
+                        contactForm: {
+                          ...formData.contactForm,
+                          directEmail: e.target.value,
+                        },
+                      })
                     }
                     className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white"
                   />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="block text-stone-300 mb-1 font-semibold">Dirección Oficial del Terreno</label>
+                  <label className="block text-stone-300 mb-1 font-semibold">Dirección Oficial de Oficina y Terreno</label>
                   <input
                     type="text"
-                    value={formData.site.address}
+                    value={formData.site.salesOfficeAddress || (formData.site as any).address || ''}
                     onChange={(e) =>
-                      setFormData({ ...formData, site: { ...formData.site, address: e.target.value } })
+                      setFormData({
+                        ...formData,
+                        site: {
+                          ...formData.site,
+                          salesOfficeAddress: e.target.value,
+                          address: e.target.value,
+                        },
+                        contactForm: {
+                          ...formData.contactForm,
+                          directAddress: e.target.value,
+                        },
+                      })
                     }
                     className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white"
                   />
@@ -3092,6 +3174,623 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                   placeholder="Suba esquema estructural de Guadua, elija de la biblioteca o pegue URL..."
                   helperText="Detalle técnico de columnas en Bambú Guadua angustifolia, losa flotante de concreto a 40 cm e ingeniería sismorresistente."
                 />
+              </div>
+            </div>
+          )}
+
+          {/* TAB: CONTACTO & CANALES DIRECTOS (Requirement) */}
+          {activeTab === 'contacto' && (
+            <div className="space-y-6 max-w-4xl" id="cms-contacto-section">
+              {/* Header & Section Active Toggle */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-800 pb-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <MessageCircle className="w-5 h-5 text-emerald-400" />
+                    <h3 className="font-serif text-xl font-bold text-white">
+                      Gestión de Contacto & Canales Directos
+                    </h3>
+                  </div>
+                  <p className="text-xs text-stone-400 mt-1">
+                    Modifique los números telefónicos, enlaces directos de WhatsApp, correo, dirección y textos del formulario de cotización.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <label className="relative inline-flex items-center cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={formData.contactForm?.active !== false}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          contactForm: {
+                            ...formData.contactForm,
+                            active: e.target.checked,
+                          },
+                        })
+                      }
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-stone-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                  </label>
+                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${
+                    formData.contactForm?.active !== false
+                      ? 'bg-emerald-950/70 border-emerald-500/40 text-emerald-300'
+                      : 'bg-rose-950/70 border-rose-500/40 text-rose-300'
+                  }`}>
+                    {formData.contactForm?.active !== false ? 'Sección Activa en Web' : 'Sección Oculta'}
+                  </span>
+                </div>
+              </div>
+
+              {/* CARD 1: CANALES TELEFÓNICOS & WHATSAPP */}
+              <div className="bg-stone-900/60 p-5 rounded-2xl border border-stone-800 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-serif text-sm font-bold text-white flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-emerald-400" />
+                    <span>Canales Telefónicos y de Mensajería Directa</span>
+                  </h4>
+                  <span className="text-[11px] text-amber-400 font-mono font-semibold">
+                    Atención Inmediata
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                  {/* WhatsApp Direct */}
+                  <div>
+                    <label className="block text-stone-300 mb-1 font-semibold flex items-center gap-1.5">
+                      <MessageCircle className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>WhatsApp Oficial de Ventas *</span>
+                    </label>
+                    <input
+                      type="text"
+                      id="cms-contact-whatsapp"
+                      value={formData.contactForm?.directWhatsapp || formData.site?.contactWhatsapp || formData.site?.contactPhone || ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFormData({
+                          ...formData,
+                          site: {
+                            ...formData.site,
+                            contactWhatsapp: val,
+                          },
+                          contactForm: {
+                            ...formData.contactForm,
+                            directWhatsapp: val,
+                          },
+                        });
+                      }}
+                      placeholder="+58-414-7114245"
+                      className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white font-mono font-medium focus:border-emerald-500 focus:outline-none"
+                    />
+                    <div className="flex items-center justify-between mt-1 text-[11px]">
+                      <span className="text-stone-400">Vínculo interactivo de WhatsApp</span>
+                      <a
+                        href={`https://wa.me/${(formData.contactForm?.directWhatsapp || formData.site?.contactWhatsapp || '584147114245').replace(/\D/g, '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-emerald-400 hover:text-emerald-300 font-semibold inline-flex items-center gap-1"
+                      >
+                        <span>Probar enlace wa.me</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                  </div>
+
+                  {/* Direct Phone */}
+                  <div>
+                    <label className="block text-stone-300 mb-1 font-semibold flex items-center gap-1.5">
+                      <Phone className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Línea Telefónica Directa *</span>
+                    </label>
+                    <input
+                      type="text"
+                      id="cms-contact-phone"
+                      value={formData.contactForm?.directPhone || formData.site?.contactPhone || (formData.site as any)?.phone || ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFormData({
+                          ...formData,
+                          site: {
+                            ...formData.site,
+                            contactPhone: val,
+                            phone: val,
+                          },
+                          contactForm: {
+                            ...formData.contactForm,
+                            directPhone: val,
+                          },
+                        });
+                      }}
+                      placeholder="+58-414-7114245"
+                      className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white font-mono font-medium focus:border-amber-500 focus:outline-none"
+                    />
+                    <p className="text-[11px] text-stone-400 mt-1">
+                      Enlace telefónico para llamadas directas <code className="text-stone-300">tel:</code>
+                    </p>
+                  </div>
+
+                  {/* Email */}
+                  <div>
+                    <label className="block text-stone-300 mb-1 font-semibold flex items-center gap-1.5">
+                      <Mail className="w-3.5 h-3.5 text-blue-400" />
+                      <span>Correo Electrónico Oficial</span>
+                    </label>
+                    <input
+                      type="email"
+                      id="cms-contact-email"
+                      value={formData.contactForm?.directEmail || formData.site?.contactEmail || (formData.site as any)?.email || ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFormData({
+                          ...formData,
+                          site: {
+                            ...formData.site,
+                            contactEmail: val,
+                            email: val,
+                          },
+                          contactForm: {
+                            ...formData.contactForm,
+                            directEmail: val,
+                          },
+                        });
+                      }}
+                      placeholder="ventas@misdeliriosranch.com"
+                      className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+
+                  {/* Customer Service Hours */}
+                  <div>
+                    <label className="block text-stone-300 mb-1 font-semibold">
+                      Horario de Atención Telefónica
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.contactForm?.scheduleText || 'Lunes a Sábado de 8:00 AM a 6:00 PM'}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          contactForm: {
+                            ...formData.contactForm,
+                            scheduleText: e.target.value,
+                          },
+                        })
+                      }
+                      placeholder="Lunes a Sábado de 8:00 AM a 6:00 PM"
+                      className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white"
+                    />
+                  </div>
+
+                  {/* Physical Address */}
+                  <div className="sm:col-span-2">
+                    <label className="block text-stone-300 mb-1 font-semibold flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-rose-400" />
+                      <span>Dirección Oficial de Oficina de Ventas y Terreno</span>
+                    </label>
+                    <input
+                      type="text"
+                      id="cms-contact-address"
+                      value={formData.contactForm?.directAddress || formData.site?.salesOfficeAddress || (formData.site as any)?.address || ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFormData({
+                          ...formData,
+                          site: {
+                            ...formData.site,
+                            salesOfficeAddress: val,
+                            address: val,
+                          },
+                          contactForm: {
+                            ...formData.contactForm,
+                            directAddress: val,
+                          },
+                        });
+                      }}
+                      placeholder="Aldea Sabana Larga - Sector Salomón, Cordero, Municipio Andrés Bello, estado Táchira, Venezuela"
+                      className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white"
+                    />
+                  </div>
+
+                  {/* WhatsApp & Email Subtitles */}
+                  <div>
+                    <label className="block text-stone-300 mb-1 font-semibold">
+                      Subtítulo Bajo WhatsApp
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.contactForm?.whatsappSubtitle || 'Chatea ahora con un asesor de ventas'}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          contactForm: {
+                            ...formData.contactForm,
+                            whatsappSubtitle: e.target.value,
+                          },
+                        })
+                      }
+                      placeholder="Chatea ahora con un asesor de ventas"
+                      className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-stone-300 mb-1 font-semibold">
+                      Subtítulo Bajo Correo
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.contactForm?.emailSubtitle || 'Para propuestas y acuerdos institucionales'}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          contactForm: {
+                            ...formData.contactForm,
+                            emailSubtitle: e.target.value,
+                          },
+                        })
+                      }
+                      placeholder="Para propuestas y acuerdos institucionales"
+                      className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* CARD 2: REDES SOCIALES OFICIALES */}
+              <div className="bg-stone-900/60 p-5 rounded-2xl border border-stone-800 space-y-4">
+                <h4 className="font-serif text-sm font-bold text-white flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-purple-400" />
+                  <span>Redes Sociales Oficiales del Proyecto</span>
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                  <div>
+                    <label className="block text-stone-300 mb-1 font-semibold flex items-center gap-1.5">
+                      <Instagram className="w-3.5 h-3.5 text-pink-400" />
+                      <span>Instagram URL</span>
+                    </label>
+                    <input
+                      type="url"
+                      value={formData.site?.socialMedia?.instagram || ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          site: {
+                            ...formData.site,
+                            socialMedia: {
+                              ...formData.site?.socialMedia,
+                              instagram: e.target.value,
+                              facebook: formData.site?.socialMedia?.facebook || '',
+                              youtube: formData.site?.socialMedia?.youtube || '',
+                            },
+                          },
+                        })
+                      }
+                      placeholder="https://instagram.com/misdeliriosranch"
+                      className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-stone-300 mb-1 font-semibold flex items-center gap-1.5">
+                      <Facebook className="w-3.5 h-3.5 text-blue-400" />
+                      <span>Facebook URL</span>
+                    </label>
+                    <input
+                      type="url"
+                      value={formData.site?.socialMedia?.facebook || ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          site: {
+                            ...formData.site,
+                            socialMedia: {
+                              ...formData.site?.socialMedia,
+                              facebook: e.target.value,
+                              instagram: formData.site?.socialMedia?.instagram || '',
+                              youtube: formData.site?.socialMedia?.youtube || '',
+                            },
+                          },
+                        })
+                      }
+                      placeholder="https://facebook.com/misdeliriosranch"
+                      className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-stone-300 mb-1 font-semibold flex items-center gap-1.5">
+                      <Youtube className="w-3.5 h-3.5 text-red-400" />
+                      <span>YouTube URL</span>
+                    </label>
+                    <input
+                      type="url"
+                      value={formData.site?.socialMedia?.youtube || ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          site: {
+                            ...formData.site,
+                            socialMedia: {
+                              ...formData.site?.socialMedia,
+                              youtube: e.target.value,
+                              instagram: formData.site?.socialMedia?.instagram || '',
+                              facebook: formData.site?.socialMedia?.facebook || '',
+                            },
+                          },
+                        })
+                      }
+                      placeholder="https://youtube.com/@misdeliriosranch"
+                      className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* CARD 3: ENCABEZADOS Y TEXTOS DE LA SECCIÓN */}
+              <div className="bg-stone-900/60 p-5 rounded-2xl border border-stone-800 space-y-4">
+                <h4 className="font-serif text-sm font-bold text-white flex items-center gap-2">
+                  <Edit3 className="w-4 h-4 text-amber-400" />
+                  <span>Encabezado de la Sección en la Página Web</span>
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <label className="block text-stone-300 mb-1 font-semibold">
+                      Insignia Superior (Badge)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.contactForm?.badgeText || 'Atención Personalizada en Menos de 24 Horas'}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          contactForm: {
+                            ...formData.contactForm,
+                            badgeText: e.target.value,
+                          },
+                        })
+                      }
+                      placeholder="Atención Personalizada en Menos de 24 Horas"
+                      className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-stone-300 mb-1 font-semibold">
+                      Título de la Tarjeta de Canales
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.contactForm?.directChannelsTitle || 'Canales de Atención Directa'}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          contactForm: {
+                            ...formData.contactForm,
+                            directChannelsTitle: e.target.value,
+                          },
+                        })
+                      }
+                      placeholder="Canales de Atención Directa"
+                      className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-stone-300 mb-1 font-semibold">
+                      Título Principal de la Sección
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.contactForm?.title || 'Haz Realidad tu Casa de Campo'}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          contactForm: {
+                            ...formData.contactForm,
+                            title: e.target.value,
+                          },
+                        })
+                      }
+                      placeholder="Haz Realidad tu Casa de Campo"
+                      className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white font-semibold"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-stone-300 mb-1 font-semibold">
+                      Subtítulo Descriptivo de la Sección
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={formData.contactForm?.subtitle || 'Nuestros asesores te brindarán atención personalizada y respuesta en menos de 24 horas.'}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          contactForm: {
+                            ...formData.contactForm,
+                            subtitle: e.target.value,
+                          },
+                        })
+                      }
+                      placeholder="Nuestros asesores te brindarán atención personalizada y respuesta en menos de 24 horas."
+                      className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* CARD 4: FORMULARIO DE CONVERSIÓN & PROSPECTOS */}
+              <div className="bg-stone-900/60 p-5 rounded-2xl border border-stone-800 space-y-4">
+                <h4 className="font-serif text-sm font-bold text-white flex items-center gap-2">
+                  <Send className="w-4 h-4 text-emerald-400" />
+                  <span>Formulario de Cotización & Captación de Clientes</span>
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <label className="block text-stone-300 mb-1 font-semibold">
+                      Título del Formulario
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.contactForm?.formTitle || 'Solicita Información y Reserva'}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          contactForm: {
+                            ...formData.contactForm,
+                            formTitle: e.target.value,
+                          },
+                        })
+                      }
+                      placeholder="Solicita Información y Reserva"
+                      className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-stone-300 mb-1 font-semibold">
+                      Texto del Botón Principal
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.contactForm?.submitButtonText || 'Enviar solicitud de información'}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          contactForm: {
+                            ...formData.contactForm,
+                            submitButtonText: e.target.value,
+                          },
+                        })
+                      }
+                      placeholder="Enviar solicitud de información"
+                      className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-stone-300 mb-1 font-semibold">
+                      Subtítulo del Formulario
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={formData.contactForm?.formSubtitle || 'Completa este formulario para recibir el catálogo de lotes, planos de viviendas y ficha técnica oficial.'}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          contactForm: {
+                            ...formData.contactForm,
+                            formSubtitle: e.target.value,
+                          },
+                        })
+                      }
+                      placeholder="Completa este formulario para recibir el catálogo de lotes, planos de viviendas y ficha técnica oficial."
+                      className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-stone-300 mb-1 font-semibold">
+                      Texto del Botón de Llamada Rápida
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.contactForm?.callButtonText || 'Solicitar llamada inmediata'}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          contactForm: {
+                            ...formData.contactForm,
+                            callButtonText: e.target.value,
+                          },
+                        })
+                      }
+                      placeholder="Solicitar llamada inmediata"
+                      className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-stone-300 mb-1 font-semibold">
+                      Texto de Consentimiento / Privacidad
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.contactForm?.privacyPolicyText || 'Acepto la política de privacidad y autorizo el tratamiento de mis datos.'}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          contactForm: {
+                            ...formData.contactForm,
+                            privacyPolicyText: e.target.value,
+                          },
+                        })
+                      }
+                      placeholder="Acepto la política de privacidad..."
+                      className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-stone-300 mb-1 font-semibold">
+                      Plantilla del Mensaje de WhatsApp (Texto Inicial para Asesor)
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={formData.contactForm?.whatsappMessageTemplate || '¡Hola! Estoy interesado en el proyecto Mis Delirios Ranch en Cordero, Táchira. Quisiera recibir información sobre disponibilidad y planes de financiamiento.'}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          contactForm: {
+                            ...formData.contactForm,
+                            whatsappMessageTemplate: e.target.value,
+                          },
+                        })
+                      }
+                      placeholder="¡Hola! Estoy interesado en el proyecto Mis Delirios Ranch..."
+                      className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white"
+                    />
+                    <p className="text-[11px] text-stone-400 mt-1">
+                      Este mensaje se abrirá automáticamente en el WhatsApp del usuario al hacer clic en el botón de chat.
+                    </p>
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-stone-300 mb-1 font-semibold">
+                      Mensaje de Éxito al Enviar Solicitud
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={formData.contactForm?.successMessage || '¡Gracias por tu interés en Mis Delirios Ranch! Hemos recibido tus datos y un asesor se comunicará contigo en menos de 24 horas.'}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          contactForm: {
+                            ...formData.contactForm,
+                            successMessage: e.target.value,
+                          },
+                        })
+                      }
+                      placeholder="¡Gracias por tu interés en Mis Delirios Ranch!..."
+                      className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* SAVE BUTTON FOR CONTACT SECTION */}
+              <div className="flex items-center justify-between p-4 bg-stone-900 rounded-2xl border border-stone-800">
+                <span className="text-xs text-stone-400">
+                  Guarda los cambios de contacto para actualizar los números y canales en todo el sitio web y bases de datos.
+                </span>
+                <button
+                  onClick={() => handleSaveAll(false)}
+                  disabled={saving || levelInfo.isReadOnly}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-stone-950 font-bold text-xs shadow-lg transition-all disabled:opacity-60"
+                  id="btn-save-contact-cms"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{saving ? 'Guardando...' : 'Guardar Cambios de Contacto'}</span>
+                </button>
               </div>
             </div>
           )}

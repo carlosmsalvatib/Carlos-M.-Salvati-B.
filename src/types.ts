@@ -302,6 +302,17 @@ export interface CmsContent {
   contactForm: {
     title: string;
     subtitle: string;
+    badgeText?: string;
+    directChannelsTitle?: string;
+    formTitle?: string;
+    formSubtitle?: string;
+    scheduleText?: string;
+    whatsappSubtitle?: string;
+    emailSubtitle?: string;
+    directPhone?: string;
+    directWhatsapp?: string;
+    directEmail?: string;
+    directAddress?: string;
     submitButtonText: string;
     callButtonText: string;
     whatsappMessageTemplate: string;

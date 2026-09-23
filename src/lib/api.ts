@@ -14,20 +14,26 @@ import {
 
 export const API_BASE = '/api';
 
-const STORAGE_KEY_CONTENT = 'mdr_runtime_cms_content_v2';
-const STORAGE_KEY_LOTS = 'mdr_runtime_lots_v2';
-const STORAGE_KEY_MODELS = 'mdr_runtime_models_v2';
-const STORAGE_KEY_LAST_SAVED = 'mdr_runtime_last_saved_v2';
+const STORAGE_KEY_CONTENT = 'mdr_runtime_cms_content_v3';
+const STORAGE_KEY_LOTS = 'mdr_runtime_lots_v3';
+const STORAGE_KEY_MODELS = 'mdr_runtime_models_v3';
+const STORAGE_KEY_LAST_SAVED = 'mdr_runtime_last_saved_v3';
 
 /**
  * Retrieve cached CMS content from browser storage for instant runtime persistence
  */
 export function getLocalCachedContent(): CmsContent | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY_CONTENT);
+    const raw = localStorage.getItem(STORAGE_KEY_CONTENT) || localStorage.getItem('mdr_runtime_cms_content_v2');
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === 'object' && parsed.site) {
+        if (parsed.site.contactPhone?.includes('7187596')) {
+          parsed.site.contactPhone = '+58-414-7114245';
+        }
+        if (parsed.site.contactWhatsapp?.includes('7187596')) {
+          parsed.site.contactWhatsapp = '+58-414-7114245';
+        }
         return parsed;
       }
     }
@@ -227,21 +233,7 @@ async function parseJsonSafely<T>(res: Response, fallbackErrorMsg: string): Prom
 export async function fetchCmsContent(): Promise<CmsContent> {
   const localCached = getLocalCachedContent();
 
-  // 1. Prioritize Cloud Firestore with defensive timeout (max 2000ms)
-  try {
-    const snap = await withFirestoreTimeout(getDoc(doc(db, 'cms_content', 'global_content')), 2000);
-    if (snap && snap.exists()) {
-      const data = snap.data() as CmsContent;
-      if (data && data.site) {
-        saveLocalCache(data);
-        return data;
-      }
-    }
-  } catch (fireErr) {
-    console.warn('Lectura de Firestore no disponible, recurriendo a servidor:', fireErr);
-  }
-
-  // 2. Fallback to Express backend
+  // 1. Prioritize Express backend (synced with MariaDB and filesystem)
   try {
     const res = await fetch(`${API_BASE}/content?_t=${Date.now()}`, {
       cache: 'no-store',
@@ -259,8 +251,23 @@ export async function fetchCmsContent(): Promise<CmsContent> {
       return json.data;
     }
   } catch (err) {
-    console.warn('Conexión con servidor no disponible, usando cache local persistente:', err);
+    console.warn('Conexión con servidor no disponible, recurriendo a Firestore:', err);
   }
+
+  // 2. Fallback to Cloud Firestore with defensive timeout (max 2000ms)
+  try {
+    const snap = await withFirestoreTimeout(getDoc(doc(db, 'cms_content', 'global_content')), 2000);
+    if (snap && snap.exists()) {
+      const data = snap.data() as CmsContent;
+      if (data && data.site) {
+        saveLocalCache(data);
+        return data;
+      }
+    }
+  } catch (fireErr) {
+    console.warn('Lectura de Firestore no disponible, usando cache local persistente:', fireErr);
+  }
+
   return localCached || initialCmsContent;
 }
 

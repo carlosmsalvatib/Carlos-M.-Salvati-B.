@@ -97,7 +97,17 @@ export const ContactConversionSection: React.FC<ContactConversionSectionProps> =
     }
   };
 
-  const whatsappLink = `https://wa.me/${site.contactWhatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(
+  const whatsappNum = contactForm.directWhatsapp || site.contactWhatsapp || (site as any).phone || '+58-414-7114245';
+  const phoneNum = contactForm.directPhone || site.contactPhone || (site as any).phone || '+58-414-7114245';
+  const emailVal = contactForm.directEmail || site.contactEmail || (site as any).email || 'ventas@misdeliriosranch.com';
+  const addressVal = contactForm.directAddress || site.salesOfficeAddress || (site as any).address || 'Aldea Sabana Larga - Sector Salomón, Cordero, Municipio Andrés Bello, estado Táchira, Venezuela';
+
+  // Defensive sanitization: replace any stale legacy numbers containing 7187596
+  const safeWhatsapp = whatsappNum.includes('7187596') ? '+58-414-7114245' : whatsappNum;
+  const safePhone = phoneNum.includes('7187596') ? '+58-414-7114245' : phoneNum;
+
+  const cleanWaNumber = safeWhatsapp.replace(/\D/g, '') || '584147114245';
+  const whatsappLink = `https://wa.me/${cleanWaNumber}?text=${encodeURIComponent(
     contactForm.whatsappMessageTemplate || 'Hola, deseo recibir información sobre Mis Delirios Ranch.'
   )}`;
 
@@ -108,7 +118,7 @@ export const ContactConversionSection: React.FC<ContactConversionSectionProps> =
         <div className="text-center max-w-3xl mx-auto mb-16">
           <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-semibold mb-3">
             <MessageCircle className="w-3.5 h-3.5" />
-            <span>Atención Personalizada en Menos de 24 Horas</span>
+            <span>{contactForm.badgeText || 'Atención Personalizada en Menos de 24 Horas'}</span>
           </div>
           <h2 className="font-serif text-3xl sm:text-4xl font-bold text-stone-900 tracking-tight mb-4" id="contact-title">
             {contactForm.title || 'Haz Realidad tu Casa de Campo'}
@@ -123,7 +133,7 @@ export const ContactConversionSection: React.FC<ContactConversionSectionProps> =
           <div className="lg:col-span-5 space-y-6">
             <div className="bg-white rounded-2xl p-6 sm:p-7 border border-stone-200 shadow-sm space-y-5">
               <h3 className="font-serif text-xl font-bold text-stone-900">
-                Canales de Atención Directa
+                {contactForm.directChannelsTitle || 'Canales de Atención Directa'}
               </h3>
 
               {/* WhatsApp Direct */}
@@ -141,14 +151,14 @@ export const ContactConversionSection: React.FC<ContactConversionSectionProps> =
                   <span className="block text-xs font-bold uppercase tracking-wider text-emerald-800">
                     Atención Inmediata por WhatsApp
                   </span>
-                  <span className="text-stone-900 font-bold text-base">{site.contactWhatsapp}</span>
-                  <p className="text-xs text-stone-500">Chatea ahora con un asesor de ventas</p>
+                  <span className="text-stone-900 font-bold text-base">{safeWhatsapp}</span>
+                  <p className="text-xs text-stone-500">{contactForm.whatsappSubtitle || 'Chatea ahora con un asesor de ventas'}</p>
                 </div>
               </a>
 
               {/* Phone */}
               <a
-                href={`tel:${site.contactPhone.replace(/\s+/g, '')}`}
+                href={`tel:${safePhone.replace(/[\s-]+/g, '')}`}
                 className="flex items-center gap-4 p-4 rounded-xl bg-stone-50 border border-stone-200 hover:bg-stone-100 transition-all group"
                 id="contact-phone-direct-link"
               >
@@ -159,14 +169,14 @@ export const ContactConversionSection: React.FC<ContactConversionSectionProps> =
                   <span className="block text-xs font-bold uppercase tracking-wider text-stone-500">
                     Línea Telefónica Directa
                   </span>
-                  <span className="text-stone-900 font-bold text-base">{site.contactPhone}</span>
-                  <p className="text-xs text-stone-500">Lunes a Sábado de 8:00 AM a 6:00 PM</p>
+                  <span className="text-stone-900 font-bold text-base">{safePhone}</span>
+                  <p className="text-xs text-stone-500">{contactForm.scheduleText || 'Lunes a Sábado de 8:00 AM a 6:00 PM'}</p>
                 </div>
               </a>
 
               {/* Email */}
               <a
-                href={`mailto:${site.contactEmail}`}
+                href={`mailto:${emailVal}`}
                 className="flex items-center gap-4 p-4 rounded-xl bg-stone-50 border border-stone-200 hover:bg-stone-100 transition-all group"
                 id="contact-email-direct-link"
               >
@@ -177,8 +187,8 @@ export const ContactConversionSection: React.FC<ContactConversionSectionProps> =
                   <span className="block text-xs font-bold uppercase tracking-wider text-stone-500">
                     Correo Electrónico Oficial
                   </span>
-                  <span className="text-stone-900 font-bold text-sm sm:text-base break-all">{site.contactEmail}</span>
-                  <p className="text-xs text-stone-500">Para propuestas y acuerdos institucionales</p>
+                  <span className="text-stone-900 font-bold text-sm sm:text-base break-all">{emailVal}</span>
+                  <p className="text-xs text-stone-500">{contactForm.emailSubtitle || 'Para propuestas y acuerdos institucionales'}</p>
                 </div>
               </a>
 
@@ -192,7 +202,7 @@ export const ContactConversionSection: React.FC<ContactConversionSectionProps> =
                     Oficina de Ventas & Terreno
                   </span>
                   <p className="text-stone-900 font-semibold text-xs sm:text-sm mt-0.5">
-                    {site.salesOfficeAddress}
+                    {addressVal}
                   </p>
                 </div>
               </div>
@@ -237,10 +247,10 @@ export const ContactConversionSection: React.FC<ContactConversionSectionProps> =
           <div className="lg:col-span-7">
             <div className="bg-white rounded-2xl p-6 sm:p-8 border border-stone-200 shadow-xl">
               <h3 className="font-serif text-2xl font-bold text-stone-900 mb-2">
-                Solicita Información y Reserva
+                {contactForm.formTitle || 'Solicita Información y Reserva'}
               </h3>
               <p className="text-xs sm:text-sm text-stone-500 mb-6">
-                Completa este formulario para recibir el catálogo de lotes, planos de viviendas y ficha técnica oficial.
+                {contactForm.formSubtitle || 'Completa este formulario para recibir el catálogo de lotes, planos de viviendas y ficha técnica oficial.'}
               </p>
 
               {successMessage && (

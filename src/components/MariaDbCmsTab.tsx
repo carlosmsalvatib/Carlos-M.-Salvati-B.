@@ -34,13 +34,35 @@ export const MariaDbCmsTab: React.FC<MariaDbCmsTabProps> = ({ onRefreshCms }) =>
   const [savingConfig, setSavingConfig] = useState(false);
 
   // Form config fields
-  const [host, setHost] = useState('misdelirios.360siace.com');
+  const [host, setHost] = useState('45.79.40.132');
   const [port, setPort] = useState(3306);
-  const [user, setUser] = useState('aapu');
-  const [password, setPassword] = useState('Aapu2104MD');
-  const [database, setDatabase] = useState('misdelirios');
+  const [user, setUser] = useState('siacecom_aapu');
+  const [password, setPassword] = useState('Aapu2104MD..');
+  const [database, setDatabase] = useState('siacecom_misdelirios');
   const [enabled, setEnabled] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Helper to sanitize host string
+  const cleanHostString = (val: string) => {
+    return val.replace(/^https?:\/\//i, '').replace(/[:/].*$/, '').trim();
+  };
+
+  // Preset selector
+  const applyPreset = (preset: 'ip' | 'domain') => {
+    if (preset === 'ip') {
+      setHost('45.79.40.132');
+      setPort(3306);
+      setUser('siacecom_aapu');
+      setPassword('Aapu2104MD..');
+      setDatabase('siacecom_misdelirios');
+    } else {
+      setHost('misdelirios.360siace.com');
+      setPort(3306);
+      setUser('aapu');
+      setPassword('Aapu2104MD');
+      setDatabase('misdelirios');
+    }
+  };
 
   // Feedback states
   const [testResult, setTestResult] = useState<{
@@ -62,10 +84,10 @@ export const MariaDbCmsTab: React.FC<MariaDbCmsTabProps> = ({ onRefreshCms }) =>
       const data = await fetchMariaDbStatus();
       setStatus(data);
       if (data?.config) {
-        setHost(data.config.host || 'misdelirios.360siace.com');
+        setHost(data.config.host ? cleanHostString(data.config.host) : '45.79.40.132');
         setPort(data.config.port || 3306);
-        setUser(data.config.user || 'aapu');
-        setDatabase(data.config.database || 'misdelirios');
+        setUser(data.config.user || 'siacecom_aapu');
+        setDatabase(data.config.database || 'siacecom_misdelirios');
         setEnabled(data.config.enabled !== false);
       }
     } catch (err: any) {
@@ -84,7 +106,7 @@ export const MariaDbCmsTab: React.FC<MariaDbCmsTabProps> = ({ onRefreshCms }) =>
     setTestResult(null);
     try {
       const cfg = override || {
-        host: host.trim(),
+        host: cleanHostString(host),
         port: Number(port) || 3306,
         user: user.trim(),
         password: password.trim(),
@@ -113,7 +135,7 @@ export const MariaDbCmsTab: React.FC<MariaDbCmsTabProps> = ({ onRefreshCms }) =>
     if (!skipTest) setTestResult(null);
     try {
       const payload = {
-        host: host.trim(),
+        host: cleanHostString(host),
         port: Number(port) || 3306,
         user: user.trim(),
         password: password.trim(),
@@ -122,7 +144,7 @@ export const MariaDbCmsTab: React.FC<MariaDbCmsTabProps> = ({ onRefreshCms }) =>
       };
       const res = await updateMariaDbConfig(payload);
       if (res && res.success) {
-        setSaveMessage(res.message || 'Configuración guardada correctamente en el sistema.');
+        setSaveMessage(res.message || 'Configuración guardada correctamente.');
         if (res.test) {
           setTestResult(res.test);
         }
@@ -246,9 +268,33 @@ export const MariaDbCmsTab: React.FC<MariaDbCmsTabProps> = ({ onRefreshCms }) =>
               <div className="space-y-1 flex-1">
                 <p className="font-semibold text-sm">{testResult.message}</p>
                 {testResult.error && (
-                  <p className="text-stone-300 font-mono bg-black/40 p-2.5 rounded-lg border border-stone-800/80 break-words">
-                    {testResult.error}
-                  </p>
+                  <div className="space-y-2">
+                    <p className="text-stone-300 font-mono bg-black/40 p-2.5 rounded-lg border border-stone-800/80 break-words">
+                      {testResult.error}
+                    </p>
+                    {(testResult.error.includes('Access denied') || testResult.error.includes('MySQL Remoto')) && (
+                      <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 text-stone-200 text-[11px] space-y-1.5">
+                        <p className="font-bold text-amber-300 flex items-center gap-1.5">
+                          <Info className="w-3.5 h-3.5 shrink-0" />
+                          Instrucciones para autorizar la conexión en su Hosting (cPanel):
+                        </p>
+                        <ol className="list-decimal pl-4 space-y-1 text-stone-300 text-[11px]">
+                          <li>
+                            Ingrese al <strong>cPanel</strong> de su hosting (en <code className="text-amber-200">misdelirios.360siace.com:2083</code>).
+                          </li>
+                          <li>
+                            En la sección <strong>Bases de datos</strong>, abra <strong>MySQL Remoto (Remote MySQL)</strong>.
+                          </li>
+                          <li>
+                            En el campo <em>Host (% comodín)</em> escriba <code className="bg-black/40 px-1 py-0.5 rounded text-amber-300 font-mono">%</code> y haga clic en <strong>Añadir host</strong>.
+                          </li>
+                          <li>
+                            Verifique también en <em>Bases de datos MySQL</em> que el usuario <code className="text-amber-200">{user}</code> esté asignado a la base de datos <code className="text-amber-200">{database}</code> con <strong>TODOS LOS PRIVILEGIOS</strong> marcados.
+                          </li>
+                        </ol>
+                      </div>
+                    )}
+                  </div>
                 )}
                 {testResult.databases && testResult.databases.length > 0 && (
                   <p className="text-stone-300">
@@ -295,12 +341,34 @@ export const MariaDbCmsTab: React.FC<MariaDbCmsTabProps> = ({ onRefreshCms }) =>
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Connection Form */}
         <div className="lg:col-span-7 bg-stone-900/80 border border-stone-800/90 rounded-2xl p-6 space-y-5">
-          <div className="flex items-center justify-between border-b border-stone-800 pb-3">
-            <h3 className="text-sm font-bold text-stone-200 flex items-center gap-2">
-              <Server className="w-4 h-4 text-amber-400" />
-              Parámetros de Conexión a MariaDB
-            </h3>
-            <span className="text-[11px] text-stone-500 font-mono">Puerto estándar: 3306</span>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-stone-800 pb-3 gap-2">
+            <div>
+              <h3 className="text-sm font-bold text-stone-200 flex items-center gap-2">
+                <Server className="w-4 h-4 text-amber-400" />
+                Parámetros de Conexión a MariaDB
+              </h3>
+              <p className="text-[11px] text-stone-400">Configure los datos de acceso al servidor de base de datos</p>
+            </div>
+            {/* Quick Presets */}
+            <div className="flex items-center gap-1.5 self-start sm:self-auto">
+              <span className="text-[10px] text-stone-400 font-medium">Perfiles:</span>
+              <button
+                type="button"
+                onClick={() => applyPreset('ip')}
+                className="px-2 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-semibold transition-colors cursor-pointer"
+                title="Cargar IP Directa del Hosting (45.79.40.132)"
+              >
+                IP Directa
+              </button>
+              <button
+                type="button"
+                onClick={() => applyPreset('domain')}
+                className="px-2 py-0.5 rounded bg-stone-800 hover:bg-stone-700 text-stone-300 border border-stone-700 text-[10px] font-semibold transition-colors cursor-pointer"
+                title="Cargar Dominio (misdelirios.360siace.com)"
+              >
+                Dominio
+              </button>
+            </div>
           </div>
 
           <form onSubmit={handleSaveConfig} className="space-y-4">
@@ -308,13 +376,13 @@ export const MariaDbCmsTab: React.FC<MariaDbCmsTabProps> = ({ onRefreshCms }) =>
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-xs font-medium text-stone-300 flex items-center gap-1.5">
                   <Globe className="w-3.5 h-3.5 text-stone-400" />
-                  Host / Servidor
+                  Host / Servidor IP
                 </label>
                 <input
                   type="text"
                   value={host}
                   onChange={(e) => setHost(e.target.value)}
-                  placeholder="misdelirios.360siace.com"
+                  placeholder="45.79.40.132"
                   className="w-full bg-stone-950 border border-stone-800 rounded-xl px-3.5 py-2 text-xs text-stone-100 focus:border-amber-500 focus:outline-none font-mono"
                   required
                 />

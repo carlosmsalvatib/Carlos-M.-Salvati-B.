@@ -1,8 +1,8 @@
 {
-  "host": "misdelirios.360siace.com",
+  "host": "45.79.40.132",
   "port": 3306,
-  "user": "aapu",
-  "password": "Aapu2104MD",
-  "database": "misdelirios",
+  "user": "siacecom_aapu",
+  "password": "Aapu2104MD..",
+  "database": "siacecom_misdelirios",
   "enabled": true
 }

@@ -11,15 +11,23 @@ export interface MariaDbConfig {
   enabled: boolean;
 }
 
+export function sanitizeHost(h: string): string {
+  if (!h) return '';
+  return h.trim().replace(/^https?:\/\//i, '').replace(/[:/].*$/, '').trim();
+}
+
 const CONFIG_FILE = path.join(process.cwd(), 'data', 'mariadb-config.json');
 
 // Default configuration with user-provided credentials
+const rawEnvHost = process.env.MARIADB_HOST || '';
+const cleanEnvHost = sanitizeHost(rawEnvHost);
+
 const defaultConfig: MariaDbConfig = {
-  host: process.env.MARIADB_HOST || 'misdelirios.360siace.com',
+  host: cleanEnvHost || '45.79.40.132',
   port: Number(process.env.MARIADB_PORT) || 3306,
-  user: process.env.MARIADB_USER || 'aapu',
-  password: process.env.MARIADB_PASSWORD || 'Aapu2104MD',
-  database: process.env.MARIADB_DATABASE || 'misdelirios',
+  user: process.env.MARIADB_USER || 'siacecom_aapu',
+  password: process.env.MARIADB_PASSWORD || 'Aapu2104MD..',
+  database: process.env.MARIADB_DATABASE || 'siacecom_misdelirios',
   enabled: true,
 };
 
@@ -36,7 +44,11 @@ function loadSavedConfig(): MariaDbConfig {
   try {
     if (fs.existsSync(CONFIG_FILE)) {
       const saved = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
-      return { ...defaultConfig, ...saved };
+      const merged = { ...defaultConfig, ...saved };
+      if (merged.host) {
+        merged.host = sanitizeHost(merged.host);
+      }
+      return merged;
     }
   } catch (err) {
     console.warn('[MariaDB] Error leyendo configuración guardada:', err);
@@ -45,7 +57,11 @@ function loadSavedConfig(): MariaDbConfig {
 }
 
 export function saveConfig(cfg: Partial<MariaDbConfig>): MariaDbConfig {
-  currentConfig = { ...currentConfig, ...cfg };
+  const cleanCfg = { ...cfg };
+  if (cleanCfg.host) {
+    cleanCfg.host = sanitizeHost(cleanCfg.host);
+  }
+  currentConfig = { ...currentConfig, ...cleanCfg };
   try {
     const dataDir = path.dirname(CONFIG_FILE);
     if (!fs.existsSync(dataDir)) {
@@ -96,8 +112,9 @@ export function initMariaDbPool(): mysql.Pool | null {
   }
 
   try {
+    const cleanHost = sanitizeHost(currentConfig.host);
     pool = mysql.createPool({
-      host: currentConfig.host,
+      host: cleanHost,
       port: currentConfig.port,
       user: currentConfig.user,
       password: currentConfig.password,
@@ -128,6 +145,9 @@ export async function testMariaDbConnection(configOverride?: Partial<MariaDbConf
   databases?: string[];
 }> {
   const cfg = { ...currentConfig, ...configOverride };
+  if (cfg.host) {
+    cfg.host = sanitizeHost(cfg.host);
+  }
   try {
     // First try connecting with database specified
     let connection: mysql.Connection;
@@ -138,7 +158,7 @@ export async function testMariaDbConnection(configOverride?: Partial<MariaDbConf
         user: cfg.user,
         password: cfg.password,
         database: cfg.database,
-        connectTimeout: 2500,
+        connectTimeout: 3000,
       });
     } catch (dbErr: any) {
       // If database does not exist, try connecting without database to check credentials
@@ -148,7 +168,7 @@ export async function testMariaDbConnection(configOverride?: Partial<MariaDbConf
           port: cfg.port,
           user: cfg.user,
           password: cfg.password,
-          connectTimeout: 2500,
+          connectTimeout: 3000,
         });
         const [dbRows]: any = await rootConn.query('SHOW DATABASES;');
         const availableDbs = dbRows.map((r: any) => Object.values(r)[0]);
@@ -195,9 +215,9 @@ export async function testMariaDbConnection(configOverride?: Partial<MariaDbConf
     if (err.code === 'ETIMEDOUT' || err.message?.includes('ETIMEDOUT')) {
       friendlyError = `Tiempo de espera agotado al conectar con ${cfg.host}:${cfg.port}. Posibles causas: 1) El puerto 3306 está bloqueado por firewall en el servidor de hosting. 2) En cPanel se requiere habilitar "MySQL Remoto" y agregar '%' como host de acceso. 3) El dominio apunta a Vercel/CDN y se requiere la IP directa del servidor MySQL.`;
     } else if (err.code === 'ER_ACCESS_DENIED_ERROR' || err.message?.includes('Access denied')) {
-      friendlyError = `Acceso denegado para el usuario '${cfg.user}'. Verifique la contraseña o los permisos del usuario en MariaDB/cPanel.`;
+      friendlyError = `El servidor MariaDB en '${cfg.host}' respondió, pero denegó el acceso al usuario '${cfg.user}'. Solución: En cPanel -> "MySQL Remoto" (Remote MySQL) agregue '%' (comodín para cualquier IP) y verifique que el usuario '${cfg.user}' tenga asignados todos los privilegios sobre la base de datos '${cfg.database}'. [Detalle técnico: ${err.message}]`;
     } else if (err.code === 'ENOTFOUND') {
-      friendlyError = `No se pudo resolver el host '${cfg.host}'. Verifique el nombre de dominio o utilice la dirección IP.`;
+      friendlyError = `No se pudo resolver el host '${cfg.host}'. Verifique el nombre de host o utilice la dirección IP directa.`;
     }
 
     lastStatus = {

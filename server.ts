@@ -432,19 +432,34 @@ async function startServer() {
   });
 
   // --- MariaDB Dedicated Management Endpoints ---
-  app.get('/api/mariadb/status', (req, res) => {
+  app.all(['/api/mariadb/status', '/api/mariadb/status/'], (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
     res.json({ success: true, data: getMariaDbStatus() });
   });
 
-  app.post('/api/mariadb/test', async (req, res) => {
-    const result = await testMariaDbConnection(req.body);
-    res.json(result);
-  });
-
-  app.post('/api/mariadb/config', async (req, res) => {
+  app.all(['/api/mariadb/test', '/api/mariadb/test/'], async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     try {
-      const updated = saveMariaDbConfig(req.body);
+      const payload = req.method === 'POST' || req.method === 'PUT' ? req.body : undefined;
+      const result = await testMariaDbConnection(payload);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: 'Error interno al probar MariaDB', error: err.message });
+    }
+  });
+
+  app.get(['/api/mariadb/config', '/api/mariadb/config/'], (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.json({ success: true, data: getMariaDbCurrentConfig(), status: getMariaDbStatus() });
+  });
+
+  app.all(['/api/mariadb/config', '/api/mariadb/config/'], async (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    if (req.method === 'GET') {
+      return res.json({ success: true, data: getMariaDbCurrentConfig(), status: getMariaDbStatus() });
+    }
+    try {
+      const updated = saveMariaDbConfig(req.body || {});
 
       // Perform a quick connection test with a tight 3000ms safety race
       let testResult = null;
@@ -487,7 +502,8 @@ async function startServer() {
     }
   });
 
-  app.post('/api/mariadb/migrate', async (req, res) => {
+  app.all(['/api/mariadb/migrate', '/api/mariadb/migrate/'], async (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
     try {
       const result = await migrateAllToMariaDb({
         content: cmsContent,

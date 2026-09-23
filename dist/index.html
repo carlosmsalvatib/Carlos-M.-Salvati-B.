@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      /* Ensure window.fetch has both getter and setter to prevent "Cannot set property fetch of #<Window> which has only a getter" */
+      (function () {
+        try {
+          var nativeFetch = window.fetch;
+          var activeFetch = typeof nativeFetch === 'function' ? nativeFetch.bind(window) : nativeFetch;
+
+          Object.defineProperty(window, 'fetch', {
+            get: function () {
+              return activeFetch;
+            },
+            set: function (newFetch) {
+              activeFetch = typeof newFetch === 'function' ? newFetch : nativeFetch;
+            },
+            configurable: true,
+            enumerable: true,
+          });
+
+          if (typeof globalThis !== 'undefined' && globalThis !== window) {
+            try {
+              Object.defineProperty(globalThis, 'fetch', {
+                get: function () {
+                  return activeFetch;
+                },
+                set: function (newFetch) {
+                  activeFetch = typeof newFetch === 'function' ? newFetch : nativeFetch;
+                },
+                configurable: true,
+                enumerable: true,
+              });
+            } catch (e) {}
+          }
+        } catch (err) {
+          // Graceful fallback
+        }
+
+        window.addEventListener('error', function (event) {
+          if (event && event.message && event.message.indexOf('Cannot set property fetch of') !== -1) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            return true;
+          }
+        });
+      })();
+    </script>
+    <title>Mis Delirios Ranch - Refugio y Tranquilidad Garantizada | Cordero, Táchira</title>
+    <meta name="description" content="Complejo Urbanístico Agroproductivo y Turístico en el Corazón de los Andes. Mini-granjas autosustentables desde 600 m² y viviendas en Bambú Guadua." />
+    <meta property="og:title" content="Mis Delirios Ranch - Refugio y Tranquilidad Garantizada" />
+    <meta property="og:description" content="Complejo Urbanístico Agroproductivo y Turístico en el Corazón de los Andes. Lotes en venta en Táchira." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,600&display=swap" rel="stylesheet" />
+    <script type="module" crossorigin src="/assets/index-C_04tnfe.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-BSrc5dZ_.css">
+  </head>
+  <body class="bg-stone-50 text-stone-800 antialiased selection:bg-emerald-700 selection:text-white">
+    <div id="root"></div>
+  </body>
+</html>
+

@@ -26,7 +26,7 @@ const defaultConfig: MariaDbConfig = {
   host: cleanEnvHost || '45.79.40.132',
   port: Number(process.env.MARIADB_PORT) || 3306,
   user: process.env.MARIADB_USER || 'siacecom_aapu',
-  password: process.env.MARIADB_PASSWORD || 'Aapu2104MD..',
+  password: process.env.MARIADB_PASSWORD || 'Admin21aapu',
   database: process.env.MARIADB_DATABASE || 'siacecom_misdelirios',
   enabled: true,
 };

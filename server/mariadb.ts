@@ -16,11 +16,24 @@ export function sanitizeHost(h: string): string {
   return h.trim().replace(/^https?:\/\//i, '').replace(/[:/].*$/, '').trim();
 }
 
+/**
+ * Resolves the effective MariaDB host.
+ * The domain 'www.360siace.com' or '360siace.com' points to a web CDN/proxy (216.198.79.65) where port 3306 is not open.
+ * The actual MariaDB server is located at direct IP 45.79.40.132.
+ */
+export function resolveEffectiveHost(h: string): string {
+  const clean = sanitizeHost(h);
+  if (clean === 'www.360siace.com' || clean === '360siace.com' || clean === 'misdelirios.360siace.com') {
+    return '45.79.40.132';
+  }
+  return clean;
+}
+
 const CONFIG_FILE = path.join(process.cwd(), 'data', 'mariadb-config.json');
 
 // Default configuration with user-provided credentials
 const rawEnvHost = process.env.MARIADB_HOST || '';
-const cleanEnvHost = sanitizeHost(rawEnvHost);
+const cleanEnvHost = resolveEffectiveHost(rawEnvHost);
 
 const defaultConfig: MariaDbConfig = {
   host: cleanEnvHost || '45.79.40.132',
@@ -51,8 +64,9 @@ function loadSavedConfig(): MariaDbConfig {
   }
 
   // Secrets from environment variables take priority or provide secure defaults
+  const rawTargetHost = process.env.MARIADB_HOST || saved.host || defaultConfig.host;
   const merged: MariaDbConfig = {
-    host: sanitizeHost(process.env.MARIADB_HOST || saved.host || defaultConfig.host),
+    host: resolveEffectiveHost(rawTargetHost),
     port: Number(process.env.MARIADB_PORT || saved.port || defaultConfig.port),
     user: process.env.MARIADB_USER || saved.user || defaultConfig.user,
     password: process.env.MARIADB_PASSWORD || saved.password || defaultConfig.password,
@@ -66,7 +80,7 @@ function loadSavedConfig(): MariaDbConfig {
 export function saveConfig(cfg: Partial<MariaDbConfig>): MariaDbConfig {
   const cleanCfg = { ...cfg };
   if (cleanCfg.host) {
-    cleanCfg.host = sanitizeHost(cleanCfg.host);
+    cleanCfg.host = resolveEffectiveHost(cleanCfg.host);
   }
   currentConfig = { ...currentConfig, ...cleanCfg };
   try {
@@ -119,7 +133,7 @@ export function initMariaDbPool(): mysql.Pool | null {
   }
 
   try {
-    const cleanHost = sanitizeHost(currentConfig.host);
+    const cleanHost = resolveEffectiveHost(currentConfig.host);
     pool = mysql.createPool({
       host: cleanHost,
       port: currentConfig.port,
@@ -153,7 +167,7 @@ export async function testMariaDbConnection(configOverride?: Partial<MariaDbConf
 }> {
   const cfg = { ...currentConfig, ...configOverride };
   if (cfg.host) {
-    cfg.host = sanitizeHost(cfg.host);
+    cfg.host = resolveEffectiveHost(cfg.host);
   }
   try {
     // First try connecting with database specified
@@ -185,7 +199,7 @@ export async function testMariaDbConnection(configOverride?: Partial<MariaDbConf
           await rootConn.end();
           return {
             success: true,
-            message: `¡Conexión exitosa! La base de datos '${cfg.database}' fue creada automáticamente en MariaDB.`,
+            message: `¡Conexión exitosa! La base de datos '${cfg.database}' fue creada automáticamente en MariaDB (${cfg.host}).`,
             databases: availableDbs,
           };
         } catch {
@@ -214,7 +228,7 @@ export async function testMariaDbConnection(configOverride?: Partial<MariaDbConf
 
     return {
       success: true,
-      message: `¡Conectado exitosamente a MariaDB! Versión: ${rows?.[0]?.version || 'OK'}`,
+      message: `¡Conectado exitosamente a MariaDB! Versión: ${rows?.[0]?.version || 'OK'} (Servidor: ${cfg.host})`,
       databases: availableDbs,
     };
   } catch (err: any) {

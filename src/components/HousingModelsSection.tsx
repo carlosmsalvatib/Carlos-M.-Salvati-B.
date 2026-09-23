@@ -132,6 +132,9 @@ export const HousingModelsSection: React.FC<HousingModelsSectionProps> = ({
     };
   }, [syncWithDatabase]);
 
+  // Track active image index for each model: modelId -> number
+  const [modelImageIndexes, setModelImageIndexes] = useState<Record<string, number>>({});
+
   const activeSection = liveSection || defaultHousingModels;
   if (!activeSection || activeSection.active === false) return null;
 
@@ -140,9 +143,6 @@ export const HousingModelsSection: React.FC<HousingModelsSectionProps> = ({
     ? liveModels
     : defaultHousingModels?.models || [];
   const models = rawModels.filter((model) => model && model.active !== false);
-
-  // Track active image index for each model: modelId -> number
-  const [modelImageIndexes, setModelImageIndexes] = useState<Record<string, number>>({});
 
   const getActiveIndex = (modelId: string, maxImages: number) => {
     const idx = modelImageIndexes[modelId] || 0;

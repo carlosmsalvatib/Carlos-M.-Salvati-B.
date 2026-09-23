@@ -16,12 +16,13 @@ interface SalesFinancingSectionProps {
 
 export const SalesFinancingSection: React.FC<SalesFinancingSectionProps> = ({ content, onSimulatedQuote }) => {
   const { salesFinancing } = content;
-  if (!salesFinancing.active) return null;
 
   // Simulator State
   const [lotArea, setLotArea] = useState<number>(600);
   const [selectedModel, setSelectedModel] = useState<string>('ninguno');
   const [selectedPlan, setSelectedPlan] = useState<string>('propio');
+
+  if (!salesFinancing.active) return null;
 
   const pricePerM2 = salesFinancing.pricePerM2Usd || 20;
   const lotTotalPrice = Math.round(lotArea * pricePerM2);

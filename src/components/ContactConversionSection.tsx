@@ -17,7 +17,6 @@ export const ContactConversionSection: React.FC<ContactConversionSectionProps> =
   prefilledProfile,
 }) => {
   const { contactForm, site } = content;
-  if (!contactForm.active) return null;
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -48,6 +47,8 @@ export const ContactConversionSection: React.FC<ContactConversionSectionProps> =
       else if (prefilledProfile === 'inversionista') setProfileInterest('inversionista');
     }
   }, [prefilledProfile]);
+
+  if (!contactForm.active) return null;
 
   const handleSubmit = async (e: React.FormEvent, isCallRequest = false) => {
     e.preventDefault();

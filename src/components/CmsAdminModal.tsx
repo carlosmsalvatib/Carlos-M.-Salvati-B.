@@ -84,8 +84,6 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
   onContentUpdated,
   onLotsUpdated,
 }) => {
-  if (!isOpen) return null;
-
   type TabType = CmsTabType;
 
   // Role simulation state (allows Carlos Salvati & Audy Palacio to preview other roles)
@@ -250,6 +248,8 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
       fetchLeads();
     }
   }, [activeTab]);
+
+  if (!isOpen) return null;
 
   const fetchLeads = async () => {
     setLoadingLeads(true);

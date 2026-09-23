@@ -42,7 +42,6 @@ export const MasterPlanSection: React.FC<MasterPlanSectionProps> = ({
   onNavigate,
 }) => {
   const { masterPlan } = content;
-  if (!masterPlan.active) return null;
 
   const blueprints: MasterPlanBlueprint[] =
     masterPlan.blueprints && masterPlan.blueprints.length > 0
@@ -152,6 +151,8 @@ export const MasterPlanSection: React.FC<MasterPlanSectionProps> = ({
         }
       });
   }, [lots, filterState]);
+
+  if (!masterPlan.active) return null;
 
   // Calculate stats
   const availableCount = lots.filter((l) => l.status === 'disponible').length;

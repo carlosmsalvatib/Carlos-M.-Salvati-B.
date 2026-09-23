@@ -8,9 +8,9 @@ interface LocationSectionProps {
 
 export const LocationSection: React.FC<LocationSectionProps> = ({ content }) => {
   const { location } = content;
-  if (!location.active) return null;
-
   const [activeTab, setActiveTab] = useState<'map' | 'connectivity'>('map');
+
+  if (!location.active) return null;
 
   return (
     <section id="ubicacion" className="py-20 bg-stone-900 text-stone-100 relative overflow-hidden">

@@ -29,7 +29,6 @@ export const ValuePropSection: React.FC<ValuePropSectionProps> = ({
   onNavigate,
 }) => {
   const { valueProp } = content;
-  if (!valueProp.active) return null;
 
   const videos: PropuestaVideo[] =
     valueProp.videos && valueProp.videos.length > 0
@@ -64,6 +63,8 @@ export const ValuePropSection: React.FC<ValuePropSectionProps> = ({
   const [selectedVideoIndex, setSelectedVideoIndex] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [activeMediaTab, setActiveMediaTab] = useState<'video' | 'foto'>('video');
+
+  if (!valueProp.active) return null;
 
   const currentVideo = videos[selectedVideoIndex] || videos[0];
 

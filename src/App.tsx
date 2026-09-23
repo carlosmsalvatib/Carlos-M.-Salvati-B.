@@ -578,21 +578,23 @@ export function App() {
       />
 
       {/* Full CMS Administration Modal (Accessible only after login) */}
-      <CmsAdminModal
-        isOpen={isCmsAdminOpen}
-        onClose={() => {
-          setIsCmsAdminOpen(false);
-        }}
-        content={content}
-        lots={lots}
-        currentUser={currentUser}
-        onContentUpdated={(newContent) => {
-          setContent({ ...newContent });
-        }}
-        onLotsUpdated={(newLots) => {
-          setLots([...newLots]);
-        }}
-      />
+      {isCmsAdminOpen && (
+        <CmsAdminModal
+          isOpen={isCmsAdminOpen}
+          onClose={() => {
+            setIsCmsAdminOpen(false);
+          }}
+          content={content}
+          lots={lots}
+          currentUser={currentUser}
+          onContentUpdated={(newContent) => {
+            setContent({ ...newContent });
+          }}
+          onLotsUpdated={(newLots) => {
+            setLots([...newLots]);
+          }}
+        />
+      )}
     </div>
   );
 }

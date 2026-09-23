@@ -175,20 +175,39 @@ export function extractErrorMessage(errOrPayload: any, fallback = 'Error inesper
 
 /**
  * Safely parses response as JSON without crashing with "JSON.parse: unexpected character"
- * if the server returns HTML (e.g. 404/502/SPA fallback).
+ * if the server returns HTML (e.g. 404/502/SPA fallback or "The page could not be found").
  */
 async function parseJsonSafely<T>(res: Response, fallbackErrorMsg: string): Promise<T> {
   const text = await res.text();
+  const trimmed = text.trim();
+
+  if (
+    trimmed.startsWith('<!doctype') ||
+    trimmed.startsWith('<html') ||
+    trimmed.includes('The page could not be found') ||
+    trimmed.includes('404 Not Found')
+  ) {
+    console.error(
+      `[API] Error crítico: El servidor retornó HTML en lugar de JSON (Status ${res.status}):`,
+      trimmed.substring(0, 300)
+    );
+    throw new Error(
+      res.status === 404
+        ? 'Servicio API no encontrado (404 - The page could not be found)'
+        : `Error en la comunicación con el servidor (${res.status} - Respuesta HTML inesperada)`
+    );
+  }
+
   let parsed: any;
   try {
     parsed = JSON.parse(text);
-  } catch {
-    // If response was not valid JSON (e.g. HTML <!doctype html> error page)
+  } catch (parseErr) {
+    console.error(`[API] Error de parseo JSON (Status ${res.status}):`, trimmed.substring(0, 300));
     if (!res.ok) {
       throw new Error(
         res.status === 404
           ? 'Servicio API no encontrado (404)'
-          : `Error en la comunicación con el servidor (${res.status})`
+          : `Error en la comunicación con el servidor (${res.status} - ${res.statusText || 'Error'})`
       );
     }
     throw new Error(fallbackErrorMsg || 'Respuesta del servidor no válida');
@@ -1353,6 +1372,50 @@ export interface MariaDbStatusResponse {
 
 export const STORAGE_KEY_MARIADB = 'mdr_runtime_mariadb_config_v1';
 
+/**
+ * Helper to execute fetch with exponential backoff retry and detailed logging for MariaDB API
+ */
+async function fetchWithMariaDbRetry(
+  url: string,
+  options: RequestInit,
+  retries = 2,
+  delayMs = 1000
+): Promise<Response> {
+  let lastError: any;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const startTime = Date.now();
+    try {
+      console.log(
+        `[MariaDB API] [Intento ${attempt + 1}/${retries + 1}] Realizando ${options.method || 'GET'} a ${url}`
+      );
+      const res = await fetch(url, options);
+      const duration = Date.now() - startTime;
+      console.log(
+        `[MariaDB API] Respuesta recibida de ${url} en ${duration}ms (Status: ${res.status} ${res.statusText}, OK: ${res.ok})`
+      );
+      if (!res.ok) {
+        console.warn(`[MariaDB API] Advertencia: HTTP ${res.status} en ${url}`);
+      }
+      return res;
+    } catch (err: any) {
+      const duration = Date.now() - startTime;
+      lastError = err;
+      console.warn(
+        `[MariaDB API] Error de red en intento ${attempt + 1} para ${url} tras ${duration}ms:`,
+        err?.message || err
+      );
+      if (attempt < retries) {
+        const nextDelay = delayMs * Math.pow(2, attempt);
+        console.log(`[MariaDB API] Reintentando en ${nextDelay}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, nextDelay));
+      }
+    }
+  }
+  throw lastError || new Error('Fallo persistente de red al conectar con el servidor MariaDB');
+}
+
+
+
 export async function fetchMariaDbStatus(): Promise<MariaDbStatusResponse> {
   let cachedConfig: any = null;
   try {
@@ -1361,9 +1424,9 @@ export async function fetchMariaDbStatus(): Promise<MariaDbStatusResponse> {
   } catch {}
 
   try {
-    const res = await fetch(`${API_BASE}/mariadb/status`, {
+    const res = await fetchWithMariaDbRetry(`${API_BASE}/mariadb/status`, {
       headers: { Accept: 'application/json' },
-    });
+    }, 1, 500);
     const json = await parseJsonSafely<{ success: boolean; data: MariaDbStatusResponse }>(
       res,
       'Error obteniendo estado de MariaDB'
@@ -1374,7 +1437,8 @@ export async function fetchMariaDbStatus(): Promise<MariaDbStatusResponse> {
       } catch {}
     }
     return json.data;
-  } catch (err) {
+  } catch (err: any) {
+    console.warn('[MariaDB API] fetchMariaDbStatus usando respaldo local:', err?.message || err);
     return {
       connected: false,
       error: 'Servicio en segundo plano (Almacenamiento local activo)',
@@ -1398,14 +1462,34 @@ export async function testMariaDbConnection(configOverride?: any): Promise<{
   databases?: string[];
 }> {
   try {
-    const res = await fetch(`${API_BASE}/mariadb/test`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify(configOverride || {}),
+    console.log('[MariaDB API] Ejecutando prueba de conexión con payload:', {
+      ...configOverride,
+      password: configOverride?.password ? '********' : undefined,
     });
-    return await parseJsonSafely(res, 'Error al probar conexión con MariaDB');
+
+    const res = await fetchWithMariaDbRetry(
+      `${API_BASE}/mariadb/test`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(configOverride || {}),
+      },
+      2,
+      1000
+    );
+
+    const result = await parseJsonSafely<{
+      success: boolean;
+      message: string;
+      error?: string;
+      databases?: string[];
+    }>(res, 'Error al probar conexión con MariaDB');
+
+    console.log('[MariaDB API] testMariaDbConnection respuesta exitosa:', result);
+    return result;
   } catch (err: any) {
     const errorMsg = extractErrorMessage(err, 'No se pudo comunicar con el servidor MariaDB');
+    console.error('[MariaDB API] testMariaDbConnection error capturado:', err);
     return {
       success: false,
       message: 'Fallo de comunicación al probar MariaDB',
@@ -1426,14 +1510,23 @@ export async function updateMariaDbConfig(config: any): Promise<{
   } catch {}
 
   try {
-    const res = await fetch(`${API_BASE}/mariadb/config`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify(config),
-    });
-    return await parseJsonSafely(res, 'Error al guardar configuración de MariaDB');
+    console.log('[MariaDB API] Guardando configuración de MariaDB...');
+    const res = await fetchWithMariaDbRetry(
+      `${API_BASE}/mariadb/config`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(config),
+      },
+      2,
+      1000
+    );
+    const result = await parseJsonSafely<any>(res, 'Error al guardar configuración de MariaDB');
+    console.log('[MariaDB API] Configuración guardada y probada en el servidor:', result);
+    return result;
   } catch (err: any) {
-    const errorMsg = extractErrorMessage(err, 'El servidor no pudo procesar la solicitud');
+    const errorMsg = extractErrorMessage(err, 'El servidor no pudo procesar la solicitud de guardado');
+    console.warn('[MariaDB API] updateMariaDbConfig fallback a almacenamiento local:', errorMsg);
     return {
       success: true,
       data: config,
@@ -1453,15 +1546,29 @@ export async function runMariaDbMigration(): Promise<{
   details?: any;
 }> {
   try {
-    const res = await fetch(`${API_BASE}/mariadb/migrate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    });
-    return await parseJsonSafely(res, 'Error al ejecutar migración a MariaDB');
+    console.log('[MariaDB API] Iniciando migración completa a MariaDB...');
+    const res = await fetchWithMariaDbRetry(
+      `${API_BASE}/mariadb/migrate`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      },
+      1,
+      1000
+    );
+    const result = await parseJsonSafely<{
+      success: boolean;
+      message: string;
+      details?: any;
+    }>(res, 'Error al ejecutar migración a MariaDB');
+    console.log('[MariaDB API] Migración finalizada:', result);
+    return result;
   } catch (err: any) {
+    const errorMsg = extractErrorMessage(err, 'Error desconocido durante la migración');
+    console.error('[MariaDB API] Error en migración:', err);
     return {
       success: false,
-      message: 'Error al solicitar migración: ' + extractErrorMessage(err),
+      message: 'Error al solicitar migración: ' + errorMsg,
     };
   }
 }

@@ -1267,7 +1267,7 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                     onChange={(e) =>
                       setFormData({ ...formData, site: { ...formData.site, phone: e.target.value } })
                     }
-                    placeholder="+58 414-7187596"
+                    placeholder="+58-414-7114245"
                     className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white"
                   />
                   <p className="text-[10px] text-stone-400 mt-1">

@@ -38,7 +38,7 @@ export const MariaDbCmsTab: React.FC<MariaDbCmsTabProps> = ({ onRefreshCms }) =>
   const [host, setHost] = useState('45.79.40.132');
   const [port, setPort] = useState(3306);
   const [user, setUser] = useState('siacecom_aapu');
-  const [password, setPassword] = useState('Aapu2104MD..');
+  const [password, setPassword] = useState('Admin21aapu');
   const [database, setDatabase] = useState('siacecom_misdelirios');
   const [enabled, setEnabled] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
@@ -54,14 +54,14 @@ export const MariaDbCmsTab: React.FC<MariaDbCmsTabProps> = ({ onRefreshCms }) =>
       setHost('45.79.40.132');
       setPort(3306);
       setUser('siacecom_aapu');
-      setPassword('Aapu2104MD..');
+      setPassword('Admin21aapu');
       setDatabase('siacecom_misdelirios');
     } else {
       setHost('misdelirios.360siace.com');
       setPort(3306);
-      setUser('aapu');
-      setPassword('Aapu2104MD');
-      setDatabase('misdelirios');
+      setUser('siacecom_aapu');
+      setPassword('Admin21aapu');
+      setDatabase('siacecom_misdelirios');
     }
   };
 
@@ -166,7 +166,7 @@ export const MariaDbCmsTab: React.FC<MariaDbCmsTabProps> = ({ onRefreshCms }) =>
   const handleRunMigration = async () => {
     if (
       !confirm(
-        '¿Desea iniciar la migración de toda la información actual (contenido CMS, lotes, modelos y prospectos) a la base de datos MariaDB en misdelirios.360siace.com?'
+        `¿Desea iniciar la migración de toda la información actual (57 lotes, modelos arquitectónicos, prospectos y contenido CMS) a la base de datos MariaDB (${database} en ${host})?`
       )
     ) {
       return;
@@ -175,6 +175,18 @@ export const MariaDbCmsTab: React.FC<MariaDbCmsTabProps> = ({ onRefreshCms }) =>
     setMigrating(true);
     setMigrationResult(null);
     try {
+      // 1. First ensure configuration is saved with current credentials so pool is 100% synchronized
+      const payload = {
+        host: cleanHostString(host),
+        port: Number(port) || 3306,
+        user: user.trim(),
+        password: password.trim(),
+        database: database.trim(),
+        enabled: true,
+      };
+      await updateMariaDbConfig(payload);
+
+      // 2. Execute full migration on verified MariaDB connection
       const res = await runMariaDbMigration();
       setMigrationResult(res);
       if (res.success && onRefreshCms) {
@@ -414,7 +426,7 @@ export const MariaDbCmsTab: React.FC<MariaDbCmsTabProps> = ({ onRefreshCms }) =>
                   type="text"
                   value={database}
                   onChange={(e) => setDatabase(e.target.value)}
-                  placeholder="misdelirios"
+                  placeholder="siacecom_misdelirios"
                   className="w-full bg-stone-950 border border-stone-800 rounded-xl px-3.5 py-2 text-xs text-stone-100 focus:border-amber-500 focus:outline-none font-mono"
                   required
                 />
@@ -429,7 +441,7 @@ export const MariaDbCmsTab: React.FC<MariaDbCmsTabProps> = ({ onRefreshCms }) =>
                   type="text"
                   value={user}
                   onChange={(e) => setUser(e.target.value)}
-                  placeholder="aapu"
+                  placeholder="siacecom_aapu"
                   className="w-full bg-stone-950 border border-stone-800 rounded-xl px-3.5 py-2 text-xs text-stone-100 focus:border-amber-500 focus:outline-none font-mono"
                   required
                 />
@@ -446,7 +458,7 @@ export const MariaDbCmsTab: React.FC<MariaDbCmsTabProps> = ({ onRefreshCms }) =>
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Contraseña de MariaDB"
+                  placeholder="Admin21aapu"
                   className="w-full bg-stone-950 border border-stone-800 rounded-xl px-3.5 py-2 pr-16 text-xs text-stone-100 focus:border-amber-500 focus:outline-none font-mono"
                   required
                 />

@@ -39,7 +39,7 @@ const defaultConfig: MariaDbConfig = {
   host: cleanEnvHost || '45.79.40.132',
   port: Number(process.env.MARIADB_PORT) || 3306,
   user: process.env.MARIADB_USER || 'siacecom_aapu',
-  password: process.env.MARIADB_PASSWORD || 'Aapu2104MD..',
+  password: process.env.MARIADB_PASSWORD || 'Admin21aapu',
   database: process.env.MARIADB_DATABASE || 'siacecom_misdelirios',
   enabled: true,
 };
@@ -404,10 +404,10 @@ export async function saveMariaDbLots(lots: any[]): Promise<boolean> {
       const id = lot.id || `lot-${lot.code}`;
       const code = lot.code || id;
       const manzana = lot.manzana || '';
-      const lote_num = String(lot.lote || '');
-      const area = Number(lot.area) || 0;
-      const price_m2 = Number(lot.pricePerM2) || 0;
-      const total = Number(lot.totalPrice) || 0;
+      const lote_num = String(lot.loteNum ?? lot.lote ?? '');
+      const area = Number(lot.areaM2 ?? lot.area) || 0;
+      const price_m2 = Number(lot.priceUsdPerM2 ?? lot.pricePerM2 ?? 20) || 20;
+      const total = Number(lot.totalPriceUsd ?? lot.totalPrice) || Math.round(area * price_m2);
       const status = lot.status || 'disponible';
       const dataStr = JSON.stringify(lot);
 
@@ -454,8 +454,8 @@ export async function saveMariaDbModels(models: any[]): Promise<boolean> {
     for (const m of models) {
       const id = m.id || `model-${Date.now()}`;
       const name = m.name || 'Modelo';
-      const area = Number(m.constructionArea) || 0;
-      const price = Number(m.estimatedPrice) || 0;
+      const area = Number(m.areaM2 ?? m.constructionArea) || 0;
+      const price = Number(m.priceUsd ?? m.price ?? m.estimatedPrice) || 0;
       const active = m.active !== false;
       const dataStr = JSON.stringify(m);
 

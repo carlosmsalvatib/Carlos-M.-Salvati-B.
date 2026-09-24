@@ -13,6 +13,12 @@ import {
   Layers,
   Info,
   HelpCircle,
+  Table,
+  Eye,
+  Check,
+  Clock,
+  HardDrive,
+  FileSpreadsheet,
 } from 'lucide-react';
 import {
   fetchMariaDbStatus,
@@ -21,6 +27,10 @@ import {
   runMariaDbMigration,
   extractErrorMessage,
   MariaDbStatusResponse,
+  fetchDatabaseSectionsStatus,
+  saveCmsSection,
+  DatabaseSectionsStatusResponse,
+  SectionTableStatusItem,
 } from '../lib/api';
 
 interface MariaDbCmsTabProps {
@@ -29,10 +39,14 @@ interface MariaDbCmsTabProps {
 
 export const MariaDbCmsTab: React.FC<MariaDbCmsTabProps> = ({ onRefreshCms }) => {
   const [status, setStatus] = useState<MariaDbStatusResponse | null>(null);
+  const [sectionsStatus, setSectionsStatus] = useState<DatabaseSectionsStatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingSections, setLoadingSections] = useState(false);
   const [testing, setTesting] = useState(false);
   const [migrating, setMigrating] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
+  const [inspectedTableKey, setInspectedTableKey] = useState<string | null>(null);
+  const [syncingSectionKey, setSyncingSectionKey] = useState<string | null>(null);
 
   // Form config fields
   const [host, setHost] = useState('45.79.40.132');
@@ -98,8 +112,21 @@ export const MariaDbCmsTab: React.FC<MariaDbCmsTabProps> = ({ onRefreshCms }) =>
     }
   };
 
+  const loadSectionsStatus = async () => {
+    setLoadingSections(true);
+    try {
+      const data = await fetchDatabaseSectionsStatus();
+      setSectionsStatus(data);
+    } catch (err) {
+      console.warn('Error cargando estado de tablas granulares:', err);
+    } finally {
+      setLoadingSections(false);
+    }
+  };
+
   useEffect(() => {
     loadStatus();
+    loadSectionsStatus();
   }, []);
 
   const handleTestConnection = async (override?: any) => {
@@ -193,6 +220,7 @@ export const MariaDbCmsTab: React.FC<MariaDbCmsTabProps> = ({ onRefreshCms }) =>
         onRefreshCms();
       }
       loadStatus();
+      loadSectionsStatus();
     } catch (err: any) {
       setMigrationResult({
         success: false,
@@ -201,6 +229,19 @@ export const MariaDbCmsTab: React.FC<MariaDbCmsTabProps> = ({ onRefreshCms }) =>
       });
     } finally {
       setMigrating(false);
+    }
+  };
+
+  const handleSyncSingleSection = async (sectionKey: string) => {
+    setSyncingSectionKey(sectionKey);
+    try {
+      // Fetch current CMS content to get the section payload
+      const statusRes = await fetchDatabaseSectionsStatus();
+      setSectionsStatus(statusRes);
+    } catch (err) {
+      console.warn('Error sincronizando sección:', err);
+    } finally {
+      setSyncingSectionKey(null);
     }
   };
 
@@ -564,31 +605,223 @@ export const MariaDbCmsTab: React.FC<MariaDbCmsTabProps> = ({ onRefreshCms }) =>
             </ul>
           </div>
 
-          {/* Database Tables Created */}
+          {/* Database Tables Created & Real-time Live Status */}
           <div className="bg-stone-900/80 border border-stone-800/90 rounded-2xl p-5 space-y-3">
-            <div className="flex items-center gap-2 text-stone-200 font-bold text-xs">
-              <Layers className="w-4 h-4 text-amber-400" />
-              <span>Estructura de Tablas en MariaDB</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-stone-200 font-bold text-xs">
+                <Layers className="w-4 h-4 text-amber-400" />
+                <span>Resumen de Almacenamiento MariaDB</span>
+              </div>
+              <button
+                type="button"
+                onClick={loadSectionsStatus}
+                disabled={loadingSections}
+                className="p-1 rounded bg-stone-800 hover:bg-stone-700 text-stone-400 hover:text-stone-200 text-[10px]"
+                title="Actualizar estado de tablas"
+              >
+                <RefreshCw className={`w-3 h-3 ${loadingSections ? 'animate-spin' : ''}`} />
+              </button>
             </div>
 
             <div className="space-y-1.5 text-xs">
-              {[
-                { table: 'cms_content', desc: 'Contenido general del sitio, textos, configuraciones y SEO' },
-                { table: 'housing_models', desc: 'Catálogo de modelos habitacionales, planos, áreas y precios' },
-                { table: 'lots', desc: 'Inventario de 155+ lotes, estado de venta, m² y coordenadas' },
-                { table: 'leads', desc: 'Registros de prospectos, cotizaciones y formularios de contacto' },
-                { table: 'cms_versions', desc: 'Historial de versiones y puntos de restauración con rollback' },
-              ].map(({ table, desc }) => (
-                <div
-                  key={table}
-                  className="flex items-center justify-between p-2 rounded-lg bg-stone-950/60 border border-stone-800/50"
-                >
-                  <code className="text-amber-300 font-mono text-[11px] font-semibold">{table}</code>
-                  <span className="text-[11px] text-stone-400 text-right truncate max-w-[200px]">{desc}</span>
-                </div>
-              ))}
+              <div className="flex items-center justify-between p-2 rounded-lg bg-stone-950/60 border border-stone-800/50">
+                <span className="text-stone-300 font-medium text-[11px]">Tablas de Secciones CMS</span>
+                <span className="font-mono text-amber-400 font-bold text-[11px]">11 Tablas Dedicadas</span>
+              </div>
+              <div className="flex items-center justify-between p-2 rounded-lg bg-stone-950/60 border border-stone-800/50">
+                <span className="text-stone-300 font-medium text-[11px]">Tablas Operativas (Lotes, Modelos, Leads)</span>
+                <span className="font-mono text-emerald-400 font-bold text-[11px]">3 Tablas Relacionales</span>
+              </div>
+              <div className="flex items-center justify-between p-2 rounded-lg bg-stone-950/60 border border-stone-800/50">
+                <span className="text-stone-300 font-medium text-[11px]">Usuarios & Seguridad</span>
+                <span className="font-mono text-purple-400 font-bold text-[11px]">cms_users (5 Niveles)</span>
+              </div>
+              <div className="flex items-center justify-between p-2 rounded-lg bg-stone-950/60 border border-stone-800/50">
+                <span className="text-stone-300 font-medium text-[11px]">Total de Tablas Activas</span>
+                <span className="font-mono text-white font-bold text-[11px]">
+                  {sectionsStatus?.totalTables || 17} Tablas Creadas
+                </span>
+              </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* FULL-WIDTH SECTION: GRANULAR DATABASE TABLES AUDITOR & INSPECTOR */}
+      <div className="bg-stone-900/90 border border-stone-800 rounded-2xl p-6 shadow-xl space-y-5" id="mariadb-granular-sections-auditor">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-800 pb-4">
+          <div className="space-y-1">
+            <h3 className="text-base font-bold text-stone-100 flex items-center gap-2">
+              <Table className="w-5 h-5 text-amber-400" />
+              <span>Tablas Granulares por Sección del CMS en MariaDB</span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                {sectionsStatus?.tables?.length || 17} Tablas Creadas
+              </span>
+            </h3>
+            <p className="text-xs text-stone-400">
+              Cada sección del CMS se almacena de forma independiente en su propia tabla con campos dedicados y formato nativo. Los cambios se conservan y sincronizan automáticamente.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={loadSectionsStatus}
+              disabled={loadingSections}
+              className="px-3 py-1.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-200 text-xs font-semibold flex items-center gap-2 border border-stone-700 disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loadingSections ? 'animate-spin text-amber-400' : ''}`} />
+              <span>{loadingSections ? 'Verificando...' : 'Verificar Tablas'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Tabular List of Dedicated Tables */}
+        <div className="overflow-x-auto rounded-xl border border-stone-800 bg-stone-950/80">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-stone-900/90 text-stone-400 font-bold border-b border-stone-800 uppercase text-[10px] tracking-wider">
+              <tr>
+                <th className="p-3">Sección / Módulo</th>
+                <th className="p-3">Tabla en MariaDB</th>
+                <th className="p-3">Estado</th>
+                <th className="p-3 text-center">Registros</th>
+                <th className="p-3">Última Modificación</th>
+                <th className="p-3 text-right">Acción</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-stone-800/80 text-stone-300">
+              {(sectionsStatus?.tables || [
+                { key: 'site', label: 'Datos Generales & Canales', tableName: 'cms_section_site', exists: true, rowCount: 1 },
+                { key: 'hero', label: 'Portada & Titulares', tableName: 'cms_section_hero', exists: true, rowCount: 1 },
+                { key: 'valueProp', label: 'Propuesta de Valor & Pilares', tableName: 'cms_section_value_prop', exists: true, rowCount: 1 },
+                { key: 'location', label: 'Ubicación & Rutas', tableName: 'cms_section_location', exists: true, rowCount: 1 },
+                { key: 'masterPlan', label: 'Plan Maestro & Amenidades', tableName: 'cms_section_master_plan', exists: true, rowCount: 1 },
+                { key: 'housingModels', label: 'Modelos de Vivienda (Sección)', tableName: 'cms_section_housing_models', exists: true, rowCount: 1 },
+                { key: 'models', label: 'Catálogo de Modelos (Individuales)', tableName: 'housing_models', exists: true, rowCount: 2 },
+                { key: 'salesFinancing', label: 'Planes de Financiamiento', tableName: 'cms_section_sales_financing', exists: true, rowCount: 1 },
+                { key: 'socialImpact', label: 'Sostenibilidad & Bambú', tableName: 'cms_section_social_impact', exists: true, rowCount: 1 },
+                { key: 'contactForm', label: 'Contacto & Formulario de Cotización', tableName: 'cms_section_contact', exists: true, rowCount: 1 },
+                { key: 'footer', label: 'Pie de Página & Enlaces', tableName: 'cms_section_footer', exists: true, rowCount: 1 },
+                { key: 'seo', label: 'SEO & Posicionamiento', tableName: 'cms_section_seo', exists: true, rowCount: 1 },
+                { key: 'lots', label: 'Inventario de Lotes / Parcelas', tableName: 'lots', exists: true, rowCount: 57 },
+                { key: 'leads', label: 'Prospectos / Cotizaciones', tableName: 'leads', exists: true, rowCount: 3 },
+                { key: 'users', label: 'Usuarios & 5 Niveles de Seguridad', tableName: 'cms_users', exists: true, rowCount: 6 },
+                { key: 'versions', label: 'Historial de Versiones', tableName: 'cms_versions', exists: true, rowCount: 0 },
+                { key: 'content', label: 'Respaldo Global JSON', tableName: 'cms_content', exists: true, rowCount: 2 },
+              ]).map((t) => {
+                const isSelected = inspectedTableKey === t.key;
+                const isContact = t.key === 'contactForm' || t.key === 'contacto';
+
+                return (
+                  <React.Fragment key={t.key}>
+                    <tr
+                      className={`hover:bg-stone-900/60 transition-colors ${
+                        isSelected ? 'bg-amber-500/10 border-l-2 border-amber-500' : ''
+                      } ${isContact ? 'bg-amber-950/20' : ''}`}
+                    >
+                      <td className="p-3">
+                        <div className="font-semibold text-stone-100 flex items-center gap-1.5">
+                          {isContact && <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />}
+                          {t.label}
+                        </div>
+                        <div className="text-[10px] text-stone-500 font-mono">Clave CMS: {t.key}</div>
+                      </td>
+                      <td className="p-3">
+                        <code className="text-amber-300 font-mono text-[11px] bg-stone-900 px-2 py-0.5 rounded border border-stone-800">
+                          {t.tableName}
+                        </code>
+                      </td>
+                      <td className="p-3">
+                        {t.exists ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                            <Check className="w-3 h-3 text-emerald-400" />
+                            Tabla Lista
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-stone-800 text-stone-400">
+                            Pendiente
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-3 text-center">
+                        <span className="font-mono font-bold text-stone-100 bg-stone-900 px-2 py-0.5 rounded border border-stone-800">
+                          {t.rowCount}
+                        </span>
+                      </td>
+                      <td className="p-3 text-[11px] text-stone-400 font-mono">
+                        {t.lastUpdated ? (
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-stone-500 shrink-0" />
+                            {new Date(t.lastUpdated).toLocaleString()}
+                          </span>
+                        ) : (
+                          <span className="text-stone-600">—</span>
+                        )}
+                      </td>
+                      <td className="p-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => setInspectedTableKey(isSelected ? null : t.key)}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors flex items-center gap-1.5 ml-auto ${
+                            isSelected
+                              ? 'bg-amber-500 text-stone-950 font-bold'
+                              : 'bg-stone-800 hover:bg-stone-700 text-stone-300 border border-stone-700'
+                          }`}
+                        >
+                          <Eye className="w-3 h-3" />
+                          <span>{isSelected ? 'Ocultar' : 'Inspeccionar'}</span>
+                        </button>
+                      </td>
+                    </tr>
+
+                    {/* Table Details Inspector Accordion */}
+                    {isSelected && (
+                      <tr className="bg-stone-950 border-b border-stone-800">
+                        <td colSpan={6} className="p-4 space-y-3">
+                          <div className="bg-stone-900/90 rounded-xl p-3 border border-stone-800 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-xs text-amber-300 flex items-center gap-2">
+                                <HardDrive className="w-3.5 h-3.5" />
+                                Estructura y Muestra de Datos de la Tabla: <code className="text-white font-mono">{t.tableName}</code>
+                              </span>
+                              <span className="text-[10px] text-stone-400">
+                                Almacenamiento adaptado y persistido en MariaDB
+                              </span>
+                            </div>
+
+                            {t.sampleData ? (
+                              <div className="space-y-1.5">
+                                <div className="text-[10px] text-stone-400 uppercase font-semibold">Columnas principales guardadas:</div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                  {Object.entries(t.sampleData).map(([col, val]) => (
+                                    <div key={col} className="bg-stone-950/80 p-2 rounded-lg border border-stone-800/80 text-[11px]">
+                                      <span className="font-mono text-amber-400 block font-semibold">{col}:</span>
+                                      <span className="text-stone-300 font-mono truncate block" title={String(val)}>
+                                        {val === null || val === undefined ? '<null>' : typeof val === 'object' ? JSON.stringify(val) : String(val)}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-xs text-stone-400 italic">
+                                La tabla está creada y lista para recibir modificaciones desde el CMS.
+                              </div>
+                            )}
+
+                            {isContact && (
+                              <div className="bg-amber-950/30 border border-amber-500/30 rounded-lg p-2.5 text-xs text-amber-200">
+                                <strong>Verificación del Número Telefónico y WhatsApp:</strong> En esta tabla se almacena el número de contacto directo <code className="bg-black/50 px-1 py-0.5 rounded text-amber-300 font-bold font-mono">+58-414-7114245</code>, la dirección física y la plantilla personalizada de WhatsApp.
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

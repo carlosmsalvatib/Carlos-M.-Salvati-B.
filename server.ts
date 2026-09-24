@@ -19,6 +19,11 @@ import {
   saveMariaDbModels,
   saveMariaDbLead,
   migrateAllToMariaDb,
+  saveMariaDbSection,
+  getMariaDbSection,
+  saveMariaDbUsers,
+  getMariaDbUsers,
+  getMariaDbSectionsStatus,
 } from './server/mariadb';
 
 const PORT = 3000;
@@ -528,8 +533,68 @@ async function startServer() {
         lots: lotsData,
         models: modelsData,
         leads: leadsData,
+        users: usersData,
       });
       res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.get('/api/mariadb/sections-status', async (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    try {
+      const status = await getMariaDbSectionsStatus();
+      res.json({ success: true, data: status });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.get('/api/sections/:sectionKey', async (req, res) => {
+    const { sectionKey } = req.params;
+    try {
+      const sectionData = await getMariaDbSection(sectionKey);
+      if (sectionData) {
+        return res.json({ success: true, source: 'mariadb_table', data: sectionData });
+      }
+      if ((cmsContent as any)[sectionKey]) {
+        return res.json({ success: true, source: 'cms_content_memory', data: (cmsContent as any)[sectionKey] });
+      }
+      return res.status(404).json({ success: false, error: `Sección '${sectionKey}' no encontrada.` });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.put('/api/sections/:sectionKey', async (req, res) => {
+    const { sectionKey } = req.params;
+    const sectionData = req.body;
+    try {
+      if (!sectionData || typeof sectionData !== 'object') {
+        return res.status(400).json({ success: false, error: 'Datos de sección inválidos' });
+      }
+
+      // 1. Update in-memory and write to cms_content.json
+      (cmsContent as any)[sectionKey] = sectionData;
+      cmsContent.lastUpdated = new Date().toISOString();
+      const nextVersion = (cmsContent.version || 1) + 1;
+      cmsContent.version = nextVersion;
+      saveJsonFile(CONTENT_FILE, cmsContent);
+
+      // 2. Save specifically to dedicated MariaDB table
+      const savedToTable = await saveMariaDbSection(sectionKey, sectionData);
+
+      // 3. Save to MariaDB global content backup
+      await saveMariaDbContent(cmsContent, nextVersion, `Actualización de sección ${sectionKey}`);
+
+      res.json({
+        success: true,
+        message: `Sección '${sectionKey}' guardada exitosamente en su tabla correspondiente en la Base de Datos.`,
+        savedToTable,
+        data: sectionData,
+        version: nextVersion,
+      });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }

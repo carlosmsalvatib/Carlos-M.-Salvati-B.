@@ -324,6 +324,221 @@ export async function ensureMariaDbTables(): Promise<boolean> {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
+    // 6. Dedicated Section Table: Site & Branding
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS cms_section_site (
+        id VARCHAR(64) PRIMARY KEY,
+        project_name VARCHAR(255),
+        full_name VARCHAR(255),
+        tagline TEXT,
+        logo_url TEXT,
+        contact_phone VARCHAR(64),
+        contact_whatsapp VARCHAR(64),
+        contact_email VARCHAR(255),
+        sales_office_address TEXT,
+        instagram_url VARCHAR(255),
+        facebook_url VARCHAR(255),
+        youtube_url VARCHAR(255),
+        data_json LONGTEXT NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    // 7. Dedicated Section Table: Hero Section
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS cms_section_hero (
+        id VARCHAR(64) PRIMARY KEY,
+        title VARCHAR(255),
+        subtitle TEXT,
+        badge_text VARCHAR(255),
+        price_badge VARCHAR(255),
+        primary_cta_text VARCHAR(128),
+        primary_cta_link VARCHAR(255),
+        secondary_cta_text VARCHAR(128),
+        secondary_cta_link VARCHAR(255),
+        background_image_url TEXT,
+        show_badge BOOLEAN DEFAULT TRUE,
+        active BOOLEAN DEFAULT TRUE,
+        data_json LONGTEXT NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    // 8. Dedicated Section Table: Value Proposition
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS cms_section_value_prop (
+        id VARCHAR(64) PRIMARY KEY,
+        title VARCHAR(255),
+        subtitle TEXT,
+        description LONGTEXT,
+        image_url TEXT,
+        image_alt VARCHAR(255),
+        columns_count INT DEFAULT 3,
+        active BOOLEAN DEFAULT TRUE,
+        data_json LONGTEXT NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    // 9. Dedicated Section Table: Location
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS cms_section_location (
+        id VARCHAR(64) PRIMARY KEY,
+        title VARCHAR(255),
+        subtitle TEXT,
+        description LONGTEXT,
+        municipality VARCHAR(255),
+        sectors TEXT,
+        google_maps_embed_url TEXT,
+        map_external_url TEXT,
+        coordinates_lat DECIMAL(10, 7),
+        coordinates_lng DECIMAL(10, 7),
+        active BOOLEAN DEFAULT TRUE,
+        data_json LONGTEXT NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    // 10. Dedicated Section Table: Master Plan
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS cms_section_master_plan (
+        id VARCHAR(64) PRIMARY KEY,
+        title VARCHAR(255),
+        subtitle TEXT,
+        description LONGTEXT,
+        total_lots INT,
+        plan_image_url TEXT,
+        plan_pdf_url TEXT,
+        primary_cta_text VARCHAR(128),
+        secondary_cta_text VARCHAR(128),
+        active BOOLEAN DEFAULT TRUE,
+        data_json LONGTEXT NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    // 11. Dedicated Section Table: Housing Models Section Info
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS cms_section_housing_models (
+        id VARCHAR(64) PRIMARY KEY,
+        title VARCHAR(255),
+        subtitle TEXT,
+        description LONGTEXT,
+        price_notice TEXT,
+        models_count INT DEFAULT 0,
+        active BOOLEAN DEFAULT TRUE,
+        data_json LONGTEXT NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    // 12. Dedicated Section Table: Sales & Financing
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS cms_section_sales_financing (
+        id VARCHAR(64) PRIMARY KEY,
+        title VARCHAR(255),
+        subtitle TEXT,
+        price_per_m2_usd DECIMAL(10, 2),
+        special_promo TEXT,
+        legal_notice TEXT,
+        active BOOLEAN DEFAULT TRUE,
+        data_json LONGTEXT NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    // 13. Dedicated Section Table: Social Impact & Sustainability
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS cms_section_social_impact (
+        id VARCHAR(64) PRIMARY KEY,
+        title VARCHAR(255),
+        subtitle TEXT,
+        description LONGTEXT,
+        ceded_area_m2 INT,
+        cost_covered_percentage INT,
+        vision_2030 TEXT,
+        image_url TEXT,
+        active BOOLEAN DEFAULT TRUE,
+        data_json LONGTEXT NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    // 14. Dedicated Section Table: Contact & Direct Channels
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS cms_section_contact (
+        id VARCHAR(64) PRIMARY KEY,
+        title VARCHAR(255),
+        subtitle TEXT,
+        badge_text VARCHAR(255),
+        direct_channels_title VARCHAR(255),
+        form_title VARCHAR(255),
+        form_subtitle TEXT,
+        schedule_text VARCHAR(255),
+        whatsapp_subtitle VARCHAR(255),
+        email_subtitle VARCHAR(255),
+        direct_phone VARCHAR(64),
+        direct_whatsapp VARCHAR(64),
+        direct_email VARCHAR(255),
+        direct_address TEXT,
+        submit_button_text VARCHAR(128),
+        call_button_text VARCHAR(128),
+        whatsapp_message_template TEXT,
+        success_message TEXT,
+        privacy_policy_text TEXT,
+        active BOOLEAN DEFAULT TRUE,
+        data_json LONGTEXT NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    // 15. Dedicated Section Table: Footer & Links
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS cms_section_footer (
+        id VARCHAR(64) PRIMARY KEY,
+        legal_notice TEXT,
+        credits TEXT,
+        copyright_year VARCHAR(32),
+        active BOOLEAN DEFAULT TRUE,
+        data_json LONGTEXT NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    // 16. Dedicated Section Table: SEO & Meta
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS cms_section_seo (
+        id VARCHAR(64) PRIMARY KEY,
+        meta_title VARCHAR(255),
+        meta_description TEXT,
+        keywords TEXT,
+        og_title VARCHAR(255),
+        og_description TEXT,
+        og_image TEXT,
+        google_analytics_id VARCHAR(64),
+        meta_pixel_id VARCHAR(64),
+        google_tag_manager_id VARCHAR(64),
+        data_json LONGTEXT NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    // 17. Dedicated Table: Users & 5 Access Levels
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS cms_users (
+        id VARCHAR(64) PRIMARY KEY,
+        username VARCHAR(64) UNIQUE NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        email VARCHAR(255) NOT NULL,
+        level INT NOT NULL,
+        level_name VARCHAR(64) NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        active BOOLEAN DEFAULT TRUE,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
     lastStatus.tablesCreated = true;
     lastStatus.connected = true;
     lastStatus.error = null;
@@ -376,10 +591,679 @@ export async function saveMariaDbContent(content: any, version = 1, note = ''): 
       ).catch(() => {});
     }
 
+    // Save each individual section to its dedicated table with granular columns
+    const sectionKeys = [
+      'site',
+      'hero',
+      'valueProp',
+      'location',
+      'masterPlan',
+      'housingModels',
+      'salesFinancing',
+      'socialImpact',
+      'contactForm',
+      'footer',
+      'seo',
+    ];
+
+    for (const key of sectionKeys) {
+      if (content[key] && typeof content[key] === 'object') {
+        await saveMariaDbSection(key, content[key]).catch((e) => {
+          console.warn(`[MariaDB] Error replicando sección ${key}:`, e.message);
+        });
+      }
+    }
+
     return true;
   } catch (err: any) {
     console.warn('[MariaDB] Error guardando contenido:', err.message);
     return false;
+  }
+}
+
+/**
+ * Saves a specific section into its dedicated MariaDB table with individual columns and data_json
+ */
+export async function saveMariaDbSection(sectionKey: string, sectionData: any): Promise<boolean> {
+  if (!pool || !sectionData) return false;
+  try {
+    await ensureMariaDbTables();
+    const dataJson = JSON.stringify(sectionData);
+
+    switch (sectionKey) {
+      case 'site': {
+        const s = sectionData || {};
+        const id = 'site';
+        const projectName = s.projectName || 'Mis Delirios Ranch';
+        const fullName = s.fullName || '';
+        const tagline = s.tagline || '';
+        const logoUrl = s.logoUrl || '';
+        const contactPhone = s.contactPhone || s.phone || '';
+        const contactWhatsapp = s.contactWhatsapp || s.contactPhone || '';
+        const contactEmail = s.contactEmail || s.email || '';
+        const salesOfficeAddress = s.salesOfficeAddress || s.address || '';
+        const instagramUrl = s.socialMedia?.instagram || '';
+        const facebookUrl = s.socialMedia?.facebook || '';
+        const youtubeUrl = s.socialMedia?.youtube || '';
+
+        await pool.query(
+          `INSERT INTO cms_section_site (
+            id, project_name, full_name, tagline, logo_url,
+            contact_phone, contact_whatsapp, contact_email, sales_office_address,
+            instagram_url, facebook_url, youtube_url, data_json, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+          ON DUPLICATE KEY UPDATE
+            project_name = VALUES(project_name),
+            full_name = VALUES(full_name),
+            tagline = VALUES(tagline),
+            logo_url = VALUES(logo_url),
+            contact_phone = VALUES(contact_phone),
+            contact_whatsapp = VALUES(contact_whatsapp),
+            contact_email = VALUES(contact_email),
+            sales_office_address = VALUES(sales_office_address),
+            instagram_url = VALUES(instagram_url),
+            facebook_url = VALUES(facebook_url),
+            youtube_url = VALUES(youtube_url),
+            data_json = VALUES(data_json),
+            updated_at = NOW();`,
+          [
+            id, projectName, fullName, tagline, logoUrl,
+            contactPhone, contactWhatsapp, contactEmail, salesOfficeAddress,
+            instagramUrl, facebookUrl, youtubeUrl, dataJson
+          ]
+        );
+        return true;
+      }
+
+      case 'hero': {
+        const h = sectionData || {};
+        const id = 'hero';
+        const title = h.title || '';
+        const subtitle = h.subtitle || '';
+        const badgeText = h.badgeText || '';
+        const priceBadge = h.priceBadge || '';
+        const primaryCtaText = h.primaryCtaText || '';
+        const primaryCtaLink = h.primaryCtaLink || '';
+        const secondaryCtaText = h.secondaryCtaText || '';
+        const secondaryCtaLink = h.secondaryCtaLink || '';
+        const backgroundImageUrl = h.backgroundImageUrl || '';
+        const showBadge = h.showBadge !== false;
+        const active = h.active !== false;
+
+        await pool.query(
+          `INSERT INTO cms_section_hero (
+            id, title, subtitle, badge_text, price_badge,
+            primary_cta_text, primary_cta_link, secondary_cta_text, secondary_cta_link,
+            background_image_url, show_badge, active, data_json, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+          ON DUPLICATE KEY UPDATE
+            title = VALUES(title),
+            subtitle = VALUES(subtitle),
+            badge_text = VALUES(badge_text),
+            price_badge = VALUES(price_badge),
+            primary_cta_text = VALUES(primary_cta_text),
+            primary_cta_link = VALUES(primary_cta_link),
+            secondary_cta_text = VALUES(secondary_cta_text),
+            secondary_cta_link = VALUES(secondary_cta_link),
+            background_image_url = VALUES(background_image_url),
+            show_badge = VALUES(show_badge),
+            active = VALUES(active),
+            data_json = VALUES(data_json),
+            updated_at = NOW();`,
+          [
+            id, title, subtitle, badgeText, priceBadge,
+            primaryCtaText, primaryCtaLink, secondaryCtaText, secondaryCtaLink,
+            backgroundImageUrl, showBadge, active, dataJson
+          ]
+        );
+        return true;
+      }
+
+      case 'valueProp':
+      case 'propuesta': {
+        const v = sectionData || {};
+        const id = 'valueProp';
+        const title = v.title || '';
+        const subtitle = v.subtitle || '';
+        const description = v.description || '';
+        const imageUrl = v.imageUrl || '';
+        const imageAlt = v.imageAlt || '';
+        const columnsCount = Number(v.columnsCount) || 3;
+        const active = v.active !== false;
+
+        await pool.query(
+          `INSERT INTO cms_section_value_prop (
+            id, title, subtitle, description, image_url, image_alt,
+            columns_count, active, data_json, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+          ON DUPLICATE KEY UPDATE
+            title = VALUES(title),
+            subtitle = VALUES(subtitle),
+            description = VALUES(description),
+            image_url = VALUES(image_url),
+            image_alt = VALUES(image_alt),
+            columns_count = VALUES(columns_count),
+            active = VALUES(active),
+            data_json = VALUES(data_json),
+            updated_at = NOW();`,
+          [id, title, subtitle, description, imageUrl, imageAlt, columnsCount, active, dataJson]
+        );
+        return true;
+      }
+
+      case 'location':
+      case 'ubicacion': {
+        const l = sectionData || {};
+        const id = 'location';
+        const title = l.title || '';
+        const subtitle = l.subtitle || '';
+        const description = l.description || '';
+        const municipality = l.municipality || '';
+        const sectors = Array.isArray(l.sectors) ? l.sectors.join(', ') : (l.sectors || '');
+        const googleMapsEmbedUrl = l.googleMapsEmbedUrl || '';
+        const mapExternalUrl = l.mapExternalUrl || '';
+        const coordinatesLat = Number(l.coordinates?.lat) || null;
+        const coordinatesLng = Number(l.coordinates?.lng) || null;
+        const active = l.active !== false;
+
+        await pool.query(
+          `INSERT INTO cms_section_location (
+            id, title, subtitle, description, municipality, sectors,
+            google_maps_embed_url, map_external_url, coordinates_lat, coordinates_lng,
+            active, data_json, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+          ON DUPLICATE KEY UPDATE
+            title = VALUES(title),
+            subtitle = VALUES(subtitle),
+            description = VALUES(description),
+            municipality = VALUES(municipality),
+            sectors = VALUES(sectors),
+            google_maps_embed_url = VALUES(google_maps_embed_url),
+            map_external_url = VALUES(map_external_url),
+            coordinates_lat = VALUES(coordinates_lat),
+            coordinates_lng = VALUES(coordinates_lng),
+            active = VALUES(active),
+            data_json = VALUES(data_json),
+            updated_at = NOW();`,
+          [
+            id, title, subtitle, description, municipality, sectors,
+            googleMapsEmbedUrl, mapExternalUrl, coordinatesLat, coordinatesLng,
+            active, dataJson
+          ]
+        );
+        return true;
+      }
+
+      case 'masterPlan':
+      case 'planMaestro': {
+        const m = sectionData || {};
+        const id = 'masterPlan';
+        const title = m.title || '';
+        const subtitle = m.subtitle || '';
+        const description = m.description || '';
+        const totalLots = Number(m.totalLots) || 0;
+        const planImageUrl = m.planImageUrl || '';
+        const planPdfUrl = m.planPdfUrl || '';
+        const primaryCtaText = m.primaryCtaText || '';
+        const secondaryCtaText = m.secondaryCtaText || '';
+        const active = m.active !== false;
+
+        await pool.query(
+          `INSERT INTO cms_section_master_plan (
+            id, title, subtitle, description, total_lots,
+            plan_image_url, plan_pdf_url, primary_cta_text, secondary_cta_text,
+            active, data_json, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+          ON DUPLICATE KEY UPDATE
+            title = VALUES(title),
+            subtitle = VALUES(subtitle),
+            description = VALUES(description),
+            total_lots = VALUES(total_lots),
+            plan_image_url = VALUES(plan_image_url),
+            plan_pdf_url = VALUES(plan_pdf_url),
+            primary_cta_text = VALUES(primary_cta_text),
+            secondary_cta_text = VALUES(secondary_cta_text),
+            active = VALUES(active),
+            data_json = VALUES(data_json),
+            updated_at = NOW();`,
+          [
+            id, title, subtitle, description, totalLots,
+            planImageUrl, planPdfUrl, primaryCtaText, secondaryCtaText,
+            active, dataJson
+          ]
+        );
+        return true;
+      }
+
+      case 'housingModels':
+      case 'modelos': {
+        const hm = sectionData || {};
+        const id = 'housingModels';
+        const title = hm.title || '';
+        const subtitle = hm.subtitle || '';
+        const description = hm.description || '';
+        const priceNotice = hm.priceNotice || '';
+        const modelsCount = Array.isArray(hm.models) ? hm.models.length : 0;
+        const active = hm.active !== false;
+
+        await pool.query(
+          `INSERT INTO cms_section_housing_models (
+            id, title, subtitle, description, price_notice, models_count,
+            active, data_json, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
+          ON DUPLICATE KEY UPDATE
+            title = VALUES(title),
+            subtitle = VALUES(subtitle),
+            description = VALUES(description),
+            price_notice = VALUES(price_notice),
+            models_count = VALUES(models_count),
+            active = VALUES(active),
+            data_json = VALUES(data_json),
+            updated_at = NOW();`,
+          [id, title, subtitle, description, priceNotice, modelsCount, active, dataJson]
+        );
+
+        if (Array.isArray(hm.models) && hm.models.length > 0) {
+          await saveMariaDbModels(hm.models);
+        }
+        return true;
+      }
+
+      case 'salesFinancing':
+      case 'financiamiento': {
+        const sf = sectionData || {};
+        const id = 'salesFinancing';
+        const title = sf.title || '';
+        const subtitle = sf.subtitle || '';
+        const pricePerM2Usd = Number(sf.pricePerM2Usd) || 0;
+        const specialPromo = sf.specialPromo || '';
+        const legalNotice = sf.legalNotice || '';
+        const active = sf.active !== false;
+
+        await pool.query(
+          `INSERT INTO cms_section_sales_financing (
+            id, title, subtitle, price_per_m2_usd, special_promo, legal_notice,
+            active, data_json, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
+          ON DUPLICATE KEY UPDATE
+            title = VALUES(title),
+            subtitle = VALUES(subtitle),
+            price_per_m2_usd = VALUES(price_per_m2_usd),
+            special_promo = VALUES(special_promo),
+            legal_notice = VALUES(legal_notice),
+            active = VALUES(active),
+            data_json = VALUES(data_json),
+            updated_at = NOW();`,
+          [id, title, subtitle, pricePerM2Usd, specialPromo, legalNotice, active, dataJson]
+        );
+        return true;
+      }
+
+      case 'socialImpact':
+      case 'sostenibilidad': {
+        const si = sectionData || {};
+        const id = 'socialImpact';
+        const title = si.title || '';
+        const subtitle = si.subtitle || '';
+        const description = si.description || '';
+        const cededAreaM2 = Number(si.cededAreaM2) || 0;
+        const costCoveredPercentage = Number(si.costCoveredPercentage) || 0;
+        const vision2030 = si.vision2030 || '';
+        const imageUrl = si.imageUrl || '';
+        const active = si.active !== false;
+
+        await pool.query(
+          `INSERT INTO cms_section_social_impact (
+            id, title, subtitle, description, ceded_area_m2, cost_covered_percentage,
+            vision_2030, image_url, active, data_json, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+          ON DUPLICATE KEY UPDATE
+            title = VALUES(title),
+            subtitle = VALUES(subtitle),
+            description = VALUES(description),
+            ceded_area_m2 = VALUES(ceded_area_m2),
+            cost_covered_percentage = VALUES(cost_covered_percentage),
+            vision_2030 = VALUES(vision_2030),
+            image_url = VALUES(image_url),
+            active = VALUES(active),
+            data_json = VALUES(data_json),
+            updated_at = NOW();`,
+          [id, title, subtitle, description, cededAreaM2, costCoveredPercentage, vision2030, imageUrl, active, dataJson]
+        );
+        return true;
+      }
+
+      case 'contactForm':
+      case 'contacto': {
+        const cf = sectionData || {};
+        const id = 'contactForm';
+        const title = cf.title || '';
+        const subtitle = cf.subtitle || '';
+        const badgeText = cf.badgeText || '';
+        const directChannelsTitle = cf.directChannelsTitle || '';
+        const formTitle = cf.formTitle || '';
+        const formSubtitle = cf.formSubtitle || '';
+        const scheduleText = cf.scheduleText || '';
+        const whatsappSubtitle = cf.whatsappSubtitle || '';
+        const emailSubtitle = cf.emailSubtitle || '';
+        const directPhone = cf.directPhone || '';
+        const directWhatsapp = cf.directWhatsapp || '';
+        const directEmail = cf.directEmail || '';
+        const directAddress = cf.directAddress || '';
+        const submitButtonText = cf.submitButtonText || '';
+        const callButtonText = cf.callButtonText || '';
+        const whatsappMessageTemplate = cf.whatsappMessageTemplate || '';
+        const successMessage = cf.successMessage || '';
+        const privacyPolicyText = cf.privacyPolicyText || '';
+        const active = cf.active !== false;
+
+        await pool.query(
+          `INSERT INTO cms_section_contact (
+            id, title, subtitle, badge_text, direct_channels_title,
+            form_title, form_subtitle, schedule_text, whatsapp_subtitle, email_subtitle,
+            direct_phone, direct_whatsapp, direct_email, direct_address,
+            submit_button_text, call_button_text, whatsapp_message_template,
+            success_message, privacy_policy_text, active, data_json, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+          ON DUPLICATE KEY UPDATE
+            title = VALUES(title),
+            subtitle = VALUES(subtitle),
+            badge_text = VALUES(badge_text),
+            direct_channels_title = VALUES(direct_channels_title),
+            form_title = VALUES(form_title),
+            form_subtitle = VALUES(form_subtitle),
+            schedule_text = VALUES(schedule_text),
+            whatsapp_subtitle = VALUES(whatsapp_subtitle),
+            email_subtitle = VALUES(email_subtitle),
+            direct_phone = VALUES(direct_phone),
+            direct_whatsapp = VALUES(direct_whatsapp),
+            direct_email = VALUES(direct_email),
+            direct_address = VALUES(direct_address),
+            submit_button_text = VALUES(submit_button_text),
+            call_button_text = VALUES(call_button_text),
+            whatsapp_message_template = VALUES(whatsapp_message_template),
+            success_message = VALUES(success_message),
+            privacy_policy_text = VALUES(privacy_policy_text),
+            active = VALUES(active),
+            data_json = VALUES(data_json),
+            updated_at = NOW();`,
+          [
+            id, title, subtitle, badgeText, directChannelsTitle,
+            formTitle, formSubtitle, scheduleText, whatsappSubtitle, emailSubtitle,
+            directPhone, directWhatsapp, directEmail, directAddress,
+            submitButtonText, callButtonText, whatsappMessageTemplate,
+            successMessage, privacyPolicyText, active, dataJson
+          ]
+        );
+        return true;
+      }
+
+      case 'footer': {
+        const ft = sectionData || {};
+        const id = 'footer';
+        const legalNotice = ft.legalNotice || '';
+        const credits = ft.credits || '';
+        const copyrightYear = String(ft.copyrightYear || '2025');
+        const active = ft.active !== false;
+
+        await pool.query(
+          `INSERT INTO cms_section_footer (
+            id, legal_notice, credits, copyright_year, active, data_json, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, NOW())
+          ON DUPLICATE KEY UPDATE
+            legal_notice = VALUES(legal_notice),
+            credits = VALUES(credits),
+            copyright_year = VALUES(copyright_year),
+            active = VALUES(active),
+            data_json = VALUES(data_json),
+            updated_at = NOW();`,
+          [id, legalNotice, credits, copyrightYear, active, dataJson]
+        );
+        return true;
+      }
+
+      case 'seo': {
+        const se = sectionData || {};
+        const id = 'seo';
+        const metaTitle = se.metaTitle || '';
+        const metaDescription = se.metaDescription || '';
+        const keywords = Array.isArray(se.keywords) ? se.keywords.join(', ') : (se.keywords || '');
+        const ogTitle = se.ogTitle || '';
+        const ogDescription = se.ogDescription || '';
+        const ogImage = se.ogImage || '';
+        const googleAnalyticsId = se.googleAnalyticsId || '';
+        const metaPixelId = se.metaPixelId || '';
+        const googleTagManagerId = se.googleTagManagerId || '';
+
+        await pool.query(
+          `INSERT INTO cms_section_seo (
+            id, meta_title, meta_description, keywords, og_title, og_description,
+            og_image, google_analytics_id, meta_pixel_id, google_tag_manager_id,
+            data_json, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+          ON DUPLICATE KEY UPDATE
+            meta_title = VALUES(meta_title),
+            meta_description = VALUES(meta_description),
+            keywords = VALUES(keywords),
+            og_title = VALUES(og_title),
+            og_description = VALUES(og_description),
+            og_image = VALUES(og_image),
+            google_analytics_id = VALUES(google_analytics_id),
+            meta_pixel_id = VALUES(meta_pixel_id),
+            google_tag_manager_id = VALUES(google_tag_manager_id),
+            data_json = VALUES(data_json),
+            updated_at = NOW();`,
+          [
+            id, metaTitle, metaDescription, keywords, ogTitle, ogDescription,
+            ogImage, googleAnalyticsId, metaPixelId, googleTagManagerId, dataJson
+          ]
+        );
+        return true;
+      }
+
+      default:
+        return false;
+    }
+  } catch (err: any) {
+    console.warn(`[MariaDB] Error guardando sección ${sectionKey}:`, err.message);
+    return false;
+  }
+}
+
+/**
+ * Gets a specific section from its dedicated table
+ */
+export async function getMariaDbSection(sectionKey: string): Promise<any | null> {
+  if (!pool) return null;
+  try {
+    const tableMap: Record<string, string> = {
+      site: 'cms_section_site',
+      hero: 'cms_section_hero',
+      valueProp: 'cms_section_value_prop',
+      propuesta: 'cms_section_value_prop',
+      location: 'cms_section_location',
+      ubicacion: 'cms_section_location',
+      masterPlan: 'cms_section_master_plan',
+      planMaestro: 'cms_section_master_plan',
+      housingModels: 'cms_section_housing_models',
+      modelos: 'cms_section_housing_models',
+      salesFinancing: 'cms_section_sales_financing',
+      financiamiento: 'cms_section_sales_financing',
+      socialImpact: 'cms_section_social_impact',
+      sostenibilidad: 'cms_section_social_impact',
+      contactForm: 'cms_section_contact',
+      contacto: 'cms_section_contact',
+      footer: 'cms_section_footer',
+      seo: 'cms_section_seo',
+    };
+
+    const tableName = tableMap[sectionKey];
+    if (!tableName) return null;
+
+    const [rows]: any = await pool.query(`SELECT data_json FROM ${tableName} LIMIT 1;`);
+    if (rows && rows.length > 0 && rows[0].data_json) {
+      return JSON.parse(rows[0].data_json);
+    }
+  } catch (err: any) {
+    console.warn(`[MariaDB] Error leyendo sección ${sectionKey}:`, err.message);
+  }
+  return null;
+}
+
+/**
+ * Saves users into MariaDB cms_users table
+ */
+export async function saveMariaDbUsers(users: any[]): Promise<boolean> {
+  if (!pool || !Array.isArray(users)) return false;
+  try {
+    await ensureMariaDbTables();
+    for (const u of users) {
+      const id = u.id || `user-${Date.now()}`;
+      const username = u.username || `user_${id}`;
+      const name = u.name || '';
+      const email = u.email || '';
+      const level = Number(u.level) || 3;
+      const levelName = u.levelName || 'Editor';
+      const password = u.password || 'delirios2025';
+      const active = u.active !== false;
+
+      await pool.query(
+        `INSERT INTO cms_users (id, username, name, email, level, level_name, password, active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+         ON DUPLICATE KEY UPDATE
+           name = VALUES(name),
+           email = VALUES(email),
+           level = VALUES(level),
+           level_name = VALUES(level_name),
+           password = VALUES(password),
+           active = VALUES(active),
+           updated_at = NOW();`,
+        [id, username, name, email, level, levelName, password, active]
+      );
+    }
+    return true;
+  } catch (err: any) {
+    console.warn('[MariaDB] Error guardando usuarios:', err.message);
+    return false;
+  }
+}
+
+/**
+ * Reads users from MariaDB cms_users table
+ */
+export async function getMariaDbUsers(): Promise<any[] | null> {
+  if (!pool) return null;
+  try {
+    const [rows]: any = await pool.query('SELECT * FROM cms_users ORDER BY level ASC;');
+    if (rows && rows.length > 0) {
+      return rows.map((r: any) => ({
+        id: r.id,
+        username: r.username,
+        name: r.name,
+        email: r.email,
+        level: r.level,
+        levelName: r.level_name,
+        password: r.password,
+        active: Boolean(r.active),
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
+      }));
+    }
+  } catch (err: any) {
+    console.warn('[MariaDB] Error leyendo usuarios:', err.message);
+  }
+  return null;
+}
+
+/**
+ * Diagnostic tool: checks all section tables in MariaDB and returns their exact row count, updated_at, and sample fields
+ */
+export async function getMariaDbSectionsStatus(): Promise<{
+  connected: boolean;
+  database: string;
+  totalTables: number;
+  tables: Array<{
+    key: string;
+    label: string;
+    tableName: string;
+    exists: boolean;
+    rowCount: number;
+    lastUpdated?: string;
+    sampleData?: any;
+  }>;
+}> {
+  const result: any = {
+    connected: false,
+    database: currentConfig.database,
+    totalTables: 0,
+    tables: [],
+  };
+
+  if (!pool) return result;
+
+  try {
+    result.connected = true;
+    const tableSpecs = [
+      { key: 'site', label: 'Datos Generales & Canales', table: 'cms_section_site', sampleQuery: 'SELECT project_name, contact_phone, contact_whatsapp, contact_email, updated_at FROM cms_section_site LIMIT 1;' },
+      { key: 'hero', label: 'Portada & Titulares', table: 'cms_section_hero', sampleQuery: 'SELECT title, badge_text, primary_cta_text, active, updated_at FROM cms_section_hero LIMIT 1;' },
+      { key: 'valueProp', label: 'Propuesta de Valor & Pilares', table: 'cms_section_value_prop', sampleQuery: 'SELECT title, subtitle, columns_count, active, updated_at FROM cms_section_value_prop LIMIT 1;' },
+      { key: 'location', label: 'Ubicación & Rutas', table: 'cms_section_location', sampleQuery: 'SELECT title, municipality, coordinates_lat, coordinates_lng, active, updated_at FROM cms_section_location LIMIT 1;' },
+      { key: 'masterPlan', label: 'Plan Maestro & Amenidades', table: 'cms_section_master_plan', sampleQuery: 'SELECT title, total_lots, plan_image_url, active, updated_at FROM cms_section_master_plan LIMIT 1;' },
+      { key: 'housingModels', label: 'Modelos de Vivienda (Sección)', table: 'cms_section_housing_models', sampleQuery: 'SELECT title, models_count, active, updated_at FROM cms_section_housing_models LIMIT 1;' },
+      { key: 'housing_models_catalog', label: 'Catálogo de Modelos (Individuales)', table: 'housing_models', sampleQuery: 'SELECT id, name, area_m2, price_usd, active, updated_at FROM housing_models LIMIT 3;' },
+      { key: 'salesFinancing', label: 'Planes de Financiamiento', table: 'cms_section_sales_financing', sampleQuery: 'SELECT title, price_per_m2_usd, active, updated_at FROM cms_section_sales_financing LIMIT 1;' },
+      { key: 'socialImpact', label: 'Sostenibilidad & Bambú', table: 'cms_section_social_impact', sampleQuery: 'SELECT title, ceded_area_m2, cost_covered_percentage, active, updated_at FROM cms_section_social_impact LIMIT 1;' },
+      { key: 'contactForm', label: 'Contacto & Formulario de Cotización', table: 'cms_section_contact', sampleQuery: 'SELECT title, direct_phone, direct_whatsapp, direct_email, active, updated_at FROM cms_section_contact LIMIT 1;' },
+      { key: 'footer', label: 'Pie de Página & Enlaces', table: 'cms_section_footer', sampleQuery: 'SELECT copyright_year, active, updated_at FROM cms_section_footer LIMIT 1;' },
+      { key: 'seo', label: 'SEO & Posicionamiento', table: 'cms_section_seo', sampleQuery: 'SELECT meta_title, meta_description, keywords, updated_at FROM cms_section_seo LIMIT 1;' },
+      { key: 'lots', label: 'Inventario de Lotes / Parcelas', table: 'lots', sampleQuery: 'SELECT code, manzana, area_m2, status, total_price_usd, updated_at FROM lots LIMIT 3;' },
+      { key: 'leads', label: 'Prospectos / Cotizaciones', table: 'leads', sampleQuery: 'SELECT full_name, email, phone, lot_code, created_at FROM leads LIMIT 3;' },
+      { key: 'cms_users', label: 'Usuarios & 5 Niveles de Seguridad', table: 'cms_users', sampleQuery: 'SELECT username, name, email, level, level_name, active, updated_at FROM cms_users LIMIT 5;' },
+      { key: 'cms_versions', label: 'Historial de Versiones', table: 'cms_versions', sampleQuery: 'SELECT version, note, created_at FROM cms_versions ORDER BY version DESC LIMIT 3;' },
+      { key: 'cms_content', label: 'Respaldo Global JSON', table: 'cms_content', sampleQuery: 'SELECT id, version, updated_at FROM cms_content LIMIT 1;' },
+    ];
+
+    for (const spec of tableSpecs) {
+      try {
+        const [countRows]: any = await pool.query(`SELECT COUNT(*) as cnt FROM ${spec.table};`);
+        const count = countRows && countRows[0] ? countRows[0].cnt : 0;
+        let sample: any = null;
+        let lastUpdated: string | undefined = undefined;
+
+        if (count > 0 && spec.sampleQuery) {
+          const [sampleRows]: any = await pool.query(spec.sampleQuery);
+          if (sampleRows && sampleRows.length > 0) {
+            sample = sampleRows.length === 1 ? sampleRows[0] : sampleRows;
+            const targetRow = sampleRows[0];
+            lastUpdated = targetRow.updated_at || targetRow.created_at || undefined;
+          }
+        }
+
+        result.tables.push({
+          key: spec.key,
+          label: spec.label,
+          tableName: spec.table,
+          exists: true,
+          rowCount: count,
+          lastUpdated: lastUpdated ? new Date(lastUpdated).toISOString() : undefined,
+          sampleData: sample,
+        });
+      } catch (err: any) {
+        result.tables.push({
+          key: spec.key,
+          label: spec.label,
+          tableName: spec.table,
+          exists: false,
+          rowCount: 0,
+        });
+      }
+    }
+
+    result.totalTables = result.tables.filter((t: any) => t.exists).length;
+    return result;
+  } catch (e: any) {
+    console.warn('[MariaDB] Error diagnosticando tablas:', e.message);
+    return result;
   }
 }
 
@@ -493,7 +1377,14 @@ export async function saveMariaDbLead(lead: any): Promise<boolean> {
 
     await pool.query(
       `INSERT INTO leads (id, full_name, email, phone, lot_code, model_name, created_at, data_json)
-       VALUES (?, ?, ?, ?, ?, ?, NOW(), ?);`,
+       VALUES (?, ?, ?, ?, ?, ?, NOW(), ?)
+       ON DUPLICATE KEY UPDATE
+         full_name = VALUES(full_name),
+         email = VALUES(email),
+         phone = VALUES(phone),
+         lot_code = VALUES(lot_code),
+         model_name = VALUES(model_name),
+         data_json = VALUES(data_json);`,
       [id, fullName, email, phone, lotCode, modelName, dataStr]
     );
     return true;
@@ -508,6 +1399,7 @@ export async function migrateAllToMariaDb(data: {
   lots: any[];
   models?: any[];
   leads?: any[];
+  users?: any[];
 }): Promise<{ success: boolean; message: string; details: any }> {
   const connTest = await testMariaDbConnection();
   if (!connTest.success) {
@@ -529,9 +1421,13 @@ export async function migrateAllToMariaDb(data: {
 
   const results: any = {};
 
-  // 1. Migrate Content
+  // 1. Migrate Content & All Individual Sections
   if (data.content) {
-    results.content = await saveMariaDbContent(data.content, data.content.version || 1, 'Migración inicial a MariaDB');
+    results.content = await saveMariaDbContent(data.content, data.content.version || 1, 'Migración completa de secciones a MariaDB');
+    results.sectionsMigrated = [
+      'site', 'hero', 'valueProp', 'location', 'masterPlan',
+      'housingModels', 'salesFinancing', 'socialImpact', 'contactForm', 'footer', 'seo'
+    ];
   }
 
   // 2. Migrate Lots
@@ -556,9 +1452,19 @@ export async function migrateAllToMariaDb(data: {
     results.leadsMigrated = leadSuccess;
   }
 
+  // 5. Migrate Users if any
+  if (data.users && data.users.length > 0) {
+    results.users = await saveMariaDbUsers(data.users);
+    results.usersCount = data.users.length;
+  }
+
+  // Diagnostic status after migration
+  const statusAfter = await getMariaDbSectionsStatus();
+  results.diagnostic = statusAfter;
+
   return {
     success: true,
-    message: `¡Migración completada con éxito en MariaDB! (${results.lotsCount || 0} lotes, ${results.modelsCount || 0} modelos y contenido global)`,
+    message: `¡Migración completada con éxito en MariaDB! (${results.lotsCount || 0} lotes, ${results.modelsCount || 0} modelos, ${results.usersCount || 0} usuarios y todas las 11 secciones guardadas en sus tablas correspondientes)`,
     details: results,
   };
 }

@@ -275,21 +275,38 @@ export async function saveCmsContent(content: CmsContent, note?: string): Promis
   // 1. Guardar de inmediato en almacenamiento persistente del cliente
   saveLocalCache(content);
 
-  // 2. Persistir en Firebase Firestore (Nube) con timeout de seguridad (nunca cuelga la UI)
+  // 2. Persistir en Firebase Firestore (Nube): Documento global y documentos de secciones dedicadas
   try {
-    await withFirestoreTimeout(
+    const firestorePromises: Promise<any>[] = [
       setDoc(doc(db, 'cms_content', 'global_content'), {
         ...content,
         updatedAt: new Date().toISOString(),
         _lastNote: note || '',
       }),
-      2500
-    );
+    ];
+
+    const sectionKeys = [
+      'site', 'hero', 'valueProp', 'location', 'masterPlan',
+      'housingModels', 'salesFinancing', 'socialImpact', 'contactForm', 'footer', 'seo'
+    ];
+
+    for (const secKey of sectionKeys) {
+      if ((content as any)[secKey]) {
+        firestorePromises.push(
+          setDoc(doc(db, 'cms_sections', secKey), {
+            ...(content as any)[secKey],
+            updatedAt: new Date().toISOString(),
+          })
+        );
+      }
+    }
+
+    await withFirestoreTimeout(Promise.all(firestorePromises), 2500);
   } catch (fireErr) {
     console.warn('Guardado en Firestore no completado:', fireErr);
   }
 
-  // 3. Persistir en servidor Express y disco local
+  // 3. Persistir en servidor Express, MariaDB (tablas dedicadas y respaldo) y disco local
   const query = note ? `?note=${encodeURIComponent(note)}` : '';
   try {
     const res = await fetch(`${API_BASE}/content${query}`, {
@@ -521,6 +538,23 @@ export async function saveAllCmsAndLots(
           })
         );
       }
+
+      // Replicate individual section documents for granular access
+      const sectionKeys = [
+        'site', 'hero', 'valueProp', 'location', 'masterPlan',
+        'housingModels', 'salesFinancing', 'socialImpact', 'contactForm', 'footer', 'seo'
+      ];
+      for (const secKey of sectionKeys) {
+        if ((cleanContent as any)[secKey]) {
+          promises.push(
+            setDoc(doc(db, 'cms_sections', secKey), {
+              ...(cleanContent as any)[secKey],
+              updatedAt: new Date().toISOString(),
+            })
+          );
+        }
+      }
+
       await Promise.all(promises);
     };
 
@@ -1578,5 +1612,97 @@ export async function runMariaDbMigration(): Promise<{
       message: 'Error al solicitar migración: ' + errorMsg,
     };
   }
+}
+
+export interface SectionTableStatusItem {
+  key: string;
+  label: string;
+  tableName: string;
+  exists: boolean;
+  rowCount: number;
+  lastUpdated?: string;
+  sampleData?: any;
+}
+
+export interface DatabaseSectionsStatusResponse {
+  connected: boolean;
+  database: string;
+  totalTables: number;
+  tables: SectionTableStatusItem[];
+}
+
+/**
+ * Fetches real-time status of all CMS section tables in MariaDB
+ */
+export async function fetchDatabaseSectionsStatus(): Promise<DatabaseSectionsStatusResponse | null> {
+  try {
+    const res = await fetch(`${API_BASE}/mariadb/sections-status?_t=${Date.now()}`, {
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        Pragma: 'no-cache',
+      },
+    });
+    const json = await parseJsonSafely<{ success: boolean; data: DatabaseSectionsStatusResponse }>(
+      res,
+      'Error obteniendo estado de tablas de base de datos'
+    );
+    return json.data || null;
+  } catch (err) {
+    console.warn('[MariaDB API] fetchDatabaseSectionsStatus error:', err);
+    return null;
+  }
+}
+
+/**
+ * Saves a single CMS section directly to its dedicated table in MariaDB and Firestore
+ */
+export async function saveCmsSection(sectionKey: string, sectionData: any): Promise<{
+  success: boolean;
+  message?: string;
+  savedToTable?: boolean;
+}> {
+  try {
+    // 1. Save in Firestore section doc
+    withFirestoreTimeout(
+      setDoc(doc(db, 'cms_sections', sectionKey), {
+        ...sectionData,
+        updatedAt: new Date().toISOString(),
+      }),
+      2000
+    ).catch(() => {});
+
+    // 2. Save in backend Express (which updates dedicated MariaDB section table)
+    const res = await fetch(`${API_BASE}/sections/${sectionKey}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sectionData),
+    });
+    const json = await parseJsonSafely<{
+      success: boolean;
+      message?: string;
+      savedToTable?: boolean;
+    }>(res, `Error al guardar sección ${sectionKey}`);
+    return json;
+  } catch (err: any) {
+    console.warn(`[API] Error guardando sección ${sectionKey}:`, err);
+    return { success: false, message: err?.message || String(err) };
+  }
+}
+
+/**
+ * Fetches a single CMS section from its dedicated database table
+ */
+export async function fetchCmsSection(sectionKey: string): Promise<any | null> {
+  try {
+    const res = await fetch(`${API_BASE}/sections/${sectionKey}?_t=${Date.now()}`);
+    const json = await parseJsonSafely<{ success: boolean; data: any }>(res, `Error obteniendo sección ${sectionKey}`);
+    if (json.success && json.data) {
+      return json.data;
+    }
+  } catch (err) {
+    console.warn(`[API] fetchCmsSection ${sectionKey} error:`, err);
+  }
+  return null;
 }
 

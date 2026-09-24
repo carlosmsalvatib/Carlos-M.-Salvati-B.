@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { CmsContent, PropuestaVideo } from '../types';
+import { normalizeVideoUrl } from '../lib/mediaProcessor';
 import {
   Sprout,
   Home,
@@ -66,7 +67,19 @@ export const ValuePropSection: React.FC<ValuePropSectionProps> = ({
 
   if (!valueProp.active) return null;
 
-  const currentVideo = videos[selectedVideoIndex] || videos[0];
+  const currentVideo: any = videos[selectedVideoIndex] || videos[0] || {};
+  const rawVideoUrl = currentVideo.url || currentVideo.videoUrl || '';
+  const normalizedVideoUrl = normalizeVideoUrl(rawVideoUrl);
+  const isEmbedVideo =
+    normalizedVideoUrl.includes('youtube.com') ||
+    normalizedVideoUrl.includes('youtu.be') ||
+    normalizedVideoUrl.includes('vimeo.com') ||
+    normalizedVideoUrl.includes('player.vimeo.com');
+  const videoPosterImage =
+    currentVideo.posterUrl ||
+    currentVideo.thumbnailUrl ||
+    valueProp.imageUrl ||
+    '/api/images/hero-landscape';
 
   const renderIcon = (iconName: string) => {
     switch (iconName) {
@@ -160,21 +173,24 @@ export const ValuePropSection: React.FC<ValuePropSectionProps> = ({
                 {/* Main Video Viewport */}
                 <div className="relative aspect-video w-full bg-stone-950 flex items-center justify-center group overflow-hidden">
                   {isPlaying ? (
-                    currentVideo.url.includes('youtube.com') || currentVideo.url.includes('vimeo.com') ? (
+                    isEmbedVideo ? (
                       <iframe
-                        src={`${currentVideo.url}${currentVideo.url.includes('?') ? '&' : '?'}autoplay=1&rel=0`}
-                        title={currentVideo.title}
+                        src={`${normalizedVideoUrl}${normalizedVideoUrl.includes('?') ? '&' : '?'}autoplay=1&rel=0`}
+                        title={currentVideo.title || 'Render de Video 3D'}
                         className="w-full h-full border-0"
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                         allowFullScreen
                       />
                     ) : (
                       <video
-                        src={currentVideo.url}
+                        src={normalizedVideoUrl || rawVideoUrl}
                         controls
                         autoPlay
                         className="w-full h-full object-cover"
-                      />
+                      >
+                        <source src={normalizedVideoUrl || rawVideoUrl} type="video/mp4" />
+                        Tu navegador no soporta la reproducción de video HTML5.
+                      </video>
                     )
                   ) : (
                     /* High-tech 3D Render Screen Poster */
@@ -184,8 +200,8 @@ export const ValuePropSection: React.FC<ValuePropSectionProps> = ({
                     >
                       {/* Background render graphic */}
                       <img
-                        src={currentVideo.thumbnailUrl || '/api/images/hero-landscape'}
-                        alt={currentVideo.title}
+                        src={videoPosterImage}
+                        alt={currentVideo.title || 'Render 3D'}
                         className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-500"
                         referrerPolicy="no-referrer"
                       />

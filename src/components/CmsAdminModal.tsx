@@ -71,6 +71,55 @@ import {
 } from 'lucide-react';
 import { MediaFieldWithSourceSelector } from './MediaFieldWithSourceSelector';
 import { MediaSourceSelectorModal } from './MediaSourceSelectorModal';
+import { normalizeVideoUrl } from '../lib/mediaProcessor';
+
+/**
+ * Validation rules for phone and email in the Contact form before sending to MariaDB/MySQL
+ */
+export const validateContactPhone = (phone: string): { isValid: boolean; error?: string } => {
+  if (!phone || !phone.trim()) {
+    return { isValid: false, error: 'El número telefónico es obligatorio.' };
+  }
+  const trimmed = phone.trim();
+  // Valid phone format: optional +, numbers, parentheses, spaces, dashes, dots
+  const phoneFormatRegex = /^[+]?[(]?[0-9]{1,4}[)]?[-\s./0-9]{5,20}$/;
+  if (!phoneFormatRegex.test(trimmed)) {
+    return {
+      isValid: false,
+      error: 'Formato inválido. Use caracteres estándar (+, -, paréntesis). Ej: +58-414-7114245 o 0414-7114245.',
+    };
+  }
+  const digitsOnly = trimmed.replace(/\D/g, '');
+  if (digitsOnly.length < 7) {
+    return {
+      isValid: false,
+      error: `El número debe tener al menos 7 dígitos (actualmente tiene ${digitsOnly.length}).`,
+    };
+  }
+  if (digitsOnly.length > 15) {
+    return {
+      isValid: false,
+      error: `El número no puede exceder 15 dígitos según norma internacional E.164 (actualmente tiene ${digitsOnly.length}).`,
+    };
+  }
+  return { isValid: true };
+};
+
+export const validateContactEmail = (email: string): { isValid: boolean; error?: string } => {
+  if (!email || !email.trim()) {
+    return { isValid: false, error: 'El correo electrónico es obligatorio.' };
+  }
+  const trimmed = email.trim();
+  // RFC 5322 compatible email format regex
+  const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+  if (!emailRegex.test(trimmed)) {
+    return {
+      isValid: false,
+      error: 'Formato de correo inválido. Ejemplo: ventas@misdeliriosranch.com o info@dominio.com.',
+    };
+  }
+  return { isValid: true };
+};
 
 interface CmsAdminModalProps {
   isOpen: boolean;
@@ -163,6 +212,60 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
   const [lotsSaveSuccess, setLotsSaveSuccess] = useState(false);
   const [leadsList, setLeadsList] = useState<LeadSubmission[]>([]);
   const [loadingLeads, setLoadingLeads] = useState(false);
+
+  // Validation layer state for Contact form (phones & emails)
+  const [contactValidationErrors, setContactValidationErrors] = useState<{
+    whatsapp?: string;
+    phone?: string;
+    email?: string;
+  }>({});
+  const [contactTouched, setContactTouched] = useState<{
+    whatsapp?: boolean;
+    phone?: boolean;
+    email?: boolean;
+  }>({});
+
+  const validateContactForm = (markAllTouched = false): boolean => {
+    const rawWhatsapp =
+      formData.contactForm?.directWhatsapp ||
+      formData.site?.contactWhatsapp ||
+      formData.site?.contactPhone ||
+      '';
+    const rawPhone =
+      formData.contactForm?.directPhone ||
+      formData.site?.contactPhone ||
+      (formData.site as any)?.phone ||
+      '';
+    const rawEmail =
+      formData.contactForm?.directEmail ||
+      formData.site?.contactEmail ||
+      (formData.site as any)?.email ||
+      '';
+
+    const errors: { whatsapp?: string; phone?: string; email?: string } = {};
+
+    const whatsappResult = validateContactPhone(rawWhatsapp);
+    if (!whatsappResult.isValid) {
+      errors.whatsapp = whatsappResult.error;
+    }
+
+    const phoneResult = validateContactPhone(rawPhone);
+    if (!phoneResult.isValid) {
+      errors.phone = phoneResult.error;
+    }
+
+    const emailResult = validateContactEmail(rawEmail);
+    if (!emailResult.isValid) {
+      errors.email = emailResult.error;
+    }
+
+    setContactValidationErrors(errors);
+    if (markAllTouched) {
+      setContactTouched({ whatsapp: true, phone: true, email: true });
+    }
+
+    return Object.keys(errors).length === 0;
+  };
 
   // Selected housing model for detailed image editing
   const [selectedModelId, setSelectedModelId] = useState<string>('modelo-a');
@@ -271,6 +374,24 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
   };
 
   const handleSaveAll = async (shouldClose = false) => {
+    // VALIDATION LAYER: Verify contact phone numbers and emails format before sending to MySQL/MariaDB
+    const isContactValid = validateContactForm(true);
+    if (!isContactValid) {
+      setActiveTab('contacto');
+      alert(
+        '⚠️ No se pueden guardar los cambios en la Base de Datos:\n\n' +
+        'Se detectaron formatos incorrectos en los canales de la sección Contacto.\n' +
+        'Por favor verifique los números telefónicos y el correo electrónico marcados en rojo antes de sincronizar con MySQL / MariaDB.'
+      );
+      setTimeout(() => {
+        const contactSection = document.getElementById('cms-contacto-section');
+        if (contactSection) {
+          contactSection.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 100);
+      return;
+    }
+
     setSaving(true);
     setSavingLots(true);
     try {
@@ -393,13 +514,17 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
   // VIDEO RENDERS MANAGEMENT IN PROPUESTA
   const handleAddVideo = () => {
     if (!newVideoTitle.trim() || !newVideoUrl.trim()) return;
+    const finalUrl = normalizeVideoUrl(newVideoUrl.trim());
+    const fallbackPoster = formData.valueProp.imageUrl || '/api/images/hero-landscape';
     const newVideo: PropuestaVideo = {
       id: 'vid-' + Date.now(),
-      title: newVideoTitle,
-      description: newVideoDesc || 'Render arquitectónico del proyecto',
-      videoUrl: newVideoUrl,
-      url: newVideoUrl,
-      duration: newVideoDuration || '02:00',
+      title: newVideoTitle.trim(),
+      description: newVideoDesc.trim() || 'Render arquitectónico del proyecto',
+      videoUrl: finalUrl,
+      url: finalUrl,
+      posterUrl: fallbackPoster,
+      thumbnailUrl: fallbackPoster,
+      duration: newVideoDuration.trim() || '02:00',
       videoType: 'render_3d',
     };
     const currentVideos = formData.valueProp.videos || [];
@@ -436,8 +561,22 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
         videos: currentVideos.map((v) => {
           if (v.id === videoId) {
             const next = { ...v, ...updates };
-            if (updates.videoUrl) next.url = updates.videoUrl;
-            if (updates.posterUrl) next.thumbnailUrl = updates.posterUrl;
+            if (updates.videoUrl) {
+              const norm = normalizeVideoUrl(updates.videoUrl);
+              next.videoUrl = norm;
+              next.url = norm;
+            } else if (updates.url) {
+              const norm = normalizeVideoUrl(updates.url);
+              next.videoUrl = norm;
+              next.url = norm;
+            }
+            if (updates.posterUrl) {
+              next.posterUrl = updates.posterUrl;
+              next.thumbnailUrl = updates.posterUrl;
+            } else if (updates.thumbnailUrl) {
+              next.posterUrl = updates.thumbnailUrl;
+              next.thumbnailUrl = updates.thumbnailUrl;
+            }
             return next;
           }
           return v;
@@ -1727,6 +1866,29 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                     </button>
                   </div>
                 </div>
+              </div>
+
+              {/* SAVE BUTTON FOR PROPUESTA SECTION */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 bg-gradient-to-r from-stone-900 to-stone-900/90 rounded-2xl border border-stone-800 shadow-xl">
+                <div>
+                  <h4 className="font-serif font-bold text-white text-sm flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <span>Guardar Propuesta de Valor, Videos e Imágenes</span>
+                  </h4>
+                  <p className="text-xs text-stone-400 mt-0.5">
+                    Sincroniza los renders 3D, videos del proyecto y fotografías directamente en la base de datos MariaDB / MySQL.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleSaveAll(false)}
+                  disabled={saving || levelInfo.isReadOnly}
+                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-stone-950 font-bold text-xs shadow-lg transition-all disabled:opacity-60 flex-shrink-0"
+                  id="btn-save-propuesta-cms"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{saving ? 'Guardando en DB...' : 'Guardar Cambios de Propuesta'}</span>
+                </button>
               </div>
             </div>
           )}
@@ -3223,6 +3385,33 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                 </div>
               </div>
 
+              {/* VALIDATION STATUS BANNER */}
+              {Object.keys(contactValidationErrors).some((k) => (contactValidationErrors as any)[k]) ? (
+                <div className="p-4 rounded-2xl bg-rose-950/40 border border-rose-500/60 flex items-start sm:items-center gap-3 text-rose-200 text-xs shadow-xl animate-pulse">
+                  <AlertCircle className="w-5 h-5 text-rose-400 flex-shrink-0 mt-0.5 sm:mt-0" />
+                  <div className="flex-1">
+                    <span className="font-bold text-rose-300 block sm:inline mr-2">
+                      ⚠️ Errores de Validación Detectados en Canales de Contacto:
+                    </span>
+                    <span>
+                      Revise los campos en rojo. Los números telefónicos y el correo deben tener un formato estándar antes de sincronizarse con la base de datos MariaDB / MySQL.
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3.5 rounded-2xl bg-emerald-950/40 border border-emerald-500/40 flex items-center justify-between gap-3 text-emerald-300 text-xs shadow-md">
+                  <div className="flex items-center gap-2.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                    <span>
+                      <strong>Capa de Validación Activa:</strong> Los canales telefónicos y correo electrónico cumplen con las reglas de formato para MySQL.
+                    </span>
+                  </div>
+                  <span className="hidden sm:inline-block px-2.5 py-0.5 rounded-full bg-emerald-900/60 text-emerald-200 text-[10px] font-mono uppercase font-bold border border-emerald-500/30">
+                    Formato Conforme
+                  </span>
+                </div>
+              )}
+
               {/* CARD 1: CANALES TELEFÓNICOS & WHATSAPP */}
               <div className="bg-stone-900/60 p-5 rounded-2xl border border-stone-800 space-y-4">
                 <div className="flex items-center justify-between">
@@ -3231,23 +3420,46 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                     <span>Canales Telefónicos y de Mensajería Directa</span>
                   </h4>
                   <span className="text-[11px] text-amber-400 font-mono font-semibold">
-                    Atención Inmediata
+                    Validación Automática MySQL
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                   {/* WhatsApp Direct */}
                   <div>
-                    <label className="block text-stone-300 mb-1 font-semibold flex items-center gap-1.5">
-                      <MessageCircle className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>WhatsApp Oficial de Ventas *</span>
+                    <label className="block text-stone-300 mb-1 font-semibold flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <MessageCircle className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>WhatsApp Oficial de Ventas *</span>
+                      </span>
+                      {contactValidationErrors.whatsapp && contactTouched.whatsapp ? (
+                        <span className="text-[10px] text-rose-400 font-semibold flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" />
+                          Inválido
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Válido
+                        </span>
+                      )}
                     </label>
                     <input
                       type="text"
                       id="cms-contact-whatsapp"
                       value={formData.contactForm?.directWhatsapp || formData.site?.contactWhatsapp || formData.site?.contactPhone || ''}
+                      onBlur={() => {
+                        setContactTouched((prev) => ({ ...prev, whatsapp: true }));
+                        validateContactForm();
+                      }}
                       onChange={(e) => {
                         const val = e.target.value;
+                        setContactTouched((prev) => ({ ...prev, whatsapp: true }));
+                        const check = validateContactPhone(val);
+                        setContactValidationErrors((prev) => ({
+                          ...prev,
+                          whatsapp: check.isValid ? undefined : check.error,
+                        }));
                         setFormData({
                           ...formData,
                           site: {
@@ -3261,34 +3473,68 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                         });
                       }}
                       placeholder="+58-414-7114245"
-                      className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white font-mono font-medium focus:border-emerald-500 focus:outline-none"
+                      className={`w-full px-3 py-2 rounded-lg font-mono font-medium transition-all focus:outline-none ${
+                        contactValidationErrors.whatsapp && contactTouched.whatsapp
+                          ? 'bg-rose-950/20 border-2 border-rose-500 text-rose-100 focus:border-rose-400'
+                          : 'bg-stone-800 border border-stone-700 text-white focus:border-emerald-500'
+                      }`}
                     />
-                    <div className="flex items-center justify-between mt-1 text-[11px]">
-                      <span className="text-stone-400">Vínculo interactivo de WhatsApp</span>
-                      <a
-                        href={`https://wa.me/${(formData.contactForm?.directWhatsapp || formData.site?.contactWhatsapp || '584147114245').replace(/\D/g, '')}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-emerald-400 hover:text-emerald-300 font-semibold inline-flex items-center gap-1"
-                      >
-                        <span>Probar enlace wa.me</span>
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    </div>
+                    {contactValidationErrors.whatsapp && contactTouched.whatsapp ? (
+                      <p className="text-[11px] text-rose-400 mt-1 flex items-center gap-1 font-medium">
+                        <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span>{contactValidationErrors.whatsapp}</span>
+                      </p>
+                    ) : (
+                      <div className="flex items-center justify-between mt-1 text-[11px]">
+                        <span className="text-stone-400">Vínculo interactivo de WhatsApp</span>
+                        <a
+                          href={`https://wa.me/${(formData.contactForm?.directWhatsapp || formData.site?.contactWhatsapp || '584147114245').replace(/\D/g, '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-emerald-400 hover:text-emerald-300 font-semibold inline-flex items-center gap-1"
+                        >
+                          <span>Probar enlace wa.me</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                    )}
                   </div>
 
                   {/* Direct Phone */}
                   <div>
-                    <label className="block text-stone-300 mb-1 font-semibold flex items-center gap-1.5">
-                      <Phone className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Línea Telefónica Directa *</span>
+                    <label className="block text-stone-300 mb-1 font-semibold flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <Phone className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Línea Telefónica Directa *</span>
+                      </span>
+                      {contactValidationErrors.phone && contactTouched.phone ? (
+                        <span className="text-[10px] text-rose-400 font-semibold flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" />
+                          Inválido
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Válido
+                        </span>
+                      )}
                     </label>
                     <input
                       type="text"
                       id="cms-contact-phone"
                       value={formData.contactForm?.directPhone || formData.site?.contactPhone || (formData.site as any)?.phone || ''}
+                      onBlur={() => {
+                        setContactTouched((prev) => ({ ...prev, phone: true }));
+                        validateContactForm();
+                      }}
                       onChange={(e) => {
                         const val = e.target.value;
+                        setContactTouched((prev) => ({ ...prev, phone: true }));
+                        const check = validateContactPhone(val);
+                        setContactValidationErrors((prev) => ({
+                          ...prev,
+                          phone: check.isValid ? undefined : check.error,
+                        }));
                         setFormData({
                           ...formData,
                           site: {
@@ -3303,25 +3549,59 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                         });
                       }}
                       placeholder="+58-414-7114245"
-                      className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white font-mono font-medium focus:border-amber-500 focus:outline-none"
+                      className={`w-full px-3 py-2 rounded-lg font-mono font-medium transition-all focus:outline-none ${
+                        contactValidationErrors.phone && contactTouched.phone
+                          ? 'bg-rose-950/20 border-2 border-rose-500 text-rose-100 focus:border-rose-400'
+                          : 'bg-stone-800 border border-stone-700 text-white focus:border-amber-500'
+                      }`}
                     />
-                    <p className="text-[11px] text-stone-400 mt-1">
-                      Enlace telefónico para llamadas directas <code className="text-stone-300">tel:</code>
-                    </p>
+                    {contactValidationErrors.phone && contactTouched.phone ? (
+                      <p className="text-[11px] text-rose-400 mt-1 flex items-center gap-1 font-medium">
+                        <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span>{contactValidationErrors.phone}</span>
+                      </p>
+                    ) : (
+                      <p className="text-[11px] text-stone-400 mt-1">
+                        Enlace telefónico para llamadas directas <code className="text-stone-300">tel:</code>
+                      </p>
+                    )}
                   </div>
 
                   {/* Email */}
                   <div>
-                    <label className="block text-stone-300 mb-1 font-semibold flex items-center gap-1.5">
-                      <Mail className="w-3.5 h-3.5 text-blue-400" />
-                      <span>Correo Electrónico Oficial</span>
+                    <label className="block text-stone-300 mb-1 font-semibold flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <Mail className="w-3.5 h-3.5 text-blue-400" />
+                        <span>Correo Electrónico Oficial *</span>
+                      </span>
+                      {contactValidationErrors.email && contactTouched.email ? (
+                        <span className="text-[10px] text-rose-400 font-semibold flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" />
+                          Inválido
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Válido
+                        </span>
+                      )}
                     </label>
                     <input
                       type="email"
                       id="cms-contact-email"
                       value={formData.contactForm?.directEmail || formData.site?.contactEmail || (formData.site as any)?.email || ''}
+                      onBlur={() => {
+                        setContactTouched((prev) => ({ ...prev, email: true }));
+                        validateContactForm();
+                      }}
                       onChange={(e) => {
                         const val = e.target.value;
+                        setContactTouched((prev) => ({ ...prev, email: true }));
+                        const check = validateContactEmail(val);
+                        setContactValidationErrors((prev) => ({
+                          ...prev,
+                          email: check.isValid ? undefined : check.error,
+                        }));
                         setFormData({
                           ...formData,
                           site: {
@@ -3336,8 +3616,22 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                         });
                       }}
                       placeholder="ventas@misdeliriosranch.com"
-                      className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white focus:border-blue-500 focus:outline-none"
+                      className={`w-full px-3 py-2 rounded-lg transition-all focus:outline-none ${
+                        contactValidationErrors.email && contactTouched.email
+                          ? 'bg-rose-950/20 border-2 border-rose-500 text-rose-100 focus:border-rose-400'
+                          : 'bg-stone-800 border border-stone-700 text-white focus:border-blue-500'
+                      }`}
                     />
+                    {contactValidationErrors.email && contactTouched.email ? (
+                      <p className="text-[11px] text-rose-400 mt-1 flex items-center gap-1 font-medium">
+                        <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span>{contactValidationErrors.email}</span>
+                      </p>
+                    ) : (
+                      <p className="text-[11px] text-stone-400 mt-1">
+                        Recepción de cotizaciones y consultas institucionales
+                      </p>
+                    )}
                   </div>
 
                   {/* Customer Service Hours */}
@@ -3778,18 +4072,35 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
               </div>
 
               {/* SAVE BUTTON FOR CONTACT SECTION */}
-              <div className="flex items-center justify-between p-4 bg-stone-900 rounded-2xl border border-stone-800">
-                <span className="text-xs text-stone-400">
-                  Guarda los cambios de contacto para actualizar los números y canales en todo el sitio web y bases de datos.
-                </span>
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 bg-stone-900 rounded-2xl border border-stone-800 shadow-xl">
+                <div>
+                  <h4 className="font-serif font-bold text-white text-sm flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <span>Guardar y Sincronizar Canales de Contacto</span>
+                  </h4>
+                  <p className="text-xs text-stone-400 mt-0.5">
+                    Aplica la capa de validación y actualiza los números, WhatsApp y correo en MySQL / MariaDB y en la interfaz pública.
+                  </p>
+                </div>
                 <button
-                  onClick={() => handleSaveAll(false)}
+                  onClick={() => {
+                    const valid = validateContactForm(true);
+                    if (!valid) {
+                      alert(
+                        '⚠️ No se puede guardar en la Base de Datos:\n\n' +
+                        'Hay errores en los números telefónicos o correo electrónico en la sección Contacto.\n' +
+                        'Por favor revise los campos con advertencia roja antes de guardar.'
+                      );
+                      return;
+                    }
+                    handleSaveAll(false);
+                  }}
                   disabled={saving || levelInfo.isReadOnly}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-stone-950 font-bold text-xs shadow-lg transition-all disabled:opacity-60"
+                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-stone-950 font-bold text-xs shadow-lg transition-all disabled:opacity-60 flex-shrink-0"
                   id="btn-save-contact-cms"
                 >
                   <Save className="w-4 h-4" />
-                  <span>{saving ? 'Guardando...' : 'Guardar Cambios de Contacto'}</span>
+                  <span>{saving ? 'Validando y Guardando...' : 'Guardar Cambios de Contacto'}</span>
                 </button>
               </div>
             </div>

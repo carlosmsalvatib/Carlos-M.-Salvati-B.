@@ -821,7 +821,7 @@ export async function uploadMediaToServer(
   }
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
     const res = await fetch(`${API_BASE}/upload`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1663,10 +1663,17 @@ export async function saveCmsSection(sectionKey: string, sectionData: any): Prom
   savedToTable?: boolean;
 }> {
   try {
+    let cleanSectionData = sectionData;
+    try {
+      cleanSectionData = await cleanBase64DataUrls(sectionData);
+    } catch (e) {
+      console.warn(`[saveCmsSection] Error limpiando base64:`, e);
+    }
+
     // 1. Save in Firestore section doc
     withFirestoreTimeout(
       setDoc(doc(db, 'cms_sections', sectionKey), {
-        ...sectionData,
+        ...cleanSectionData,
         updatedAt: new Date().toISOString(),
       }),
       2000
@@ -1676,7 +1683,7 @@ export async function saveCmsSection(sectionKey: string, sectionData: any): Prom
     const res = await fetch(`${API_BASE}/sections/${sectionKey}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(sectionData),
+      body: JSON.stringify(cleanSectionData),
     });
     const json = await parseJsonSafely<{
       success: boolean;

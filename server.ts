@@ -207,8 +207,11 @@ async function startServer() {
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-  // Ensure all API endpoints avoid any browser or intermediate cache
+  // Ensure all API data endpoints avoid intermediate cache, while allowing media streaming for uploads
   app.use('/api', (req, res, next) => {
+    if (req.path.startsWith('/uploads')) {
+      return next();
+    }
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
@@ -220,8 +223,14 @@ async function startServer() {
     res.json({ status: 'ok', time: new Date().toISOString() });
   });
 
-  // Serve uploaded media files directly from disk
-  app.use('/api/uploads', express.static(UPLOADS_DIR));
+  // Serve uploaded media files directly from disk with video range support
+  app.use(
+    '/api/uploads',
+    express.static(UPLOADS_DIR, {
+      acceptRanges: true,
+      maxAge: '7d',
+    })
+  );
 
   // Helper function to recursively detect and persist base64 data URLs as real physical files
   function sanitizeAndPersistMedia<T>(obj: T): T {
@@ -617,11 +626,14 @@ async function startServer() {
 
   app.put('/api/sections/:sectionKey', async (req, res) => {
     const { sectionKey } = req.params;
-    const sectionData = req.body;
+    let sectionData = req.body;
     try {
       if (!sectionData || typeof sectionData !== 'object') {
         return res.status(400).json({ success: false, error: 'Datos de sección inválidos' });
       }
+
+      // Convert any embedded base64 data URLs to physical media files
+      sectionData = sanitizeAndPersistMedia(sectionData);
 
       // 1. Update in-memory and write to cms_content.json
       (cmsContent as any)[sectionKey] = sectionData;

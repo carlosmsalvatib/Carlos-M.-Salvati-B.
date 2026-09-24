@@ -600,7 +600,7 @@ export async function getAllMariaDbContentMerged(fallbackContent: any): Promise<
     await Promise.all(
       sectionQueries.map(async ({ key, table }) => {
         try {
-          const [rows]: any = await pool!.query(`SELECT data_json FROM ${table} LIMIT 1;`);
+          const [rows]: any = await pool!.query(`SELECT data_json FROM ${table} ORDER BY updated_at DESC LIMIT 1;`);
           if (rows && rows.length > 0 && rows[0].data_json) {
             const parsed = JSON.parse(rows[0].data_json);
             if (parsed && typeof parsed === 'object') {

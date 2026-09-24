@@ -31,20 +31,26 @@ export function normalizeVideoUrl(rawUrl: string): string {
   const clean = rawUrl.trim();
   if (!clean) return '';
 
+  // YouTube embed already: https://www.youtube.com/embed/VIDEO_ID
+  const ytEmbedMatch = clean.match(/(?:youtube(?:-nocookie)?\.com\/embed\/)([a-zA-Z0-9_-]+)/i);
+  if (ytEmbedMatch && ytEmbedMatch[1]) {
+    return `https://www.youtube.com/embed/${ytEmbedMatch[1]}`;
+  }
+
   // YouTube watch link: https://www.youtube.com/watch?v=VIDEO_ID
-  const ytWatchMatch = clean.match(/(?:youtube\.com\/watch\?v=|youtube\.com\/shorts\/)([a-zA-Z0-9_-]+)/i);
+  const ytWatchMatch = clean.match(/(?:youtube(?:-nocookie)?\.com\/(?:watch\?v=|shorts\/))([a-zA-Z0-9_-]+)/i);
   if (ytWatchMatch && ytWatchMatch[1]) {
-    return `https://www.youtube.com/embed/${ytWatchMatch[1]}?autoplay=0`;
+    return `https://www.youtube.com/embed/${ytWatchMatch[1]}`;
   }
 
   // YouTube short link: https://youtu.be/VIDEO_ID
   const ytShortMatch = clean.match(/youtu\.be\/([a-zA-Z0-9_-]+)/i);
   if (ytShortMatch && ytShortMatch[1]) {
-    return `https://www.youtube.com/embed/${ytShortMatch[1]}?autoplay=0`;
+    return `https://www.youtube.com/embed/${ytShortMatch[1]}`;
   }
 
-  // Vimeo link: https://vimeo.com/VIDEO_ID
-  const vimeoMatch = clean.match(/vimeo\.com\/(\d+)/i);
+  // Vimeo link: https://vimeo.com/VIDEO_ID or player.vimeo.com/video/VIDEO_ID
+  const vimeoMatch = clean.match(/(?:vimeo\.com\/|player\.vimeo\.com\/video\/)(\d+)/i);
   if (vimeoMatch && vimeoMatch[1]) {
     return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
   }

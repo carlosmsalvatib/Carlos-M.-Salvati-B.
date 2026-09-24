@@ -18,6 +18,7 @@ import {
   Film,
   Camera,
   AlertCircle,
+  ExternalLink,
 } from 'lucide-react';
 
 interface ValuePropSectionProps {
@@ -66,7 +67,15 @@ export const ValuePropSection: React.FC<ValuePropSectionProps> = ({
   const [selectedVideoIndex, setSelectedVideoIndex] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [videoError, setVideoError] = useState<boolean>(false);
+  const [videoProxyAttempt, setVideoProxyAttempt] = useState<boolean>(false);
   const [activeMediaTab, setActiveMediaTab] = useState<'video' | 'foto'>('video');
+
+  const switchVideo = (index: number) => {
+    setSelectedVideoIndex(index);
+    setIsPlaying(false);
+    setVideoError(false);
+    setVideoProxyAttempt(false);
+  };
 
   if (valueProp && valueProp.active === false) return null;
 
@@ -75,9 +84,14 @@ export const ValuePropSection: React.FC<ValuePropSectionProps> = ({
   const normalizedVideoUrl = normalizeVideoUrl(rawVideoUrl);
   const isEmbedVideo =
     normalizedVideoUrl.includes('youtube.com') ||
+    normalizedVideoUrl.includes('youtube-nocookie.com') ||
     normalizedVideoUrl.includes('youtu.be') ||
     normalizedVideoUrl.includes('vimeo.com') ||
     normalizedVideoUrl.includes('player.vimeo.com');
+
+  const videoSourceUrl = videoProxyAttempt
+    ? `/api/video-proxy?url=${encodeURIComponent(rawVideoUrl)}`
+    : (normalizedVideoUrl || rawVideoUrl);
   const videoPosterImage =
     currentVideo.posterUrl ||
     currentVideo.thumbnailUrl ||
@@ -188,15 +202,23 @@ export const ValuePropSection: React.FC<ValuePropSectionProps> = ({
                           No se pudo reproducir este archivo de video
                         </h4>
                         <p className="text-xs text-stone-400 max-w-sm mb-4">
-                          El enlace del video puede requerir un formato directo compatible (.mp4, .webm) o estar temporalmente inaccesible.
+                          El enlace del video puede requerir un formato directo compatible (.mp4, YouTube, Vimeo) o estar temporalmente inaccesible.
                         </p>
                         <div className="flex flex-wrap gap-2 justify-center">
+                          {rawVideoUrl && (
+                            <a
+                              href={rawVideoUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-stone-950 text-xs font-bold shadow-md"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                              <span>Abrir video en nueva pestaña</span>
+                            </a>
+                          )}
                           <button
                             type="button"
-                            onClick={() => {
-                              setVideoError(false);
-                              setSelectedVideoIndex((prev) => (prev + 1) % videos.length);
-                            }}
+                            onClick={() => switchVideo((selectedVideoIndex + 1) % videos.length)}
                             className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold"
                           >
                             Probar siguiente video
@@ -215,22 +237,35 @@ export const ValuePropSection: React.FC<ValuePropSectionProps> = ({
                       </div>
                     ) : isEmbedVideo ? (
                       <iframe
-                        src={`${normalizedVideoUrl}${normalizedVideoUrl.includes('?') ? '&' : '?'}autoplay=1&rel=0`}
+                        src={`${normalizedVideoUrl}${normalizedVideoUrl.includes('?') ? '&' : '?'}autoplay=1&rel=0&modestbranding=1`}
                         title={currentVideo.title || 'Render de Video 3D'}
                         className="w-full h-full border-0"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        referrerPolicy="strict-origin-when-cross-origin"
                         allowFullScreen
                       />
                     ) : (
                       <video
-                        src={normalizedVideoUrl || rawVideoUrl}
+                        key={videoSourceUrl}
+                        src={videoSourceUrl}
                         controls
                         autoPlay
                         playsInline
-                        onError={() => setVideoError(true)}
+                        onError={() => {
+                          if (
+                            !videoProxyAttempt &&
+                            (rawVideoUrl.startsWith('http://') || rawVideoUrl.startsWith('https://')) &&
+                            !rawVideoUrl.includes('localhost') &&
+                            !rawVideoUrl.startsWith('/api/uploads')
+                          ) {
+                            setVideoProxyAttempt(true);
+                          } else {
+                            setVideoError(true);
+                          }
+                        }}
                         className="w-full h-full object-cover"
                       >
-                        <source src={normalizedVideoUrl || rawVideoUrl} type="video/mp4" />
+                        <source src={videoSourceUrl} type="video/mp4" />
                         Tu navegador no soporta la reproducción de video HTML5.
                       </video>
                     )
@@ -313,10 +348,7 @@ export const ValuePropSection: React.FC<ValuePropSectionProps> = ({
                         {videos.map((vid, idx) => (
                           <button
                             key={vid.id || idx}
-                            onClick={() => {
-                              setSelectedVideoIndex(idx);
-                              setIsPlaying(false);
-                            }}
+                            onClick={() => switchVideo(idx)}
                             className={`p-2 rounded-xl text-left border transition-all ${
                               idx === selectedVideoIndex
                                 ? 'bg-emerald-950/80 border-emerald-500 text-white shadow-md'

@@ -36,28 +36,36 @@
     "videos": [
       {
         "id": "vid-1",
-        "title": "Recorrido Arquitectónico 3D - Complejo Mis Delirios Ranch",
-        "videoUrl": "https://assets.mixkit.co/videos/preview/mixkit-flying-over-a-green-mountain-valley-41004-large.mp4",
+        "title": "Recorrido Arquitectónico 3D & Vuelo Aéreo - Mis Delirios Ranch",
+        "videoUrl": "https://www.youtube.com/embed/1La4QzGeaaQ",
+        "url": "https://www.youtube.com/embed/1La4QzGeaaQ",
         "posterUrl": "/api/images/real-terrain",
+        "thumbnailUrl": "/api/images/real-terrain",
         "description": "Vuelo aéreo simulado y perspectivas del valle andino en Sabana Larga y Cordero.",
-        "duration": "1:45",
-        "url": "https://assets.mixkit.co/videos/preview/mixkit-flying-over-a-green-mountain-valley-41004-large.mp4"
+        "duration": "2:30",
+        "videoType": "render_3d"
       },
       {
         "id": "vid-2",
-        "title": "Bioconstrucción Sismorresistente en Guadua Angustifolia",
-        "videoUrl": "https://assets.mixkit.co/videos/preview/mixkit-pine-trees-in-a-forest-on-a-windy-day-41005-large.mp4",
+        "title": "Bioconstrucción Sismorresistente en Bambú Guadua",
+        "videoUrl": "https://www.youtube.com/embed/kK_UjBmHqQw",
+        "url": "https://www.youtube.com/embed/kK_UjBmHqQw",
         "posterUrl": "/api/images/bamboo-structure",
-        "description": "Detalle de ensamble estructural, losa flotante de 40 cm y tecnología bioclimática.",
-        "duration": "2:10"
+        "thumbnailUrl": "/api/images/bamboo-structure",
+        "description": "Estructuras arquitectónicas en bambú certificado, losas flotantes y diseño bioclimático.",
+        "duration": "3:15",
+        "videoType": "bioconstruccion"
       },
       {
         "id": "vid-3",
         "title": "Entorno Campestre, Neblina y Mini-granjas Productivas",
-        "videoUrl": "https://assets.mixkit.co/videos/preview/mixkit-river-surrounded-by-trees-in-a-forest-41006-large.mp4",
+        "videoUrl": "https://www.youtube.com/embed/LXb3EKWsInQ",
+        "url": "https://www.youtube.com/embed/LXb3EKWsInQ",
         "posterUrl": "/api/images/hero-landscape",
-        "description": "Microclima templado de 18°C-22°C, huertos familiares y conexión con la naturaleza.",
-        "duration": "1:30"
+        "thumbnailUrl": "/api/images/hero-landscape",
+        "description": "Microclima templado de 18°C-22°C, vegetación exhuberante y conexión con la naturaleza.",
+        "duration": "1:50",
+        "videoType": "dron_aereo"
       }
     ],
     "selectedVideoId": "vid-1",
@@ -549,6 +557,6 @@
     "metaPixelId": "",
     "googleTagManagerId": ""
   },
-  "lastUpdated": "2026-09-24T05:41:51.426Z",
-  "version": 12
+  "lastUpdated": "2026-09-24T05:51:41.742Z",
+  "version": 13
 }

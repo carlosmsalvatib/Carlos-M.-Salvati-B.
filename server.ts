@@ -233,6 +233,57 @@ async function startServer() {
     })
   );
 
+  // Video proxy endpoint to stream external videos directly, bypassing CORS and hotlinking restrictions
+  app.get('/api/video-proxy', async (req, res) => {
+    const rawTarget = req.query.url as string;
+    if (!rawTarget || (!rawTarget.startsWith('http://') && !rawTarget.startsWith('https://'))) {
+      return res.status(400).send('URL de video inválida');
+    }
+    try {
+      const response = await fetch(rawTarget, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          'Accept': '*/*',
+        },
+      });
+
+      if (!response.ok) {
+        return res.status(response.status).send(`Error remoto: ${response.status}`);
+      }
+
+      const contentType = response.headers.get('content-type') || 'video/mp4';
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Accept-Ranges', 'bytes');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+
+      const contentLength = response.headers.get('content-length');
+      if (contentLength) {
+        res.setHeader('Content-Length', contentLength);
+      }
+
+      if (response.body) {
+        const stream = response.body as any;
+        if (typeof stream.pipe === 'function') {
+          stream.pipe(res);
+        } else {
+          const reader = stream.getReader();
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            res.write(value);
+          }
+          res.end();
+        }
+      } else {
+        res.end();
+      }
+    } catch (err: any) {
+      console.warn('[VideoProxy] Error streaming remote video:', err.message);
+      res.status(502).send('Error conectando al video remoto');
+    }
+  });
+
   // Helper function to recursively detect and persist base64 data URLs as real physical files
   function sanitizeAndPersistMedia<T>(obj: T): T {
     if (!obj) return obj;

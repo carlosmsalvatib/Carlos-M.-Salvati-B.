@@ -1,6 +1,7 @@
 import React from 'react';
 import { CmsContent, LotItem, HousingModel } from '../types';
 import { HeroSection } from './HeroSection';
+import { ValuePropSection } from './ValuePropSection';
 import { HousingModelsSection } from './HousingModelsSection';
 import {
   Sprout,
@@ -39,9 +40,9 @@ export const HomePageOverview: React.FC<HomePageOverviewProps> = ({
   const sectionCards = [
     {
       id: 'propuesta',
-      title: 'Propuesta de Valor Integral',
-      badge: 'Renders de Video & Terreno Real',
-      desc: 'Modelo de desarrollo sostenible que combina agroproducción orgánica, turismo andino y bioconstrucción.',
+      title: content.valueProp?.title || 'Propuesta de Valor Integral',
+      badge: `${(content.valueProp?.videos || []).length > 0 ? `${(content.valueProp?.videos || []).length} Renders de Video` : 'Renders de Video & Terreno Real'}`,
+      desc: content.valueProp?.description || 'Modelo de desarrollo sostenible que combina agroproducción orgánica, turismo andino y bioconstrucción.',
       icon: <Sprout className="w-6 h-6 text-emerald-600" />,
       accentColor: 'border-emerald-200 hover:border-emerald-500 bg-emerald-50/40',
       actionText: 'Explorar Propuesta & Ver Videos',
@@ -167,6 +168,17 @@ export const HomePageOverview: React.FC<HomePageOverviewProps> = ({
           </div>
         </div>
       </section>
+
+      {/* 2.3 Propuesta de Valor Integral & Renders Audiovisuales */}
+      <ValuePropSection
+        content={content}
+        onOpenImageViewer={(images, idx, title, caption) => {
+          if (onOpenImageViewer && images && images.length > 0) {
+            onOpenImageViewer(title || 'Propuesta de Valor', images[idx || 0], caption);
+          }
+        }}
+        onNavigate={onNavigate}
+      />
 
       {/* 2.5 Catálogo Oficial de Modelos de Vivienda en la Sección Principal */}
       <HousingModelsSection

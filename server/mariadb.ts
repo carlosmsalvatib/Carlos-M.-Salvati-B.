@@ -256,7 +256,10 @@ export async function testMariaDbConnection(configOverride?: Partial<MariaDbConf
   }
 }
 
-export async function ensureMariaDbTables(): Promise<boolean> {
+let tablesEnsured = false;
+
+export async function ensureMariaDbTables(force = false): Promise<boolean> {
+  if (tablesEnsured && !force) return true;
   if (!pool) initMariaDbPool();
   if (!pool) return false;
 
@@ -542,11 +545,13 @@ export async function ensureMariaDbTables(): Promise<boolean> {
     lastStatus.tablesCreated = true;
     lastStatus.connected = true;
     lastStatus.error = null;
+    tablesEnsured = true;
     return true;
   } catch (err: any) {
     console.warn('[MariaDB] Error creando tablas:', err.message);
     lastStatus.connected = false;
     lastStatus.error = err.message;
+    tablesEnsured = false;
     return false;
   }
 }
@@ -657,7 +662,7 @@ export async function saveMariaDbContent(content: any, version = 1, note = ''): 
       ).catch(() => {});
     }
 
-    // Save each individual section to its dedicated table with granular columns
+    // Save each individual section to its dedicated table with granular columns in parallel
     const sectionKeys = [
       'site',
       'hero',
@@ -672,17 +677,51 @@ export async function saveMariaDbContent(content: any, version = 1, note = ''): 
       'seo',
     ];
 
-    for (const key of sectionKeys) {
-      if (content[key] && typeof content[key] === 'object') {
-        await saveMariaDbSection(key, content[key]).catch((e) => {
-          console.warn(`[MariaDB] Error replicando sección ${key}:`, e.message);
-        });
-      }
-    }
+    await Promise.all(
+      sectionKeys.map(async (key) => {
+        if (content[key] && typeof content[key] === 'object') {
+          await saveMariaDbSection(key, content[key]).catch((e) => {
+            console.warn(`[MariaDB] Error replicando sección ${key}:`, e.message);
+          });
+        }
+      })
+    );
 
     return true;
   } catch (err: any) {
     console.warn('[MariaDB] Error guardando contenido:', err.message);
+    return false;
+  }
+}
+
+/**
+ * Lightweight helper to backup full cms_content JSON into MariaDB without re-saving individual tables
+ */
+export async function saveMariaDbGlobalContentBackup(
+  content: any,
+  version?: number,
+  note?: string
+): Promise<boolean> {
+  if (!pool || !content) return false;
+  try {
+    const contentStr = JSON.stringify(content);
+    await pool.query(
+      `INSERT INTO cms_content (id, content_json, version, updated_at)
+       VALUES ('global_content', ?, ?, NOW())
+       ON DUPLICATE KEY UPDATE content_json = VALUES(content_json), version = VALUES(version), updated_at = NOW();`,
+      [contentStr, version || 1]
+    );
+    if (version) {
+      await pool.query(
+        `INSERT INTO cms_versions (version, note, content_json, created_at)
+         VALUES (?, ?, ?, NOW())
+         ON DUPLICATE KEY UPDATE note = VALUES(note), content_json = VALUES(content_json);`,
+        [version, note || `Respaldo global v${version}`, contentStr]
+      ).catch(() => {});
+    }
+    return true;
+  } catch (err: any) {
+    console.warn('[MariaDB] Error en respaldo global:', err.message);
     return false;
   }
 }

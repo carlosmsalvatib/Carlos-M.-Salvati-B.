@@ -21,6 +21,7 @@ import {
   saveMariaDbLead,
   migrateAllToMariaDb,
   saveMariaDbSection,
+  saveMariaDbGlobalContentBackup,
   getMariaDbSection,
   saveMariaDbUsers,
   getMariaDbUsers,
@@ -645,8 +646,8 @@ async function startServer() {
       // 2. Save specifically to dedicated MariaDB table
       const savedToTable = await saveMariaDbSection(sectionKey, sectionData);
 
-      // 3. Save to MariaDB global content backup
-      await saveMariaDbContent(cmsContent, nextVersion, `Actualización de sección ${sectionKey}`);
+      // 3. Fast backup to MariaDB global content JSON
+      await saveMariaDbGlobalContentBackup(cmsContent, nextVersion, `Actualización rápida de sección ${sectionKey}`);
 
       res.json({
         success: true,

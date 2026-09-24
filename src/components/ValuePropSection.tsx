@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { CmsContent, PropuestaVideo } from '../types';
+import { initialCmsContent } from '../data/initialContent';
 import { normalizeVideoUrl } from '../lib/mediaProcessor';
 import {
   Sprout,
@@ -16,6 +17,7 @@ import {
   Layers,
   Film,
   Camera,
+  AlertCircle,
 } from 'lucide-react';
 
 interface ValuePropSectionProps {
@@ -29,43 +31,44 @@ export const ValuePropSection: React.FC<ValuePropSectionProps> = ({
   onOpenImageViewer,
   onNavigate,
 }) => {
-  const { valueProp } = content;
+  const valueProp = content?.valueProp || initialCmsContent.valueProp;
 
-  const videos: PropuestaVideo[] =
-    valueProp.videos && valueProp.videos.length > 0
-      ? valueProp.videos
-      : [
+  const rawVideos = valueProp.videos && valueProp.videos.length > 0 ? valueProp.videos : initialCmsContent.valueProp.videos;
+  const videos: PropuestaVideo[] = rawVideos && rawVideos.length > 0
+    ? rawVideos
+    : [
           {
             id: 'video-render-1',
             title: 'Recorrido Arquitectónico 3D · Mis Delirios Ranch',
             description: 'Paseo virtual panorámico por el complejo, vialidades comunales y bulevar de la Guadua.',
-            url: 'https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=0',
+            url: 'https://assets.mixkit.co/videos/preview/mixkit-flying-over-a-green-mountain-valley-41004-large.mp4',
             videoType: 'render_3d',
-            duration: '02:45',
+            duration: '01:45',
           },
           {
             id: 'video-render-2',
             title: 'Vuelo de Dron & Renders sobre Terreno Real',
             description: 'Sobrevolando la topografía suave de Sabana Larga con integración de modelos de casas en bambú.',
-            url: 'https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=0',
+            url: 'https://assets.mixkit.co/videos/preview/mixkit-pine-trees-in-a-forest-on-a-windy-day-41005-large.mp4',
             videoType: 'dron_aereo',
-            duration: '01:50',
+            duration: '02:10',
           },
           {
             id: 'video-render-3',
             title: 'Bioconstrucción Sismorresistente en Bambú Guadua',
             description: 'Animación estructural de losa flotante de concreto a 40 cm y columnas de Guadua angustifolia.',
-            url: 'https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=0',
+            url: 'https://assets.mixkit.co/videos/preview/mixkit-river-surrounded-by-trees-in-a-forest-41006-large.mp4',
             videoType: 'bioconstruccion',
-            duration: '03:10',
+            duration: '01:30',
           },
         ];
 
   const [selectedVideoIndex, setSelectedVideoIndex] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [videoError, setVideoError] = useState<boolean>(false);
   const [activeMediaTab, setActiveMediaTab] = useState<'video' | 'foto'>('video');
 
-  if (!valueProp.active) return null;
+  if (valueProp && valueProp.active === false) return null;
 
   const currentVideo: any = videos[selectedVideoIndex] || videos[0] || {};
   const rawVideoUrl = currentVideo.url || currentVideo.videoUrl || '';
@@ -121,6 +124,11 @@ export const ValuePropSection: React.FC<ValuePropSectionProps> = ({
             <Film className="w-3.5 h-3.5 text-emerald-700" />
             <span>Propuesta de Valor Integral & Renders Audiovisuales</span>
           </div>
+          {valueProp.subtitle && (
+            <p className="text-emerald-700 font-semibold text-xs sm:text-sm uppercase tracking-wider mb-2" id="valueprop-subtitle">
+              {valueProp.subtitle}
+            </p>
+          )}
           <h2 className="font-serif text-3xl sm:text-4xl font-bold text-stone-900 tracking-tight mb-4" id="valueprop-title">
             {valueProp.title || 'Un Modelo de Desarrollo Sostenible e Innovación Arquitectónica'}
           </h2>
@@ -173,7 +181,39 @@ export const ValuePropSection: React.FC<ValuePropSectionProps> = ({
                 {/* Main Video Viewport */}
                 <div className="relative aspect-video w-full bg-stone-950 flex items-center justify-center group overflow-hidden">
                   {isPlaying ? (
-                    isEmbedVideo ? (
+                    videoError ? (
+                      <div className="w-full h-full p-6 flex flex-col items-center justify-center text-center bg-stone-900 text-stone-200">
+                        <AlertCircle className="w-10 h-10 text-amber-400 mb-3" />
+                        <h4 className="font-bold text-stone-100 text-base mb-1">
+                          No se pudo reproducir este archivo de video
+                        </h4>
+                        <p className="text-xs text-stone-400 max-w-sm mb-4">
+                          El enlace del video puede requerir un formato directo compatible (.mp4, .webm) o estar temporalmente inaccesible.
+                        </p>
+                        <div className="flex flex-wrap gap-2 justify-center">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setVideoError(false);
+                              setSelectedVideoIndex((prev) => (prev + 1) % videos.length);
+                            }}
+                            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold"
+                          >
+                            Probar siguiente video
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setVideoError(false);
+                              setIsPlaying(false);
+                            }}
+                            className="px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs font-semibold"
+                          >
+                            Volver a portada
+                          </button>
+                        </div>
+                      </div>
+                    ) : isEmbedVideo ? (
                       <iframe
                         src={`${normalizedVideoUrl}${normalizedVideoUrl.includes('?') ? '&' : '?'}autoplay=1&rel=0`}
                         title={currentVideo.title || 'Render de Video 3D'}
@@ -186,6 +226,8 @@ export const ValuePropSection: React.FC<ValuePropSectionProps> = ({
                         src={normalizedVideoUrl || rawVideoUrl}
                         controls
                         autoPlay
+                        playsInline
+                        onError={() => setVideoError(true)}
                         className="w-full h-full object-cover"
                       >
                         <source src={normalizedVideoUrl || rawVideoUrl} type="video/mp4" />
@@ -339,7 +381,7 @@ export const ValuePropSection: React.FC<ValuePropSectionProps> = ({
           <div className="lg:col-span-5 order-2 space-y-5">
             <div className="border-l-4 border-emerald-600 pl-4 mb-4">
               <h3 className="font-serif text-2xl font-bold text-stone-900">
-                La Armonía Perfecta entre Agroproducción y Turismo
+                {valueProp.subtitle || 'La Armonía Perfecta entre Agroproducción y Turismo'}
               </h3>
               <p className="text-sm text-stone-600 mt-1">
                 Diseñado para quienes valoran la independencia alimentaria, la bioconstrucción y un patrimonio que se revaloriza en dólares.
@@ -347,7 +389,7 @@ export const ValuePropSection: React.FC<ValuePropSectionProps> = ({
             </div>
 
             <div className="space-y-3.5">
-              {valueProp.benefits.map((benefit, index) => (
+              {(valueProp.benefits || initialCmsContent.valueProp.benefits || []).map((benefit, index) => (
                 <div
                   key={benefit.id || index}
                   className="bg-white p-4 sm:p-5 rounded-xl border border-stone-200/90 shadow-sm hover:shadow-md transition-shadow flex items-start gap-4"

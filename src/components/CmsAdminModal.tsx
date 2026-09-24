@@ -12,6 +12,7 @@ import {
   fetchHousingModels,
   saveHousingModelsBulk,
   uploadMediaToServer,
+  saveLocalCache,
 } from '../lib/api';
 import { UsersCmsTab } from './UsersCmsTab';
 import { MariaDbCmsTab } from './MariaDbCmsTab';
@@ -583,6 +584,57 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
         }),
       },
     });
+  };
+
+  // DEDICATED REAL-TIME SAVE FOR PROPUESTA SECTION
+  const handleSavePropuestaSection = async () => {
+    setSaving(true);
+    try {
+      const cleanValueProp = {
+        ...formData.valueProp,
+        active: formData.valueProp.active !== false,
+        videos: (formData.valueProp.videos || []).map((v) => ({
+          ...v,
+          url: v.url || v.videoUrl || '',
+          videoUrl: v.videoUrl || v.url || '',
+        })),
+      };
+
+      const updatedFormData = {
+        ...formData,
+        valueProp: cleanValueProp,
+      };
+      setFormData(updatedFormData);
+
+      // 1. Direct fast update to backend Express & MariaDB dedicated table (cms_section_value_prop)
+      const res = await fetch('/api/sections/valueProp', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cleanValueProp),
+      });
+      const json = await res.json().catch(() => ({}));
+
+      // 2. Update local state & parent immediately
+      saveLocalCache(updatedFormData);
+      onContentUpdated(updatedFormData);
+
+      // 3. Dispatch real-time DOM update event
+      window.dispatchEvent(
+        new CustomEvent('mdr_data_updated', {
+          detail: { content: updatedFormData, lots: localLots, timestamp: Date.now() },
+        })
+      );
+
+      // 4. Background full sync to ensure Firebase & all secondary backups
+      saveAllCmsAndLots(updatedFormData, localLots, 'Actualización rápida Propuesta de Valor').catch(() => {});
+
+      alert('✅ ¡Cambios de la Propuesta de Valor guardados exitosamente!\n\nLos títulos, videos, fotografías y pilares se han sincronizado con la base de datos MariaDB y ya están visibles en la Web.');
+    } catch (err: any) {
+      console.error('Error guardando propuesta:', err);
+      alert('Error guardando sección Propuesta: ' + (err.message || err));
+    } finally {
+      setSaving(false);
+    }
   };
 
   // BLUEPRINTS MANAGEMENT IN PLAN MAESTRO
@@ -1625,13 +1677,51 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
 
               {/* General Propuesta Text Fields */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                {/* Active Toggle */}
+                <div className="sm:col-span-2 flex items-center justify-between p-3 rounded-xl bg-stone-900 border border-stone-800">
+                  <div>
+                    <label className="text-stone-200 font-semibold cursor-pointer">
+                      Estado de la Sección Propuesta en la Web
+                    </label>
+                    <p className="text-[11px] text-stone-400 mt-0.5">
+                      Determina si la sección de Propuesta de Valor y Renders se muestra a los visitantes en la página principal y sección dedicada.
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.valueProp?.active !== false}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          valueProp: { ...formData.valueProp, active: e.target.checked },
+                        })
+                      }
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-stone-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                  </label>
+                </div>
+
                 <div className="sm:col-span-2">
-                  <label className="block text-stone-300 mb-1 font-semibold">Título de la Sección</label>
+                  <label className="block text-stone-300 mb-1 font-semibold">Título Principal de la Sección</label>
                   <input
                     type="text"
                     value={formData.valueProp.title}
                     onChange={(e) =>
                       setFormData({ ...formData, valueProp: { ...formData.valueProp, title: e.target.value } })
+                    }
+                    className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-stone-300 mb-1 font-semibold">Subtítulo / Lema de la Propuesta</label>
+                  <input
+                    type="text"
+                    value={formData.valueProp.subtitle || ''}
+                    placeholder="Ej. Fusión de Tradición, Tecnología y Respeto por la Naturaleza"
+                    onChange={(e) =>
+                      setFormData({ ...formData, valueProp: { ...formData.valueProp, subtitle: e.target.value } })
                     }
                     className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white"
                   />
@@ -1868,6 +1958,73 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                 </div>
               </div>
 
+              {/* PILLARS & HIGHLIGHTS OF VALUE PROP */}
+              <div className="bg-stone-950 p-4 rounded-xl border border-stone-800 space-y-4">
+                <div className="flex items-center justify-between border-b border-stone-800 pb-2">
+                  <h4 className="font-serif font-bold text-white text-sm flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <span>Pilares Arquitectónicos y Ecológicos de la Propuesta</span>
+                  </h4>
+                  <span className="text-[11px] text-stone-400">
+                    4 tarjetas destacadas en la columna lateral de la sección
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  {(formData.valueProp.benefits || [
+                    { id: 'b1', title: 'Mini-granjas desde 600 m²', description: 'Lotes amplios pensados para cultivos andinos, huertos orgánicos familiares y cría avícola autosustentable.', icon: 'Sprout' },
+                    { id: 'b2', title: 'Construcción sismorresistente en Guadua', description: 'Viviendas en bambú estructural certificado sobre losa flotante de concreto a 40 cm, resistentes y ecológicas.', icon: 'Home' },
+                    { id: 'b3', title: '57 lotes residenciales y productivos', description: 'Comunidad planificada de baja densidad que garantiza privacidad, alta plusvalía y respeto ambiental.', icon: 'Grid' },
+                    { id: 'b4', title: 'Más de 14.600 m² de áreas públicas', description: 'Bulevar ecológico con plazas, parques infantiles, canchas deportivas multiusos y salón comunal.', icon: 'Trees' },
+                  ]).map((benefit, bIdx) => (
+                    <div key={benefit.id || bIdx} className="p-3 rounded-xl bg-stone-900 border border-stone-800 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-amber-400 uppercase text-[10px] tracking-wider">
+                          Pilar #{bIdx + 1}
+                        </span>
+                        <span className="px-2 py-0.5 rounded bg-stone-800 text-stone-400 text-[10px] font-mono">
+                          Icono: {benefit.icon}
+                        </span>
+                      </div>
+                      <div>
+                        <label className="block text-stone-300 font-semibold mb-1 text-[11px]">Título del Pilar</label>
+                        <input
+                          type="text"
+                          value={benefit.title}
+                          onChange={(e) => {
+                            const cur = [...(formData.valueProp.benefits || [])];
+                            if (!cur[bIdx]) cur[bIdx] = { ...benefit };
+                            cur[bIdx] = { ...cur[bIdx], title: e.target.value };
+                            setFormData({
+                              ...formData,
+                              valueProp: { ...formData.valueProp, benefits: cur },
+                            });
+                          }}
+                          className="w-full px-2.5 py-1.5 rounded-lg bg-stone-800 border border-stone-700 text-white font-medium"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-stone-300 font-semibold mb-1 text-[11px]">Descripción del Pilar</label>
+                        <textarea
+                          rows={2}
+                          value={benefit.description}
+                          onChange={(e) => {
+                            const cur = [...(formData.valueProp.benefits || [])];
+                            if (!cur[bIdx]) cur[bIdx] = { ...benefit };
+                            cur[bIdx] = { ...cur[bIdx], description: e.target.value };
+                            setFormData({
+                              ...formData,
+                              valueProp: { ...formData.valueProp, benefits: cur },
+                            });
+                          }}
+                          className="w-full px-2.5 py-1.5 rounded-lg bg-stone-800 border border-stone-700 text-stone-300"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               {/* SAVE BUTTON FOR PROPUESTA SECTION */}
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 bg-gradient-to-r from-stone-900 to-stone-900/90 rounded-2xl border border-stone-800 shadow-xl">
                 <div>
@@ -1876,19 +2033,21 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                     <span>Guardar Propuesta de Valor, Videos e Imágenes</span>
                   </h4>
                   <p className="text-xs text-stone-400 mt-0.5">
-                    Sincroniza los renders 3D, videos del proyecto y fotografías directamente en la base de datos MariaDB / MySQL.
+                    Sincroniza los cambios en tiempo real con MariaDB / MySQL (tabla cms_section_value_prop) y la interfaz web pública.
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleSaveAll(false)}
-                  disabled={saving || levelInfo.isReadOnly}
-                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-stone-950 font-bold text-xs shadow-lg transition-all disabled:opacity-60 flex-shrink-0"
-                  id="btn-save-propuesta-cms"
-                >
-                  <Save className="w-4 h-4" />
-                  <span>{saving ? 'Guardando en DB...' : 'Guardar Cambios de Propuesta'}</span>
-                </button>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleSavePropuestaSection}
+                    disabled={saving || levelInfo.isReadOnly}
+                    className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white font-bold text-xs shadow-lg transition-all disabled:opacity-60"
+                    id="btn-save-propuesta-cms"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>{saving ? 'Guardando en DB...' : 'Guardar Cambios de Propuesta'}</span>
+                  </button>
+                </div>
               </div>
             </div>
           )}

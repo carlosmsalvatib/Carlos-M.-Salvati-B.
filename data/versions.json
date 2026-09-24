@@ -1,5 +1,1121 @@
 [
   {
+    "timestamp": "2026-09-24T03:17:05.328Z",
+    "version": 7,
+    "note": "RestoreDefaultTagline",
+    "content": {
+      "site": {
+        "projectName": "MIS DELIRIOS RANCH",
+        "fullName": "COMPLEJO URBANÍSTICO AGROPRODUCTIVO Y TURÍSTICO MIS DELIRIOS RANCH",
+        "tagline": "Refugio y Tranquilidad Garantizada",
+        "logoUrl": "/api/images/logo",
+        "contactPhone": "+58-414-7114245",
+        "contactWhatsapp": "+58-414-7114245",
+        "contactEmail": "ventas@misdeliriosranch.com",
+        "salesOfficeAddress": "Aldea Sabana Larga - Sector Salomón, Cordero, Municipio Andrés Bello, estado Táchira, Venezuela",
+        "socialMedia": {
+          "instagram": "https://instagram.com/misdeliriosranch",
+          "facebook": "https://facebook.com/misdeliriosranch",
+          "youtube": "https://youtube.com/@misdeliriosranch"
+        }
+      },
+      "hero": {
+        "title": "MIS DELIRIOS RANCH – Refugio y Tranquilidad Garantizada",
+        "subtitle": "Complejo Urbanístico Agroproductivo y Turístico en el Corazón de los Andes",
+        "primaryCtaText": "Reserva tu lote con 10% de inicial",
+        "primaryCtaLink": "#contacto",
+        "secondaryCtaText": "Descarga el Plan de Venta",
+        "secondaryCtaLink": "#financiamiento",
+        "badgeText": "Preventa Exclusiva Primera Etapa",
+        "priceBadge": "20,00 USD/m²",
+        "backgroundImageUrl": "/api/images/hero-landscape",
+        "showBadge": true,
+        "active": true
+      },
+      "valueProp": {
+        "title": "Un Modelo de Desarrollo Sostenible e Innovación Arquitectónica",
+        "subtitle": "Fusión de Tradición, Tecnología y Respeto por la Naturaleza",
+        "description": "Mis Delirios Ranch fusiona la riqueza tradicional del campo andino con una vanguardista arquitectura ecológica basada en Bambú Guadua. Ubicado estratégicamente a tan solo 30 minutos de San Cristóbal y a 5 minutos del casco urbano de Cordero, ofrece un hábitat autosustentable de baja densidad, seguridad perimetral y soberanía alimentaria en un microclima privilegiado de montaña.",
+        "imageUrl": "/api/images/real-terrain",
+        "imageAlt": "Fotografía real del terreno en Sabana Larga y Cordero, Táchira",
+        "videos": [
+          {
+            "id": "vid-1",
+            "title": "Recorrido Arquitectónico 3D - Complejo Mis Delirios Ranch",
+            "videoUrl": "https://assets.mixkit.co/videos/preview/mixkit-flying-over-a-green-mountain-valley-41004-large.mp4",
+            "posterUrl": "/api/images/real-terrain",
+            "description": "Vuelo aéreo simulado y perspectivas del valle andino en Sabana Larga y Cordero.",
+            "duration": "1:45"
+          },
+          {
+            "id": "vid-2",
+            "title": "Bioconstrucción Sismorresistente en Guadua Angustifolia",
+            "videoUrl": "https://assets.mixkit.co/videos/preview/mixkit-pine-trees-in-a-forest-on-a-windy-day-41005-large.mp4",
+            "posterUrl": "/api/images/bamboo-structure",
+            "description": "Detalle de ensamble estructural, losa flotante de 40 cm y tecnología bioclimática.",
+            "duration": "2:10"
+          },
+          {
+            "id": "vid-3",
+            "title": "Entorno Campestre, Neblina y Mini-granjas Productivas",
+            "videoUrl": "https://assets.mixkit.co/videos/preview/mixkit-river-surrounded-by-trees-in-a-forest-41006-large.mp4",
+            "posterUrl": "/api/images/hero-landscape",
+            "description": "Microclima templado de 18°C-22°C, huertos familiares y conexión con la naturaleza.",
+            "duration": "1:30"
+          }
+        ],
+        "selectedVideoId": "vid-1",
+        "benefits": [
+          {
+            "id": "b1",
+            "title": "Mini-granjas desde 600 m²",
+            "description": "Lotes amplios pensados para cultivos andinos, huertos orgánicos familiares y cría avícola autosustentable.",
+            "icon": "Sprout"
+          },
+          {
+            "id": "b2",
+            "title": "Construcción sismorresistente en Guadua",
+            "description": "Viviendas en bambú estructural certificado sobre losa flotante de concreto a 40 cm, resistentes y ecológicas.",
+            "icon": "Home"
+          },
+          {
+            "id": "b3",
+            "title": "57 lotes residenciales y productivos",
+            "description": "Comunidad planificada de baja densidad que garantiza privacidad, alta plusvalía y respeto ambiental.",
+            "icon": "Grid"
+          },
+          {
+            "id": "b4",
+            "title": "Más de 14.600 m² de áreas públicas",
+            "description": "Bulevar ecológico con plazas, parques infantiles, canchas deportivas multiusos y salón comunal.",
+            "icon": "Trees"
+          }
+        ],
+        "columnsCount": 4,
+        "active": true
+      },
+      "location": {
+        "title": "La Ruta de la Montaña y la Neblina",
+        "subtitle": "Conectividad Vial Inmediata y Confort Andino",
+        "description": "Estratégicamente ubicado en el Municipio Andrés Bello, sectores Sabana Larga y Aldea Salomón, con conectividad vial directa desde la Carretera Trasandina.",
+        "municipality": "Municipio Andrés Bello, Cordero",
+        "sectors": "Sabana Larga y Aldea Salomón",
+        "roadAccess": "Acceso directo e inmediato desde la Carretera Trasandina",
+        "travelTimes": {
+          "sanCristobal": "30 minutos de San Cristóbal",
+          "cordero": "5 minutos de Cordero",
+          "trasandina": "Acceso directo a pie de carretera Trasandina (714,46 m de frente)"
+        },
+        "googleMapsEmbedUrl": "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3953.513576785848!2d-72.1852!3d7.8681!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x8e666992985161cf%3A0xa19bf9e651582294!2sCordero%2C%20T%C3%A1chira!5e0!3m2!1ses!2sve!4v1700000000000!5m2!1ses!2sve",
+        "mapExternalUrl": "https://maps.google.com/?q=7.8681,-72.1852",
+        "coordinates": {
+          "lat": 7.8681,
+          "lng": -72.1852
+        },
+        "features": [
+          {
+            "id": "f1",
+            "title": "Clima de Montaña y Neblina",
+            "description": "Temperatura fresca templada todo el año (18°C - 22°C), aire puro y agradable niebla vespertina.",
+            "icon": "CloudSun"
+          },
+          {
+            "id": "f2",
+            "title": "Paisajes Andinos Panorámicos",
+            "description": "Vistas panorámicas hacia el Valle del Río Torbes y las cordilleras verdes del estado Táchira.",
+            "icon": "Mountain"
+          },
+          {
+            "id": "f3",
+            "title": "Tranquilidad y Paz Rural",
+            "description": "Un santuario seguro libre de ruidos de ciudad, ideal para desconectarse y vivir con bienestar.",
+            "icon": "ShieldCheck"
+          },
+          {
+            "id": "f4",
+            "title": "Cercanía a Servicios Urbanos",
+            "description": "A solo 5 min de comercios, clínicas, colegios y transporte en Cordero, y a 30 min de San Cristóbal.",
+            "icon": "MapPin"
+          }
+        ],
+        "active": true
+      },
+      "masterPlan": {
+        "title": "Distribución del Plan Maestro: 57 Soluciones Habitacionales",
+        "subtitle": "Diseño Urbanístico Armónico, Inteligente y Seguro",
+        "description": "El complejo urbanístico se divide estratégicamente en dos sectores complementarios, sumando un total de 57 lotes delimitados con vialidad interna organizada de 8 a 10 metros y retiros ecológicos.",
+        "lote1": {
+          "name": "Colinas de Mis Delirios",
+          "zone": "Parte Alta (Manzana A1)",
+          "lotsCount": 14,
+          "areaM2": 37252.62,
+          "description": "14 lotes exclusivos de mayor tamaño con terrazas naturales y vistas privilegiadas sobre el valle."
+        },
+        "lote2": {
+          "name": "Mis Delirios Ranch",
+          "zone": "Parte Baja (Manzanas A2, B, C, D, E, F, G)",
+          "lotsCount": 43,
+          "areaM2": 90721.22,
+          "description": "43 lotes tipo mini-granjas autosustentables desde 600 m², con acceso directo a vialidad comunal y bulevar."
+        },
+        "totalLots": 57,
+        "planImageUrl": "/api/images/blueprint-masterplan",
+        "planPdfUrl": "#plan-descarga",
+        "blueprints": [
+          {
+            "id": "plano-general",
+            "title": "Plano General de Lotificación Integral (57 Lotes)",
+            "subtitle": "Lote 1 (Colinas) + Lote 2 (Ranch) con vialidad de 8 a 10m",
+            "imageUrl": "/api/images/blueprint-masterplan",
+            "sector": "General Complejo",
+            "description": "Distribución macro con áreas comunales, accesos principales desde la Trasandina y linderos con el Río Torbes."
+          },
+          {
+            "id": "plano-sector-1",
+            "title": "Sector 1: Colinas de Mis Delirios (Manzana A1)",
+            "subtitle": "14 Lotes exclusivos en terraza alta con vistas panorámicas",
+            "imageUrl": "/api/images/blueprint-masterplan",
+            "sector": "Parte Alta",
+            "description": "Superficie de 37.252,62 m² distribuida en 14 parcelas residenciales de baja densidad."
+          },
+          {
+            "id": "plano-sector-2",
+            "title": "Sector 2: Mis Delirios Ranch (Manzanas A2 a G)",
+            "subtitle": "43 Lotes tipo mini-granjas desde 600 m²",
+            "imageUrl": "/api/images/blueprint-masterplan",
+            "sector": "Parte Baja",
+            "description": "Superficie de 90.721,22 m² con integración directa al bulevar comunal y áreas agroturísticas."
+          },
+          {
+            "id": "plano-bulevar",
+            "title": "Plano del Bulevar de la Guadua y Espacios Comunitarios",
+            "subtitle": "Más de 14.600 m² de áreas públicas cedidas",
+            "imageUrl": "/api/images/bulevar-guadua",
+            "sector": "Áreas Públicas",
+            "description": "Equipamiento comunal: plazas, parques infantiles, canchas deportivas multiusos y salón comunal."
+          }
+        ],
+        "primaryCtaText": "Ver disponibilidad de lotes",
+        "secondaryCtaText": "Solicitar plano detallado",
+        "active": true
+      },
+      "housingModels": {
+        "title": "Casas Ecológicas Sismorresistentes en Bambú Guadua",
+        "subtitle": "Vanguardia Bioclimática y Acabados Minimalistas de Campo",
+        "description": "Viviendas de un solo nivel, construidas sobre losa flotante de concreto a 40 cm de altura, con estructura integral en Guadua angustifolia Kunth. Acabados minimalistas propios del campo andino, con ventilación cruzada continua y envolvente conexión visual con la naturaleza.",
+        "priceNotice": "Precios de preventa sujetos a ajustes según disponibilidad y avance de obra. Cuota calculada a razón de 450 USD/m² de construcción.",
+        "models": [
+          {
+            "id": "modelo-a",
+            "name": "Modelo A - Cabaña Andina",
+            "tagline": "Ideal para descanso familiar y fines de semana",
+            "areaM2": 90,
+            "priceUsd": 40500,
+            "pricePerM2Usd": 450,
+            "description": "Vivienda compacta y eficiente de un solo nivel. Posee 2 a 3 habitaciones, 2 baños completos, área social abierta y terraza con vistas panorámicas.",
+            "benefits": [
+              "Terrazas mirador con vistas a la cordillera",
+              "Ventilación cruzada que asegura frescura natural",
+              "Iluminación solar cenital en todas las áreas",
+              "Corredor perimetral con aleros generosos",
+              "Losa flotante de concreto a 40 cm de protección hídrica"
+            ],
+            "specs": {
+              "levels": 1,
+              "bedrooms": 2,
+              "bathrooms": 2,
+              "terraceM2": 15,
+              "foundation": "Losa flotante armada a 40 cm",
+              "structure": "Bambú Guadua angustifolia tratado e inmunizado"
+            },
+            "images": [
+              "/api/images/model-a-render",
+              "/api/images/model-a-floorplan"
+            ],
+            "brochurePdfUrl": "#ficha-modelo-a",
+            "showPrice": true,
+            "active": true
+          },
+          {
+            "id": "modelo-b",
+            "name": "Modelo B - Villa Campestre",
+            "tagline": "Amplitud, confort integral y terraza perimetral extendida",
+            "areaM2": 125,
+            "priceUsd": 56250,
+            "pricePerM2Usd": 450,
+            "description": "Nuestra propuesta más espaciosa: 3 amplias habitaciones, 2 baños, sala-comedor a doble altura, cocina campestre y terraza perimetral de 20 m².",
+            "benefits": [
+              "3 habitaciones con clóset y ventilación andina",
+              "Terraza mirador de 20 m² techada en teja o cubierta liviana",
+              "Cocina campestre integrada con barra americana",
+              "Corredor perimetral de 360 grados",
+              "Estructura sismorresistente con uniones apernadas de alta ingeniería"
+            ],
+            "specs": {
+              "levels": 1,
+              "bedrooms": 3,
+              "bathrooms": 2,
+              "terraceM2": 20,
+              "foundation": "Losa flotante de concreto armado a 40 cm",
+              "structure": "Guadua estructural colombiana seleccionada"
+            },
+            "images": [
+              "/api/images/model-b-render",
+              "/api/images/model-b-floorplan"
+            ],
+            "brochurePdfUrl": "#ficha-modelo-b",
+            "showPrice": true,
+            "active": true
+          }
+        ],
+        "active": true
+      },
+      "customerProfiles": {
+        "title": "Una Oferta Diseñada para Cada Perfil",
+        "subtitle": "Tu Espacio Ideal según tus Metas de Vida e Inversión",
+        "profiles": [
+          {
+            "id": "p1",
+            "title": "Perfil Ecológico",
+            "subtitle": "Soberanía alimentaria y vida en contacto con la tierra",
+            "icon": "Leaf",
+            "benefits": [
+              "Espacios fértiles para cultivos andinos (café, hortalizas, fresas)",
+              "Huertos orgánicos y compostaje regenerativo",
+              "Cría avícola y producción autosuficiente",
+              "Armonía con la biodiversidad autóctona"
+            ],
+            "ctaText": "Quiero cultivar mi futuro",
+            "ctaAction": "#contacto?perfil=ecologico",
+            "active": true
+          },
+          {
+            "id": "p2",
+            "title": "Perfil Hogar y Familia",
+            "subtitle": "Paz mental, seguridad y crecimiento para los tuyos",
+            "icon": "HeartHandshake",
+            "benefits": [
+              "Entorno cerrado, privado y seguro 24/7",
+              "Caminerías perimetrales y áreas infantiles",
+              "Máxima calidad de vida lejos del estrés urbano",
+              "Espacios al aire libre para que los niños crezcan sanos"
+            ],
+            "ctaText": "Construir el hogar familiar",
+            "ctaAction": "#contacto?perfil=hogar",
+            "active": true
+          },
+          {
+            "id": "p3",
+            "title": "Perfil Inversionista",
+            "subtitle": "Patrimonio seguro, alta plusvalía y retorno turístico",
+            "icon": "TrendingUp",
+            "benefits": [
+              "Alta plusvalía proyectada por desarrollo del bulevar",
+              "Precio de preventa ultra-competitivo: 20 USD/m²",
+              "Proyecto pionero en arquitectura Guadua en los Andes",
+              "Potencial de alquiler vacacional y glamping ecológico"
+            ],
+            "ctaText": "Invertir en preventa",
+            "ctaAction": "#contacto?perfil=inversionista",
+            "active": true
+          }
+        ],
+        "active": true
+      },
+      "technicalAttributes": {
+        "title": "Ingeniería, Sostenibilidad y Compromiso Social",
+        "subtitle": "Rigor Constructivo, Preservación y Objetivos de la ONU",
+        "attributes": [
+          {
+            "id": "t1",
+            "title": "Ingeniería Sismorresistente",
+            "description": "Estructuras fabricadas en Bambú Guadua estructural importada de Colombia y concreto armado, con excelente flexibilidad y resistencia sísmica.",
+            "icon": "ShieldCheck",
+            "highlight": "Normas sísmicas venezolanas",
+            "active": true
+          },
+          {
+            "id": "t2",
+            "title": "Vialidad Ordenada y Delimitada",
+            "description": "Calles internas señalizadas e identificadas con estantillos y varetas blancas de estilo campestre, con anchuras de 8 y 10 metros.",
+            "icon": "Compass",
+            "highlight": "Estética rústica impecable",
+            "active": true
+          },
+          {
+            "id": "t3",
+            "title": "Infraestructura Comunal Completa",
+            "description": "Plazas arborizadas, parques infantiles seguros, canchas multiusos y salón de eventos comunitarios para el disfrute vecinal.",
+            "icon": "Users",
+            "highlight": "14.600 m² de esparcimiento",
+            "active": true
+          },
+          {
+            "id": "t4",
+            "title": "Cuidado y Protección Ambiental",
+            "description": "Cimentación aislada por pilotes y losas flotantes que minimizan el movimiento de tierras y preservan la flora y los árboles nativos.",
+            "icon": "Sprout",
+            "highlight": "Mínimo impacto ecológico",
+            "active": true
+          },
+          {
+            "id": "t5",
+            "title": "Régimen de Convivencia Rural",
+            "description": "Estatutos y normas internas claras para preservar la tranquilidad, la uniformidad estética de las viviendas y la armonía comunitaria.",
+            "icon": "FileText",
+            "highlight": "Convivencia garantizada",
+            "active": true
+          }
+        ],
+        "sdgs": [
+          {
+            "id": "sdg-2",
+            "number": 2,
+            "name": "Hambre Cero",
+            "description": "Promoción de la soberanía alimentaria con huertos familiares y mini-granjas autosustentables.",
+            "color": "#DDA63A"
+          },
+          {
+            "id": "sdg-11",
+            "number": 11,
+            "name": "Ciudades y Comunidades Sostenibles",
+            "description": "Urbanismo de baja densidad con bioconstrucción y materiales de baja huella de carbono.",
+            "color": "#FD9D24"
+          },
+          {
+            "id": "sdg-13",
+            "number": 13,
+            "name": "Acción por el Clima",
+            "description": "El bambú captura toneladas de CO2 durante su crecimiento y protege las cuencas hídricas locales.",
+            "color": "#3F7E44"
+          }
+        ],
+        "imageUrl": "/api/images/bamboo-structure",
+        "imageAlt": "Detalle constructivo de Guadua estructural y arquitectura ecológica",
+        "active": true
+      },
+      "salesFinancing": {
+        "title": "Planes de Venta & Compromiso Sostenible",
+        "subtitle": "Valor por Metro Cuadrado: USD 20,00",
+        "pricePerM2Usd": 20,
+        "modalities": [
+          {
+            "id": "m1",
+            "title": "1. Al Contado",
+            "description": "Pago del 100% a la firma del Contrato de opción a compra.",
+            "percentageInitial": 100,
+            "installments": 0,
+            "status": "Disponible",
+            "badge": "Sin recargos ni intereses",
+            "active": true
+          },
+          {
+            "id": "m2",
+            "title": "2. Financiamiento Propio",
+            "description": "Inicial del 50% al firmar contrato + 50% restante financiado directamente en 6 cuotas mensuales iguales y consecutivas.",
+            "percentageInitial": 50,
+            "installments": 6,
+            "status": "Disponible",
+            "badge": "Plan más popular",
+            "active": true
+          },
+          {
+            "id": "m3",
+            "title": "3. Financiamiento Bancario",
+            "description": "Modalidad en evaluación técnica para su pronta incorporación con entidades financieras aliadas.",
+            "percentageInitial": 30,
+            "installments": 24,
+            "status": "En evaluación",
+            "badge": "Próximamente",
+            "active": true
+          },
+          {
+            "id": "m4",
+            "title": "4. Otras Opciones Personalizadas",
+            "description": "Planteamientos flexibles evaluados directamente por el Comité Promotor en un plazo no mayor a 24 horas.",
+            "percentageInitial": 40,
+            "installments": 12,
+            "status": "Disponible",
+            "badge": "Respuesta en 24h",
+            "active": true
+          }
+        ],
+        "specialPromo": "Promoción especial para inversionistas por compras superiores a 3 Lotes con descuento preferencial directo.",
+        "legalNotice": "Todos los compradores deben someterse al Régimen de Convivencia interno para regular normas de construcción y preservación.",
+        "active": true
+      },
+      "socialImpact": {
+        "title": "El Gran Aporte Social: Bulevar de la Guadua",
+        "subtitle": "Urbanismo con Propósito y Retorno para la Comunidad Andina",
+        "description": "Los promotores ceden más de 14.600 m² de terreno para el disfrute público de la comunidad andina, asumiendo el 100 % de los costos de diseño arquitectónico, materiales certificados, mano de obra y mantenimiento continuo.",
+        "cededAreaM2": 14600,
+        "costCoveredPercentage": 100,
+        "publicEquipments": [
+          "Plazas públicas ajardinadas",
+          "Senderos peatonales y caminerías ecológicas",
+          "Iluminación vial integral de bajo consumo",
+          "Parques infantiles temáticos de madera y bambú",
+          "Canchas deportivas multiusos",
+          "Salón comunal para asambleas y actividades culturales"
+        ],
+        "promoterGuarantee": "La administración, aseo y seguridad del bulevar corren por cuenta del sector privado, sin costo ni cargas presupuestarias para el municipio. La Alcaldía recibirá un local en comodato por 10 años para servicios vecinales.",
+        "vision2030": "Ser el proyecto bandera de desarrollo urbano-rural sostenible en la región andina venezolana.",
+        "imageUrl": "/api/images/bulevar-guadua",
+        "imageAlt": "Render del Bulevar de la Guadua y espacios comunales integrados",
+        "active": true
+      },
+      "contactForm": {
+        "title": "Haz Realidad tu Casa de Campo",
+        "subtitle": "Nuestros asesores te brindarán atención personalizada y respuesta en menos de 24 horas.",
+        "badgeText": "Atención Personalizada en Menos de 24 Horas",
+        "directChannelsTitle": "Canales de Atención Directa",
+        "formTitle": "Solicita Información y Reserva",
+        "formSubtitle": "Completa este formulario para recibir el catálogo de lotes, planos de viviendas y ficha técnica oficial.",
+        "scheduleText": "Lunes a Sábado de 8:00 AM a 6:00 PM",
+        "whatsappSubtitle": "Chatea ahora con un asesor de ventas",
+        "emailSubtitle": "Para propuestas y acuerdos institucionales",
+        "directPhone": "+58-414-7114245",
+        "directWhatsapp": "+58-414-7114245",
+        "directEmail": "ventas@misdeliriosranch.com",
+        "directAddress": "Aldea Sabana Larga - Sector Salomón, Cordero, Municipio Andrés Bello, estado Táchira, Venezuela",
+        "submitButtonText": "Enviar solicitud de información",
+        "callButtonText": "Solicitar llamada inmediata",
+        "whatsappMessageTemplate": "¡Hola! Estoy interesado en el proyecto Mis Delirios Ranch en Cordero, Táchira. Quisiera recibir información sobre disponibilidad y planes de financiamiento.",
+        "successMessage": "¡Gracias por tu interés en Mis Delirios Ranch! Hemos recibido tus datos y un asesor se comunicará contigo en menos de 24 horas.",
+        "privacyPolicyText": "Acepto la política de privacidad y autorizo el tratamiento de mis datos con fines informativos sobre el proyecto Mis Delirios Ranch.",
+        "active": true
+      },
+      "footer": {
+        "legalNotice": "Proyecto en preventa. Precios sujetos a cambios sin previo aviso. Imágenes y renders arquitectónicos de referencia.",
+        "credits": {
+          "promoter": "Dr. Néstor Eduardo Depablos Mora",
+          "architect": "Arq. Indira Contreras",
+          "promoterCi": "C.I. V-5.685.149 / V-9.226.372 / V-11.509.606 / V-12.813.704",
+          "architectCiv": "C.I.V. 165.492"
+        },
+        "copyrightYear": 2025,
+        "quickLinks": [
+          {
+            "label": "Inicio",
+            "href": "#inicio"
+          },
+          {
+            "label": "Propuesta",
+            "href": "#propuesta"
+          },
+          {
+            "label": "Ubicación",
+            "href": "#ubicacion"
+          },
+          {
+            "label": "Plan Maestro",
+            "href": "#plan-maestro"
+          },
+          {
+            "label": "Modelos",
+            "href": "#modelos"
+          },
+          {
+            "label": "Perfiles",
+            "href": "#perfiles"
+          },
+          {
+            "label": "Financiamiento",
+            "href": "#financiamiento"
+          },
+          {
+            "label": "Impacto Social",
+            "href": "#impacto-social"
+          },
+          {
+            "label": "Contacto",
+            "href": "#contacto"
+          }
+        ],
+        "active": true
+      },
+      "seo": {
+        "metaTitle": "Mis Delirios Ranch - Complejo Urbanístico Agroproductivo y Turístico en Táchira",
+        "metaDescription": "Lotes en venta en Táchira desde 600 m² a 20 USD/m². Casas en Guadua sismorresistentes, mini-granjas autosustentables y bulevar público.",
+        "keywords": [
+          "Lotes en venta Táchira",
+          "Complejo agroproductivo",
+          "Casas en Guadua",
+          "Mis Delirios Ranch",
+          "Terrenos en Cordero",
+          "Bambú Guadua Venezuela",
+          "Mini granjas Táchira"
+        ],
+        "ogTitle": "Mis Delirios Ranch - Refugio y Tranquilidad Garantizada",
+        "ogDescription": "Complejo Urbanístico Agroproductivo y Turístico en el Corazón de los Andes (Cordero, Táchira). Preventa exclusiva desde 20 USD/m².",
+        "ogImage": "/api/images/hero-landscape",
+        "googleAnalyticsId": "G-DELIRIOS2025",
+        "metaPixelId": "",
+        "googleTagManagerId": ""
+      },
+      "lastUpdated": "2026-09-24T03:17:05.328Z",
+      "version": 7
+    }
+  },
+  {
+    "timestamp": "2026-09-24T03:16:51.754Z",
+    "version": 6,
+    "note": "TestPersistence",
+    "content": {
+      "site": {
+        "projectName": "MIS DELIRIOS RANCH",
+        "fullName": "COMPLEJO URBANÍSTICO AGROPRODUCTIVO Y TURÍSTICO MIS DELIRIOS RANCH",
+        "tagline": "Refugio y Tranquilidad Garantizada - 1790219811732",
+        "logoUrl": "/api/images/logo",
+        "contactPhone": "+58-414-7114245",
+        "contactWhatsapp": "+58-414-7114245",
+        "contactEmail": "ventas@misdeliriosranch.com",
+        "salesOfficeAddress": "Aldea Sabana Larga - Sector Salomón, Cordero, Municipio Andrés Bello, estado Táchira, Venezuela",
+        "socialMedia": {
+          "instagram": "https://instagram.com/misdeliriosranch",
+          "facebook": "https://facebook.com/misdeliriosranch",
+          "youtube": "https://youtube.com/@misdeliriosranch"
+        }
+      },
+      "hero": {
+        "title": "MIS DELIRIOS RANCH – Refugio y Tranquilidad Garantizada",
+        "subtitle": "Complejo Urbanístico Agroproductivo y Turístico en el Corazón de los Andes",
+        "primaryCtaText": "Reserva tu lote con 10% de inicial",
+        "primaryCtaLink": "#contacto",
+        "secondaryCtaText": "Descarga el Plan de Venta",
+        "secondaryCtaLink": "#financiamiento",
+        "badgeText": "Preventa Exclusiva Primera Etapa",
+        "priceBadge": "20,00 USD/m²",
+        "backgroundImageUrl": "/api/images/hero-landscape",
+        "showBadge": true,
+        "active": true
+      },
+      "valueProp": {
+        "title": "Un Modelo de Desarrollo Sostenible e Innovación Arquitectónica",
+        "subtitle": "Fusión de Tradición, Tecnología y Respeto por la Naturaleza",
+        "description": "Mis Delirios Ranch fusiona la riqueza tradicional del campo andino con una vanguardista arquitectura ecológica basada en Bambú Guadua. Ubicado estratégicamente a tan solo 30 minutos de San Cristóbal y a 5 minutos del casco urbano de Cordero, ofrece un hábitat autosustentable de baja densidad, seguridad perimetral y soberanía alimentaria en un microclima privilegiado de montaña.",
+        "imageUrl": "/api/images/real-terrain",
+        "imageAlt": "Fotografía real del terreno en Sabana Larga y Cordero, Táchira",
+        "videos": [
+          {
+            "id": "vid-1",
+            "title": "Recorrido Arquitectónico 3D - Complejo Mis Delirios Ranch",
+            "videoUrl": "https://assets.mixkit.co/videos/preview/mixkit-flying-over-a-green-mountain-valley-41004-large.mp4",
+            "posterUrl": "/api/images/real-terrain",
+            "description": "Vuelo aéreo simulado y perspectivas del valle andino en Sabana Larga y Cordero.",
+            "duration": "1:45"
+          },
+          {
+            "id": "vid-2",
+            "title": "Bioconstrucción Sismorresistente en Guadua Angustifolia",
+            "videoUrl": "https://assets.mixkit.co/videos/preview/mixkit-pine-trees-in-a-forest-on-a-windy-day-41005-large.mp4",
+            "posterUrl": "/api/images/bamboo-structure",
+            "description": "Detalle de ensamble estructural, losa flotante de 40 cm y tecnología bioclimática.",
+            "duration": "2:10"
+          },
+          {
+            "id": "vid-3",
+            "title": "Entorno Campestre, Neblina y Mini-granjas Productivas",
+            "videoUrl": "https://assets.mixkit.co/videos/preview/mixkit-river-surrounded-by-trees-in-a-forest-41006-large.mp4",
+            "posterUrl": "/api/images/hero-landscape",
+            "description": "Microclima templado de 18°C-22°C, huertos familiares y conexión con la naturaleza.",
+            "duration": "1:30"
+          }
+        ],
+        "selectedVideoId": "vid-1",
+        "benefits": [
+          {
+            "id": "b1",
+            "title": "Mini-granjas desde 600 m²",
+            "description": "Lotes amplios pensados para cultivos andinos, huertos orgánicos familiares y cría avícola autosustentable.",
+            "icon": "Sprout"
+          },
+          {
+            "id": "b2",
+            "title": "Construcción sismorresistente en Guadua",
+            "description": "Viviendas en bambú estructural certificado sobre losa flotante de concreto a 40 cm, resistentes y ecológicas.",
+            "icon": "Home"
+          },
+          {
+            "id": "b3",
+            "title": "57 lotes residenciales y productivos",
+            "description": "Comunidad planificada de baja densidad que garantiza privacidad, alta plusvalía y respeto ambiental.",
+            "icon": "Grid"
+          },
+          {
+            "id": "b4",
+            "title": "Más de 14.600 m² de áreas públicas",
+            "description": "Bulevar ecológico con plazas, parques infantiles, canchas deportivas multiusos y salón comunal.",
+            "icon": "Trees"
+          }
+        ],
+        "columnsCount": 4,
+        "active": true
+      },
+      "location": {
+        "title": "La Ruta de la Montaña y la Neblina",
+        "subtitle": "Conectividad Vial Inmediata y Confort Andino",
+        "description": "Estratégicamente ubicado en el Municipio Andrés Bello, sectores Sabana Larga y Aldea Salomón, con conectividad vial directa desde la Carretera Trasandina.",
+        "municipality": "Municipio Andrés Bello, Cordero",
+        "sectors": "Sabana Larga y Aldea Salomón",
+        "roadAccess": "Acceso directo e inmediato desde la Carretera Trasandina",
+        "travelTimes": {
+          "sanCristobal": "30 minutos de San Cristóbal",
+          "cordero": "5 minutos de Cordero",
+          "trasandina": "Acceso directo a pie de carretera Trasandina (714,46 m de frente)"
+        },
+        "googleMapsEmbedUrl": "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3953.513576785848!2d-72.1852!3d7.8681!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x8e666992985161cf%3A0xa19bf9e651582294!2sCordero%2C%20T%C3%A1chira!5e0!3m2!1ses!2sve!4v1700000000000!5m2!1ses!2sve",
+        "mapExternalUrl": "https://maps.google.com/?q=7.8681,-72.1852",
+        "coordinates": {
+          "lat": 7.8681,
+          "lng": -72.1852
+        },
+        "features": [
+          {
+            "id": "f1",
+            "title": "Clima de Montaña y Neblina",
+            "description": "Temperatura fresca templada todo el año (18°C - 22°C), aire puro y agradable niebla vespertina.",
+            "icon": "CloudSun"
+          },
+          {
+            "id": "f2",
+            "title": "Paisajes Andinos Panorámicos",
+            "description": "Vistas panorámicas hacia el Valle del Río Torbes y las cordilleras verdes del estado Táchira.",
+            "icon": "Mountain"
+          },
+          {
+            "id": "f3",
+            "title": "Tranquilidad y Paz Rural",
+            "description": "Un santuario seguro libre de ruidos de ciudad, ideal para desconectarse y vivir con bienestar.",
+            "icon": "ShieldCheck"
+          },
+          {
+            "id": "f4",
+            "title": "Cercanía a Servicios Urbanos",
+            "description": "A solo 5 min de comercios, clínicas, colegios y transporte en Cordero, y a 30 min de San Cristóbal.",
+            "icon": "MapPin"
+          }
+        ],
+        "active": true
+      },
+      "masterPlan": {
+        "title": "Distribución del Plan Maestro: 57 Soluciones Habitacionales",
+        "subtitle": "Diseño Urbanístico Armónico, Inteligente y Seguro",
+        "description": "El complejo urbanístico se divide estratégicamente en dos sectores complementarios, sumando un total de 57 lotes delimitados con vialidad interna organizada de 8 a 10 metros y retiros ecológicos.",
+        "lote1": {
+          "name": "Colinas de Mis Delirios",
+          "zone": "Parte Alta (Manzana A1)",
+          "lotsCount": 14,
+          "areaM2": 37252.62,
+          "description": "14 lotes exclusivos de mayor tamaño con terrazas naturales y vistas privilegiadas sobre el valle."
+        },
+        "lote2": {
+          "name": "Mis Delirios Ranch",
+          "zone": "Parte Baja (Manzanas A2, B, C, D, E, F, G)",
+          "lotsCount": 43,
+          "areaM2": 90721.22,
+          "description": "43 lotes tipo mini-granjas autosustentables desde 600 m², con acceso directo a vialidad comunal y bulevar."
+        },
+        "totalLots": 57,
+        "planImageUrl": "/api/images/blueprint-masterplan",
+        "planPdfUrl": "#plan-descarga",
+        "blueprints": [
+          {
+            "id": "plano-general",
+            "title": "Plano General de Lotificación Integral (57 Lotes)",
+            "subtitle": "Lote 1 (Colinas) + Lote 2 (Ranch) con vialidad de 8 a 10m",
+            "imageUrl": "/api/images/blueprint-masterplan",
+            "sector": "General Complejo",
+            "description": "Distribución macro con áreas comunales, accesos principales desde la Trasandina y linderos con el Río Torbes."
+          },
+          {
+            "id": "plano-sector-1",
+            "title": "Sector 1: Colinas de Mis Delirios (Manzana A1)",
+            "subtitle": "14 Lotes exclusivos en terraza alta con vistas panorámicas",
+            "imageUrl": "/api/images/blueprint-masterplan",
+            "sector": "Parte Alta",
+            "description": "Superficie de 37.252,62 m² distribuida en 14 parcelas residenciales de baja densidad."
+          },
+          {
+            "id": "plano-sector-2",
+            "title": "Sector 2: Mis Delirios Ranch (Manzanas A2 a G)",
+            "subtitle": "43 Lotes tipo mini-granjas desde 600 m²",
+            "imageUrl": "/api/images/blueprint-masterplan",
+            "sector": "Parte Baja",
+            "description": "Superficie de 90.721,22 m² con integración directa al bulevar comunal y áreas agroturísticas."
+          },
+          {
+            "id": "plano-bulevar",
+            "title": "Plano del Bulevar de la Guadua y Espacios Comunitarios",
+            "subtitle": "Más de 14.600 m² de áreas públicas cedidas",
+            "imageUrl": "/api/images/bulevar-guadua",
+            "sector": "Áreas Públicas",
+            "description": "Equipamiento comunal: plazas, parques infantiles, canchas deportivas multiusos y salón comunal."
+          }
+        ],
+        "primaryCtaText": "Ver disponibilidad de lotes",
+        "secondaryCtaText": "Solicitar plano detallado",
+        "active": true
+      },
+      "housingModels": {
+        "title": "Casas Ecológicas Sismorresistentes en Bambú Guadua",
+        "subtitle": "Vanguardia Bioclimática y Acabados Minimalistas de Campo",
+        "description": "Viviendas de un solo nivel, construidas sobre losa flotante de concreto a 40 cm de altura, con estructura integral en Guadua angustifolia Kunth. Acabados minimalistas propios del campo andino, con ventilación cruzada continua y envolvente conexión visual con la naturaleza.",
+        "priceNotice": "Precios de preventa sujetos a ajustes según disponibilidad y avance de obra. Cuota calculada a razón de 450 USD/m² de construcción.",
+        "models": [
+          {
+            "id": "modelo-a",
+            "name": "Modelo A - Cabaña Andina",
+            "tagline": "Ideal para descanso familiar y fines de semana",
+            "areaM2": 90,
+            "priceUsd": 40500,
+            "pricePerM2Usd": 450,
+            "description": "Vivienda compacta y eficiente de un solo nivel. Posee 2 a 3 habitaciones, 2 baños completos, área social abierta y terraza con vistas panorámicas.",
+            "benefits": [
+              "Terrazas mirador con vistas a la cordillera",
+              "Ventilación cruzada que asegura frescura natural",
+              "Iluminación solar cenital en todas las áreas",
+              "Corredor perimetral con aleros generosos",
+              "Losa flotante de concreto a 40 cm de protección hídrica"
+            ],
+            "specs": {
+              "levels": 1,
+              "bedrooms": 2,
+              "bathrooms": 2,
+              "terraceM2": 15,
+              "foundation": "Losa flotante armada a 40 cm",
+              "structure": "Bambú Guadua angustifolia tratado e inmunizado"
+            },
+            "images": [
+              "/api/images/model-a-render",
+              "/api/images/model-a-floorplan"
+            ],
+            "brochurePdfUrl": "#ficha-modelo-a",
+            "showPrice": true,
+            "active": true
+          },
+          {
+            "id": "modelo-b",
+            "name": "Modelo B - Villa Campestre",
+            "tagline": "Amplitud, confort integral y terraza perimetral extendida",
+            "areaM2": 125,
+            "priceUsd": 56250,
+            "pricePerM2Usd": 450,
+            "description": "Nuestra propuesta más espaciosa: 3 amplias habitaciones, 2 baños, sala-comedor a doble altura, cocina campestre y terraza perimetral de 20 m².",
+            "benefits": [
+              "3 habitaciones con clóset y ventilación andina",
+              "Terraza mirador de 20 m² techada en teja o cubierta liviana",
+              "Cocina campestre integrada con barra americana",
+              "Corredor perimetral de 360 grados",
+              "Estructura sismorresistente con uniones apernadas de alta ingeniería"
+            ],
+            "specs": {
+              "levels": 1,
+              "bedrooms": 3,
+              "bathrooms": 2,
+              "terraceM2": 20,
+              "foundation": "Losa flotante de concreto armado a 40 cm",
+              "structure": "Guadua estructural colombiana seleccionada"
+            },
+            "images": [
+              "/api/images/model-b-render",
+              "/api/images/model-b-floorplan"
+            ],
+            "brochurePdfUrl": "#ficha-modelo-b",
+            "showPrice": true,
+            "active": true
+          }
+        ],
+        "active": true
+      },
+      "customerProfiles": {
+        "title": "Una Oferta Diseñada para Cada Perfil",
+        "subtitle": "Tu Espacio Ideal según tus Metas de Vida e Inversión",
+        "profiles": [
+          {
+            "id": "p1",
+            "title": "Perfil Ecológico",
+            "subtitle": "Soberanía alimentaria y vida en contacto con la tierra",
+            "icon": "Leaf",
+            "benefits": [
+              "Espacios fértiles para cultivos andinos (café, hortalizas, fresas)",
+              "Huertos orgánicos y compostaje regenerativo",
+              "Cría avícola y producción autosuficiente",
+              "Armonía con la biodiversidad autóctona"
+            ],
+            "ctaText": "Quiero cultivar mi futuro",
+            "ctaAction": "#contacto?perfil=ecologico",
+            "active": true
+          },
+          {
+            "id": "p2",
+            "title": "Perfil Hogar y Familia",
+            "subtitle": "Paz mental, seguridad y crecimiento para los tuyos",
+            "icon": "HeartHandshake",
+            "benefits": [
+              "Entorno cerrado, privado y seguro 24/7",
+              "Caminerías perimetrales y áreas infantiles",
+              "Máxima calidad de vida lejos del estrés urbano",
+              "Espacios al aire libre para que los niños crezcan sanos"
+            ],
+            "ctaText": "Construir el hogar familiar",
+            "ctaAction": "#contacto?perfil=hogar",
+            "active": true
+          },
+          {
+            "id": "p3",
+            "title": "Perfil Inversionista",
+            "subtitle": "Patrimonio seguro, alta plusvalía y retorno turístico",
+            "icon": "TrendingUp",
+            "benefits": [
+              "Alta plusvalía proyectada por desarrollo del bulevar",
+              "Precio de preventa ultra-competitivo: 20 USD/m²",
+              "Proyecto pionero en arquitectura Guadua en los Andes",
+              "Potencial de alquiler vacacional y glamping ecológico"
+            ],
+            "ctaText": "Invertir en preventa",
+            "ctaAction": "#contacto?perfil=inversionista",
+            "active": true
+          }
+        ],
+        "active": true
+      },
+      "technicalAttributes": {
+        "title": "Ingeniería, Sostenibilidad y Compromiso Social",
+        "subtitle": "Rigor Constructivo, Preservación y Objetivos de la ONU",
+        "attributes": [
+          {
+            "id": "t1",
+            "title": "Ingeniería Sismorresistente",
+            "description": "Estructuras fabricadas en Bambú Guadua estructural importada de Colombia y concreto armado, con excelente flexibilidad y resistencia sísmica.",
+            "icon": "ShieldCheck",
+            "highlight": "Normas sísmicas venezolanas",
+            "active": true
+          },
+          {
+            "id": "t2",
+            "title": "Vialidad Ordenada y Delimitada",
+            "description": "Calles internas señalizadas e identificadas con estantillos y varetas blancas de estilo campestre, con anchuras de 8 y 10 metros.",
+            "icon": "Compass",
+            "highlight": "Estética rústica impecable",
+            "active": true
+          },
+          {
+            "id": "t3",
+            "title": "Infraestructura Comunal Completa",
+            "description": "Plazas arborizadas, parques infantiles seguros, canchas multiusos y salón de eventos comunitarios para el disfrute vecinal.",
+            "icon": "Users",
+            "highlight": "14.600 m² de esparcimiento",
+            "active": true
+          },
+          {
+            "id": "t4",
+            "title": "Cuidado y Protección Ambiental",
+            "description": "Cimentación aislada por pilotes y losas flotantes que minimizan el movimiento de tierras y preservan la flora y los árboles nativos.",
+            "icon": "Sprout",
+            "highlight": "Mínimo impacto ecológico",
+            "active": true
+          },
+          {
+            "id": "t5",
+            "title": "Régimen de Convivencia Rural",
+            "description": "Estatutos y normas internas claras para preservar la tranquilidad, la uniformidad estética de las viviendas y la armonía comunitaria.",
+            "icon": "FileText",
+            "highlight": "Convivencia garantizada",
+            "active": true
+          }
+        ],
+        "sdgs": [
+          {
+            "id": "sdg-2",
+            "number": 2,
+            "name": "Hambre Cero",
+            "description": "Promoción de la soberanía alimentaria con huertos familiares y mini-granjas autosustentables.",
+            "color": "#DDA63A"
+          },
+          {
+            "id": "sdg-11",
+            "number": 11,
+            "name": "Ciudades y Comunidades Sostenibles",
+            "description": "Urbanismo de baja densidad con bioconstrucción y materiales de baja huella de carbono.",
+            "color": "#FD9D24"
+          },
+          {
+            "id": "sdg-13",
+            "number": 13,
+            "name": "Acción por el Clima",
+            "description": "El bambú captura toneladas de CO2 durante su crecimiento y protege las cuencas hídricas locales.",
+            "color": "#3F7E44"
+          }
+        ],
+        "imageUrl": "/api/images/bamboo-structure",
+        "imageAlt": "Detalle constructivo de Guadua estructural y arquitectura ecológica",
+        "active": true
+      },
+      "salesFinancing": {
+        "title": "Planes de Venta & Compromiso Sostenible",
+        "subtitle": "Valor por Metro Cuadrado: USD 20,00",
+        "pricePerM2Usd": 20,
+        "modalities": [
+          {
+            "id": "m1",
+            "title": "1. Al Contado",
+            "description": "Pago del 100% a la firma del Contrato de opción a compra.",
+            "percentageInitial": 100,
+            "installments": 0,
+            "status": "Disponible",
+            "badge": "Sin recargos ni intereses",
+            "active": true
+          },
+          {
+            "id": "m2",
+            "title": "2. Financiamiento Propio",
+            "description": "Inicial del 50% al firmar contrato + 50% restante financiado directamente en 6 cuotas mensuales iguales y consecutivas.",
+            "percentageInitial": 50,
+            "installments": 6,
+            "status": "Disponible",
+            "badge": "Plan más popular",
+            "active": true
+          },
+          {
+            "id": "m3",
+            "title": "3. Financiamiento Bancario",
+            "description": "Modalidad en evaluación técnica para su pronta incorporación con entidades financieras aliadas.",
+            "percentageInitial": 30,
+            "installments": 24,
+            "status": "En evaluación",
+            "badge": "Próximamente",
+            "active": true
+          },
+          {
+            "id": "m4",
+            "title": "4. Otras Opciones Personalizadas",
+            "description": "Planteamientos flexibles evaluados directamente por el Comité Promotor en un plazo no mayor a 24 horas.",
+            "percentageInitial": 40,
+            "installments": 12,
+            "status": "Disponible",
+            "badge": "Respuesta en 24h",
+            "active": true
+          }
+        ],
+        "specialPromo": "Promoción especial para inversionistas por compras superiores a 3 Lotes con descuento preferencial directo.",
+        "legalNotice": "Todos los compradores deben someterse al Régimen de Convivencia interno para regular normas de construcción y preservación.",
+        "active": true
+      },
+      "socialImpact": {
+        "title": "El Gran Aporte Social: Bulevar de la Guadua",
+        "subtitle": "Urbanismo con Propósito y Retorno para la Comunidad Andina",
+        "description": "Los promotores ceden más de 14.600 m² de terreno para el disfrute público de la comunidad andina, asumiendo el 100 % de los costos de diseño arquitectónico, materiales certificados, mano de obra y mantenimiento continuo.",
+        "cededAreaM2": 14600,
+        "costCoveredPercentage": 100,
+        "publicEquipments": [
+          "Plazas públicas ajardinadas",
+          "Senderos peatonales y caminerías ecológicas",
+          "Iluminación vial integral de bajo consumo",
+          "Parques infantiles temáticos de madera y bambú",
+          "Canchas deportivas multiusos",
+          "Salón comunal para asambleas y actividades culturales"
+        ],
+        "promoterGuarantee": "La administración, aseo y seguridad del bulevar corren por cuenta del sector privado, sin costo ni cargas presupuestarias para el municipio. La Alcaldía recibirá un local en comodato por 10 años para servicios vecinales.",
+        "vision2030": "Ser el proyecto bandera de desarrollo urbano-rural sostenible en la región andina venezolana.",
+        "imageUrl": "/api/images/bulevar-guadua",
+        "imageAlt": "Render del Bulevar de la Guadua y espacios comunales integrados",
+        "active": true
+      },
+      "contactForm": {
+        "title": "Haz Realidad tu Casa de Campo",
+        "subtitle": "Nuestros asesores te brindarán atención personalizada y respuesta en menos de 24 horas.",
+        "badgeText": "Atención Personalizada en Menos de 24 Horas",
+        "directChannelsTitle": "Canales de Atención Directa",
+        "formTitle": "Solicita Información y Reserva",
+        "formSubtitle": "Completa este formulario para recibir el catálogo de lotes, planos de viviendas y ficha técnica oficial.",
+        "scheduleText": "Lunes a Sábado de 8:00 AM a 6:00 PM",
+        "whatsappSubtitle": "Chatea ahora con un asesor de ventas",
+        "emailSubtitle": "Para propuestas y acuerdos institucionales",
+        "directPhone": "+58-414-7114245",
+        "directWhatsapp": "+58-414-7114245",
+        "directEmail": "ventas@misdeliriosranch.com",
+        "directAddress": "Aldea Sabana Larga - Sector Salomón, Cordero, Municipio Andrés Bello, estado Táchira, Venezuela",
+        "submitButtonText": "Enviar solicitud de información",
+        "callButtonText": "Solicitar llamada inmediata",
+        "whatsappMessageTemplate": "¡Hola! Estoy interesado en el proyecto Mis Delirios Ranch en Cordero, Táchira. Quisiera recibir información sobre disponibilidad y planes de financiamiento.",
+        "successMessage": "¡Gracias por tu interés en Mis Delirios Ranch! Hemos recibido tus datos y un asesor se comunicará contigo en menos de 24 horas.",
+        "privacyPolicyText": "Acepto la política de privacidad y autorizo el tratamiento de mis datos con fines informativos sobre el proyecto Mis Delirios Ranch.",
+        "active": true
+      },
+      "footer": {
+        "legalNotice": "Proyecto en preventa. Precios sujetos a cambios sin previo aviso. Imágenes y renders arquitectónicos de referencia.",
+        "credits": {
+          "promoter": "Dr. Néstor Eduardo Depablos Mora",
+          "architect": "Arq. Indira Contreras",
+          "promoterCi": "C.I. V-5.685.149 / V-9.226.372 / V-11.509.606 / V-12.813.704",
+          "architectCiv": "C.I.V. 165.492"
+        },
+        "copyrightYear": 2025,
+        "quickLinks": [
+          {
+            "label": "Inicio",
+            "href": "#inicio"
+          },
+          {
+            "label": "Propuesta",
+            "href": "#propuesta"
+          },
+          {
+            "label": "Ubicación",
+            "href": "#ubicacion"
+          },
+          {
+            "label": "Plan Maestro",
+            "href": "#plan-maestro"
+          },
+          {
+            "label": "Modelos",
+            "href": "#modelos"
+          },
+          {
+            "label": "Perfiles",
+            "href": "#perfiles"
+          },
+          {
+            "label": "Financiamiento",
+            "href": "#financiamiento"
+          },
+          {
+            "label": "Impacto Social",
+            "href": "#impacto-social"
+          },
+          {
+            "label": "Contacto",
+            "href": "#contacto"
+          }
+        ],
+        "active": true
+      },
+      "seo": {
+        "metaTitle": "Mis Delirios Ranch - Complejo Urbanístico Agroproductivo y Turístico en Táchira",
+        "metaDescription": "Lotes en venta en Táchira desde 600 m² a 20 USD/m². Casas en Guadua sismorresistentes, mini-granjas autosustentables y bulevar público.",
+        "keywords": [
+          "Lotes en venta Táchira",
+          "Complejo agroproductivo",
+          "Casas en Guadua",
+          "Mis Delirios Ranch",
+          "Terrenos en Cordero",
+          "Bambú Guadua Venezuela",
+          "Mini granjas Táchira"
+        ],
+        "ogTitle": "Mis Delirios Ranch - Refugio y Tranquilidad Garantizada",
+        "ogDescription": "Complejo Urbanístico Agroproductivo y Turístico en el Corazón de los Andes (Cordero, Táchira). Preventa exclusiva desde 20 USD/m².",
+        "ogImage": "/api/images/hero-landscape",
+        "googleAnalyticsId": "G-DELIRIOS2025",
+        "metaPixelId": "",
+        "googleTagManagerId": ""
+      },
+      "lastUpdated": "2026-09-24T03:16:51.754Z",
+      "version": 6
+    }
+  },
+  {
     "timestamp": "2026-09-22T04:46:06.062Z",
     "version": 5,
     "note": "Test Sync",

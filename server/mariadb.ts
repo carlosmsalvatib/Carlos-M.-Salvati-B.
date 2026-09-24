@@ -566,6 +566,72 @@ export async function getMariaDbContent(): Promise<any | null> {
   return null;
 }
 
+/**
+ * Loads all CMS content by querying each granular section table in MariaDB,
+ * ensuring any changes made in individual section tables or global backup
+ * are completely unified and returned to the application.
+ */
+export async function getAllMariaDbContentMerged(fallbackContent: any): Promise<any> {
+  if (!pool) return fallbackContent;
+  try {
+    let merged = fallbackContent ? { ...fallbackContent } : {};
+
+    // 1. First, get base content from cms_content table (if exists)
+    const globalContent = await getMariaDbContent();
+    if (globalContent && typeof globalContent === 'object') {
+      merged = { ...merged, ...globalContent };
+    }
+
+    // 2. Fetch all individual section tables to ensure granular section updates take precedence
+    const sectionQueries = [
+      { key: 'site', table: 'cms_section_site' },
+      { key: 'hero', table: 'cms_section_hero' },
+      { key: 'valueProp', table: 'cms_section_value_prop' },
+      { key: 'location', table: 'cms_section_location' },
+      { key: 'masterPlan', table: 'cms_section_master_plan' },
+      { key: 'housingModels', table: 'cms_section_housing_models' },
+      { key: 'salesFinancing', table: 'cms_section_sales_financing' },
+      { key: 'socialImpact', table: 'cms_section_social_impact' },
+      { key: 'contactForm', table: 'cms_section_contact' },
+      { key: 'footer', table: 'cms_section_footer' },
+      { key: 'seo', table: 'cms_section_seo' },
+    ];
+
+    await Promise.all(
+      sectionQueries.map(async ({ key, table }) => {
+        try {
+          const [rows]: any = await pool!.query(`SELECT data_json FROM ${table} LIMIT 1;`);
+          if (rows && rows.length > 0 && rows[0].data_json) {
+            const parsed = JSON.parse(rows[0].data_json);
+            if (parsed && typeof parsed === 'object') {
+              merged[key] = parsed;
+            }
+          }
+        } catch (e: any) {
+          // Ignore individual table read error if table is not yet created
+        }
+      })
+    );
+
+    // 3. Housing models catalog from housing_models table
+    try {
+      const dbModels = await getMariaDbModels();
+      if (dbModels && Array.isArray(dbModels) && dbModels.length > 0) {
+        if (!merged.housingModels) {
+          merged.housingModels = { ...(fallbackContent?.housingModels || {}), models: dbModels };
+        } else {
+          merged.housingModels.models = dbModels;
+        }
+      }
+    } catch {}
+
+    return merged;
+  } catch (err: any) {
+    console.warn('[MariaDB] Error unificando contenido desde tablas:', err.message);
+    return fallbackContent;
+  }
+}
+
 export async function saveMariaDbContent(content: any, version = 1, note = ''): Promise<boolean> {
   if (!pool) return false;
   try {

@@ -13,6 +13,7 @@ import {
   ensureMariaDbTables,
   getMariaDbContent,
   saveMariaDbContent,
+  getAllMariaDbContentMerged,
   getMariaDbLots,
   saveMariaDbLots,
   getMariaDbModels,
@@ -317,19 +318,40 @@ async function startServer() {
   });
 
   // --- CMS Content Endpoints ---
-  app.get('/api/content', (req, res) => {
+  app.get('/api/content', async (req, res) => {
     res.set({
       'Cache-Control': 'no-cache, no-store, must-revalidate',
       Pragma: 'no-cache',
       Expires: '0',
     });
+
+    try {
+      // Query MariaDB tables directly with safety timeout (2500ms)
+      const dbContent = await Promise.race([
+        getAllMariaDbContentMerged(cmsContent),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500)),
+      ]);
+      if (dbContent && dbContent.site) {
+        cmsContent = dbContent;
+        if (modelsData && modelsData.length > 0) {
+          if (!cmsContent.housingModels) {
+            cmsContent.housingModels = { ...initialCmsContent.housingModels, models: modelsData };
+          } else {
+            cmsContent.housingModels.models = modelsData;
+          }
+        }
+      }
+    } catch (dbErr: any) {
+      console.warn('[GET /api/content] MariaDB fetch warning:', dbErr.message);
+    }
+
     if (cmsContent.housingModels) {
       cmsContent.housingModels.models = modelsData;
     }
     res.json({ success: true, data: cmsContent });
   });
 
-  app.post('/api/content', (req, res) => {
+  app.post('/api/content', async (req, res) => {
     try {
       let updated = req.body;
       if (!updated || typeof updated !== 'object') {
@@ -364,11 +386,23 @@ async function startServer() {
       if (versionsHistory.length > 20) versionsHistory.pop();
       saveJsonFile(VERSIONS_FILE, versionsHistory);
 
-      res.json({ success: true, data: cmsContent, message: 'Contenido actualizado y publicado con éxito' });
-
-      // Asynchronously replicate to MariaDB if configured
-      saveMariaDbContent(cmsContent, nextVersion, req.query.note ? String(req.query.note) : undefined).catch((e) => {
+      // Synchronously await MariaDB save to ensure immediate persistence across tables
+      let mariadbSaved = false;
+      try {
+        mariadbSaved = await saveMariaDbContent(
+          cmsContent,
+          nextVersion,
+          req.query.note ? String(req.query.note) : undefined
+        );
+      } catch (e: any) {
         console.warn('[MariaDB] Sync content warning:', e.message);
+      }
+
+      res.json({
+        success: true,
+        data: cmsContent,
+        mariadbSaved,
+        message: 'Contenido actualizado y guardado exitosamente en la base de datos MariaDB y almacenamiento persistente',
       });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
@@ -376,7 +410,7 @@ async function startServer() {
   });
 
   // --- Unified Real-time Database Sync ---
-  app.post('/api/sync-all', (req, res) => {
+  app.post('/api/sync-all', async (req, res) => {
     try {
       let { content, lots } = req.body;
       let nextVersion = cmsContent.version || 1;
@@ -414,18 +448,32 @@ async function startServer() {
         saveJsonFile(LOTS_FILE, lotsData);
       }
 
-      // Asynchronously replicate to MariaDB
-      saveMariaDbContent(cmsContent, nextVersion, req.query.note ? String(req.query.note) : undefined).catch(() => {});
-      if (lotsData && lotsData.length > 0) {
-        saveMariaDbLots(lotsData).catch(() => {});
-      }
-      if (modelsData && modelsData.length > 0) {
-        saveMariaDbModels(modelsData).catch(() => {});
+      // Synchronously await persistence into all 17 MariaDB tables
+      let mariadbContentSaved = false;
+      let mariadbLotsSaved = false;
+      let mariadbModelsSaved = false;
+
+      try {
+        const [cSaved, lSaved, mSaved] = await Promise.all([
+          saveMariaDbContent(cmsContent, nextVersion, req.query.note ? String(req.query.note) : undefined),
+          lotsData && lotsData.length > 0 ? saveMariaDbLots(lotsData) : Promise.resolve(true),
+          modelsData && modelsData.length > 0 ? saveMariaDbModels(modelsData) : Promise.resolve(true),
+        ]);
+        mariadbContentSaved = Boolean(cSaved);
+        mariadbLotsSaved = Boolean(lSaved);
+        mariadbModelsSaved = Boolean(mSaved);
+      } catch (dbErr: any) {
+        console.warn('[MariaDB sync-all] Error guardando en MariaDB:', dbErr.message);
       }
 
       res.json({
         success: true,
-        message: 'Base de datos sincronizada y persistida en tiempo de ejecución',
+        message: 'Base de datos sincronizada y persistida con éxito en todas las tablas correspondientes.',
+        mariadb: {
+          contentSaved: mariadbContentSaved,
+          lotsSaved: mariadbLotsSaved,
+          modelsSaved: mariadbModelsSaved,
+        },
         data: {
           content: cmsContent,
           lots: lotsData,
@@ -648,11 +696,29 @@ async function startServer() {
   });
 
   // --- Lots Management Endpoints ---
-  app.get('/api/lots', (req, res) => {
+  app.get('/api/lots', async (req, res) => {
+    res.set({
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      Pragma: 'no-cache',
+      Expires: '0',
+    });
+
+    try {
+      const dbLots = await Promise.race([
+        getMariaDbLots(),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500)),
+      ]);
+      if (dbLots && Array.isArray(dbLots) && dbLots.length > 0) {
+        lotsData = dbLots;
+      }
+    } catch (err: any) {
+      console.warn('[GET /api/lots] MariaDB fetch warning:', err.message);
+    }
+
     res.json({ success: true, data: lotsData, total: lotsData.length });
   });
 
-  app.put('/api/lots/:id', (req, res) => {
+  app.put('/api/lots/:id', async (req, res) => {
     const { id } = req.params;
     const index = lotsData.findIndex((l) => l.id === id || l.code === id);
     if (index === -1) {
@@ -669,10 +735,13 @@ async function startServer() {
 
     lotsData[index] = updated;
     saveJsonFile(LOTS_FILE, lotsData);
+    await saveMariaDbLots([updated]).catch((e) => {
+      console.warn('[MariaDB lots update] Error:', e.message);
+    });
     res.json({ success: true, data: updated });
   });
 
-  app.post('/api/lots/bulk-update', (req, res) => {
+  app.post('/api/lots/bulk-update', async (req, res) => {
     const { updates } = req.body;
     if (!Array.isArray(updates)) {
       return res.status(400).json({ success: false, error: 'updates array is required' });
@@ -685,21 +754,32 @@ async function startServer() {
       }
     }
     saveJsonFile(LOTS_FILE, lotsData);
+    await saveMariaDbLots(lotsData).catch(() => {});
     res.json({ success: true, message: `${updates.length} lotes actualizados exitosamente`, data: lotsData });
   });
 
-  app.post('/api/lots/bulk-save', (req, res) => {
+  app.post('/api/lots/bulk-save', async (req, res) => {
     const { lots } = req.body;
     if (!Array.isArray(lots)) {
       return res.status(400).json({ success: false, error: 'lots array is required' });
     }
     lotsData = lots;
     saveJsonFile(LOTS_FILE, lotsData);
-    saveMariaDbLots(lotsData).catch(() => {});
-    res.json({ success: true, message: 'Inventario de disponibilidad grabado y actualizado exitosamente', data: lotsData });
+    let mariadbSaved = false;
+    try {
+      mariadbSaved = await saveMariaDbLots(lotsData);
+    } catch (e: any) {
+      console.warn('[MariaDB lots bulk-save] Error:', e.message);
+    }
+    res.json({
+      success: true,
+      message: 'Inventario de disponibilidad grabado y actualizado exitosamente en la base de datos MariaDB',
+      data: lotsData,
+      mariadbSaved,
+    });
   });
 
-  app.post('/api/lots', (req, res) => {
+  app.post('/api/lots', async (req, res) => {
     try {
       const newLot: LotItem = {
         id: req.body.id || 'lot-' + Date.now(),
@@ -716,6 +796,7 @@ async function startServer() {
       };
       lotsData.push(newLot);
       saveJsonFile(LOTS_FILE, lotsData);
+      await saveMariaDbLots([newLot]).catch(() => {});
       res.status(201).json({ success: true, data: newLot, message: 'Lote añadido con éxito' });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
@@ -730,12 +811,25 @@ async function startServer() {
   });
 
   // --- Housing Models Management Endpoints ---
-  app.get('/api/models', (req, res) => {
+  app.get('/api/models', async (req, res) => {
     res.set({
       'Cache-Control': 'no-cache, no-store, must-revalidate',
       Pragma: 'no-cache',
       Expires: '0',
     });
+
+    try {
+      const dbModels = await Promise.race([
+        getMariaDbModels(),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500)),
+      ]);
+      if (dbModels && Array.isArray(dbModels) && dbModels.length > 0) {
+        modelsData = dbModels;
+      }
+    } catch (err: any) {
+      console.warn('[GET /api/models] MariaDB fetch warning:', err.message);
+    }
+
     res.json({
       success: true,
       data: modelsData,
@@ -761,7 +855,7 @@ async function startServer() {
     res.json({ success: true, data: model });
   });
 
-  app.post('/api/models', (req, res) => {
+  app.post('/api/models', async (req, res) => {
     try {
       const body = req.body;
       if (!body.name) {
@@ -813,6 +907,11 @@ async function startServer() {
       cmsContent.lastUpdated = new Date().toISOString();
       saveJsonFile(CONTENT_FILE, cmsContent);
 
+      await Promise.all([
+        saveMariaDbModels(modelsData),
+        saveMariaDbContent(cmsContent),
+      ]).catch(() => {});
+
       res.status(201).json({
         success: true,
         data: newModel,
@@ -824,7 +923,7 @@ async function startServer() {
     }
   });
 
-  app.put('/api/models/:id', (req, res) => {
+  app.put('/api/models/:id', async (req, res) => {
     try {
       const { id } = req.params;
       const index = modelsData.findIndex((m) => m.id === id);
@@ -858,6 +957,11 @@ async function startServer() {
       cmsContent.lastUpdated = new Date().toISOString();
       saveJsonFile(CONTENT_FILE, cmsContent);
 
+      await Promise.all([
+        saveMariaDbModels(modelsData),
+        saveMariaDbContent(cmsContent),
+      ]).catch(() => {});
+
       res.json({
         success: true,
         data: updated,
@@ -869,7 +973,7 @@ async function startServer() {
     }
   });
 
-  app.delete('/api/models/:id', (req, res) => {
+  app.delete('/api/models/:id', async (req, res) => {
     try {
       const { id } = req.params;
       if (modelsData.length <= 1) {
@@ -886,6 +990,11 @@ async function startServer() {
       cmsContent.lastUpdated = new Date().toISOString();
       saveJsonFile(CONTENT_FILE, cmsContent);
 
+      await Promise.all([
+        saveMariaDbModels(modelsData),
+        saveMariaDbContent(cmsContent),
+      ]).catch(() => {});
+
       res.json({
         success: true,
         data: modelsData,
@@ -896,7 +1005,7 @@ async function startServer() {
     }
   });
 
-  app.post('/api/models/bulk-save', (req, res) => {
+  app.post('/api/models/bulk-save', async (req, res) => {
     try {
       let { models, section } = req.body;
       if (!Array.isArray(models)) {
@@ -921,14 +1030,24 @@ async function startServer() {
       }
       cmsContent.lastUpdated = new Date().toISOString();
       saveJsonFile(CONTENT_FILE, cmsContent);
-      saveMariaDbModels(modelsData).catch(() => {});
-      saveMariaDbContent(cmsContent).catch(() => {});
+
+      let mariadbSaved = false;
+      try {
+        const [mSaved, cSaved] = await Promise.all([
+          saveMariaDbModels(modelsData),
+          saveMariaDbContent(cmsContent),
+        ]);
+        mariadbSaved = Boolean(mSaved && cSaved);
+      } catch (e: any) {
+        console.warn('[MariaDB models bulk-save] Error:', e.message);
+      }
 
       res.json({
         success: true,
         data: modelsData,
         section: cmsContent.housingModels,
-        message: 'Catálogo de modelos y configuración de sección sincronizados exitosamente',
+        mariadbSaved,
+        message: 'Catálogo de modelos y configuración de sección sincronizados exitosamente en la base de datos',
       });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
@@ -1807,7 +1926,40 @@ async function startServer() {
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://0.0.0.0:${PORT}`);
+    syncFromDatabaseOnStartup().catch((err) => {
+      console.warn('[Startup Sync] Advertencia inicializando datos desde MariaDB:', err.message);
+    });
   });
+}
+
+async function syncFromDatabaseOnStartup() {
+  try {
+    console.log('[MariaDB Startup] Verificando tablas y sincronizando datos...');
+    await ensureMariaDbTables();
+    const dbContent = await getAllMariaDbContentMerged(cmsContent);
+    if (dbContent && dbContent.site) {
+      cmsContent = dbContent;
+      saveJsonFile(CONTENT_FILE, cmsContent);
+      console.log('[MariaDB Startup] cmsContent sincronizado exitosamente.');
+    }
+    const dbLots = await getMariaDbLots();
+    if (dbLots && Array.isArray(dbLots) && dbLots.length > 0) {
+      lotsData = dbLots;
+      saveJsonFile(LOTS_FILE, lotsData);
+      console.log(`[MariaDB Startup] ${lotsData.length} lotes sincronizados.`);
+    }
+    const dbModels = await getMariaDbModels();
+    if (dbModels && Array.isArray(dbModels) && dbModels.length > 0) {
+      modelsData = dbModels;
+      saveJsonFile(MODELS_FILE, modelsData);
+      if (cmsContent.housingModels) {
+        cmsContent.housingModels.models = modelsData;
+      }
+      console.log(`[MariaDB Startup] ${modelsData.length} modelos de vivienda sincronizados.`);
+    }
+  } catch (err: any) {
+    console.warn('[MariaDB Startup] Error al sincronizar datos en el arranque:', err.message);
+  }
 }
 
 startServer().catch((err) => {

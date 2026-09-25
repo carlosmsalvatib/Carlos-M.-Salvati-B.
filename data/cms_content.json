@@ -30,73 +30,40 @@
   "valueProp": {
     "title": "Un Modelo de Desarrollo Sostenible e Innovación Arquitectónica",
     "subtitle": "Fusión de Tradición, Tecnología y Respeto por la Naturaleza",
-    "description": "Mis Delirios Ranch fusiona la riqueza tradicional del campo andino con una vanguardista arquitectura ecológica basada en Bambú Guadua. Ubicado estratégicamente a tan solo 30 minutos de San Cristóbal y a 5 minutos del casco urbano de Cordero, ofrece un hábitat autosustentable de baja densidad, seguridad perimetral y soberanía alimentaria en un microclima privilegiado de montaña.",
+    "description": "Mis Delirios Ranch fusiona la riqueza tradicional del campo andino con una vanguardista arquitectura ecológica basada en Bambú Guadua.",
     "imageUrl": "/api/images/real-terrain",
     "imageAlt": "Fotografía real del terreno en Sabana Larga y Cordero, Táchira",
+    "active": true,
+    "columnsCount": 4,
     "videos": [
       {
         "id": "vid-1",
         "title": "Recorrido Arquitectónico 3D & Vuelo Aéreo - Mis Delirios Ranch",
-        "videoUrl": "https://www.youtube.com/embed/1La4QzGeaaQ",
-        "url": "https://www.youtube.com/embed/1La4QzGeaaQ",
-        "posterUrl": "/api/images/real-terrain",
-        "thumbnailUrl": "/api/images/real-terrain",
         "description": "Vuelo aéreo simulado y perspectivas del valle andino en Sabana Larga y Cordero.",
+        "url": "/api/uploads/video-2026-09-20-17-32-17-3-mp4-1790278686374-sp7v0.mp4",
+        "videoUrl": "/api/uploads/video-2026-09-20-17-32-17-3-mp4-1790278686374-sp7v0.mp4",
         "duration": "2:30",
         "videoType": "render_3d"
       },
       {
         "id": "vid-2",
         "title": "Bioconstrucción Sismorresistente en Bambú Guadua",
-        "videoUrl": "https://www.youtube.com/embed/kK_UjBmHqQw",
-        "url": "https://www.youtube.com/embed/kK_UjBmHqQw",
-        "posterUrl": "/api/images/bamboo-structure",
-        "thumbnailUrl": "/api/images/bamboo-structure",
         "description": "Estructuras arquitectónicas en bambú certificado, losas flotantes y diseño bioclimático.",
+        "url": "/api/uploads/video-2026-09-20-17-32-17-4-mp4-1790278871253-wri0d.mp4",
+        "videoUrl": "/api/uploads/video-2026-09-20-17-32-17-4-mp4-1790278871253-wri0d.mp4",
         "duration": "3:15",
         "videoType": "bioconstruccion"
       },
       {
         "id": "vid-3",
         "title": "Entorno Campestre, Neblina y Mini-granjas Productivas",
-        "videoUrl": "https://www.youtube.com/embed/LXb3EKWsInQ",
-        "url": "https://www.youtube.com/embed/LXb3EKWsInQ",
-        "posterUrl": "/api/images/hero-landscape",
-        "thumbnailUrl": "/api/images/hero-landscape",
         "description": "Microclima templado de 18°C-22°C, vegetación exhuberante y conexión con la naturaleza.",
+        "url": "https://www.youtube.com/embed/LXb3EKWsInQ",
+        "videoUrl": "https://www.youtube.com/embed/LXb3EKWsInQ",
         "duration": "1:50",
         "videoType": "dron_aereo"
       }
-    ],
-    "selectedVideoId": "vid-1",
-    "benefits": [
-      {
-        "id": "b1",
-        "title": "Mini-granjas desde 600 m²",
-        "description": "Lotes amplios pensados para cultivos andinos, huertos orgánicos familiares y cría avícola autosustentable.",
-        "icon": "Sprout"
-      },
-      {
-        "id": "b2",
-        "title": "Construcción sismorresistente en Guadua",
-        "description": "Viviendas en bambú estructural certificado sobre losa flotante de concreto a 40 cm, resistentes y ecológicas.",
-        "icon": "Home"
-      },
-      {
-        "id": "b3",
-        "title": "57 lotes residenciales y productivos",
-        "description": "Comunidad planificada de baja densidad que garantiza privacidad, alta plusvalía y respeto ambiental.",
-        "icon": "Grid"
-      },
-      {
-        "id": "b4",
-        "title": "Más de 14.600 m² de áreas públicas",
-        "description": "Bulevar ecológico con plazas, parques infantiles, canchas deportivas multiusos y salón comunal.",
-        "icon": "Trees"
-      }
-    ],
-    "columnsCount": 4,
-    "active": true
+    ]
   },
   "location": {
     "title": "La Ruta de la Montaña y la Neblina",
@@ -210,20 +177,12 @@
     "priceNotice": "Precios de preventa sujetos a ajustes según disponibilidad y avance de obra. Cuota calculada a razón de 450 USD/m² de construcción.",
     "models": [
       {
-        "specs": {
-          "foundation": "Losa flotante armada a 40 cm",
-          "levels": 1,
-          "bathrooms": 2,
-          "bedrooms": 2,
-          "structure": "Bambú Guadua angustifolia tratado e inmunizado",
-          "terraceM2": 15
-        },
-        "images": [
-          "/api/uploads/archivo-1790220156415-wavz5.jpg",
-          "/api/uploads/archivo-1790220156356-43la8.jpg"
-        ],
-        "id": "modelo-a",
-        "pricePerM2Usd": 450,
+        "brochurePdfUrl": "#ficha-modelo-a",
+        "name": "Casa Modelo A ",
+        "priceUsd": 40500,
+        "areaM2": 90,
+        "active": true,
+        "showPrice": true,
         "benefits": [
           "Terrazas mirador con vistas a la cordillera",
           "Ventilación cruzada que asegura frescura natural",
@@ -231,32 +190,32 @@
           "Corredor perimetral con aleros generosos",
           "Losa flotante de concreto a 40 cm de protección hídrica"
         ],
-        "description": "Vivienda compacta y eficiente de un solo nivel. Posee 2 a 3 habitaciones, 2 baños completos, área social abierta y terraza con vistas panorámicas.",
-        "brochurePdfUrl": "#ficha-modelo-a",
-        "name": "Casa Modelo A ",
-        "areaM2": 90,
         "tagline": "Ideal para descanso familiar y fines de semana",
-        "priceUsd": 40500,
-        "active": true,
-        "showPrice": true
+        "pricePerM2Usd": 450,
+        "id": "modelo-a",
+        "specs": {
+          "foundation": "Losa flotante armada a 40 cm",
+          "bedrooms": 2,
+          "bathrooms": 2,
+          "levels": 1,
+          "terraceM2": 15,
+          "structure": "Bambú Guadua angustifolia tratado e inmunizado"
+        },
+        "images": [
+          "/api/uploads/archivo-1790220156415-wavz5.jpg",
+          "/api/uploads/archivo-1790220156356-43la8.jpg"
+        ],
+        "description": "Vivienda compacta y eficiente de un solo nivel. Posee 2 a 3 habitaciones, 2 baños completos, área social abierta y terraza con vistas panorámicas."
       },
       {
-        "id": "modelo-b",
         "priceUsd": 56250,
+        "tagline": "Amplitud, confort integral y terraza perimetral extendida",
         "description": "Nuestra propuesta más espaciosa: 3 amplias habitaciones, 2 baños, sala-comedor a doble altura, cocina campestre y terraza perimetral de 20 m².",
-        "active": true,
-        "pricePerM2Usd": 450,
-        "showPrice": true,
-        "areaM2": 125,
-        "specs": {
-          "bathrooms": 2,
-          "terraceM2": 20,
-          "levels": 1,
-          "structure": "Guadua estructural colombiana seleccionada",
-          "bedrooms": 3,
-          "foundation": "Losa flotante de concreto armado a 40 cm"
-        },
-        "brochurePdfUrl": "#ficha-modelo-b",
+        "id": "modelo-b",
+        "images": [
+          "/api/uploads/archivo-1790220156353-elefv.jpg",
+          "/api/uploads/archivo-1790220156489-vt54p.png"
+        ],
         "benefits": [
           "3 habitaciones con clóset y ventilación andina",
           "Terraza mirador de 20 m² techada en teja o cubierta liviana",
@@ -264,12 +223,20 @@
           "Corredor perimetral de 360 grados",
           "Estructura sismorresistente con uniones apernadas de alta ingeniería"
         ],
-        "images": [
-          "/api/uploads/archivo-1790220156353-elefv.jpg",
-          "/api/uploads/archivo-1790220156489-vt54p.png"
-        ],
+        "brochurePdfUrl": "#ficha-modelo-b",
         "name": "Casa Modelo B ",
-        "tagline": "Amplitud, confort integral y terraza perimetral extendida"
+        "showPrice": true,
+        "areaM2": 125,
+        "active": true,
+        "pricePerM2Usd": 450,
+        "specs": {
+          "terraceM2": 20,
+          "structure": "Guadua estructural colombiana seleccionada",
+          "foundation": "Losa flotante de concreto armado a 40 cm",
+          "bathrooms": 2,
+          "bedrooms": 3,
+          "levels": 1
+        }
       }
     ],
     "active": true
@@ -557,6 +524,6 @@
     "metaPixelId": "",
     "googleTagManagerId": ""
   },
-  "lastUpdated": "2026-09-24T05:51:41.742Z",
-  "version": 13
+  "lastUpdated": "2026-09-25T01:03:01.748Z",
+  "version": 23
 }

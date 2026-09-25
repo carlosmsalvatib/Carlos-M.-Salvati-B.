@@ -612,23 +612,37 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(cleanValueProp),
       });
-      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const errorJson = await res.json().catch(() => ({}));
+        throw new Error(errorJson.error || `Error del servidor HTTP ${res.status}`);
+      }
 
-      // 2. Update local state & parent immediately
+      // 2. Full synchronization with MariaDB all 17 tables and Firebase Cloud
+      const result = await saveAllCmsAndLots(
+        updatedFormData,
+        localLots,
+        'Actualización Propuesta de Valor & Renders'
+      );
+      if (result && result.content) {
+        setFormData(result.content);
+        onContentUpdated(result.content);
+      }
+
+      // 3. Update local state & parent immediately
       saveLocalCache(updatedFormData);
       onContentUpdated(updatedFormData);
 
-      // 3. Dispatch real-time DOM update event
+      // 4. Dispatch real-time DOM update event
       window.dispatchEvent(
         new CustomEvent('mdr_data_updated', {
           detail: { content: updatedFormData, lots: localLots, timestamp: Date.now() },
         })
       );
 
-      // 4. Background full sync to ensure Firebase & all secondary backups
-      saveAllCmsAndLots(updatedFormData, localLots, 'Actualización rápida Propuesta de Valor').catch(() => {});
-
-      alert('✅ ¡Cambios de la Propuesta de Valor guardados exitosamente!\n\nLos títulos, videos, fotografías y pilares se han sincronizado con la base de datos MariaDB y ya están visibles en la Web.');
+      alert(
+        '✅ ¡Cambios de la Propuesta de Valor guardados exitosamente!\n\n' +
+        `Los títulos, videos render (${cleanValueProp.videos?.length || 0}), fotografías y pilares se han grabado y sincronizado permanentemente en la Base de Datos MariaDB y Firebase Cloud.`
+      );
     } catch (err: any) {
       console.error('Error guardando propuesta:', err);
       alert('Error guardando sección Propuesta: ' + (err.message || err));

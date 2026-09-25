@@ -42,7 +42,8 @@ export const ValuePropSection: React.FC<ValuePropSectionProps> = ({
             id: 'video-render-1',
             title: 'Recorrido Arquitectónico 3D · Mis Delirios Ranch',
             description: 'Paseo virtual panorámico por el complejo, vialidades comunales y bulevar de la Guadua.',
-            url: 'https://assets.mixkit.co/videos/preview/mixkit-flying-over-a-green-mountain-valley-41004-large.mp4',
+            url: 'https://www.youtube.com/embed/LXb3EKWsInQ',
+            videoUrl: 'https://www.youtube.com/embed/LXb3EKWsInQ',
             videoType: 'render_3d',
             duration: '01:45',
           },
@@ -50,7 +51,8 @@ export const ValuePropSection: React.FC<ValuePropSectionProps> = ({
             id: 'video-render-2',
             title: 'Vuelo de Dron & Renders sobre Terreno Real',
             description: 'Sobrevolando la topografía suave de Sabana Larga con integración de modelos de casas en bambú.',
-            url: 'https://assets.mixkit.co/videos/preview/mixkit-pine-trees-in-a-forest-on-a-windy-day-41005-large.mp4',
+            url: '/api/uploads/default_video.mp4',
+            videoUrl: '/api/uploads/default_video.mp4',
             videoType: 'dron_aereo',
             duration: '02:10',
           },
@@ -58,17 +60,32 @@ export const ValuePropSection: React.FC<ValuePropSectionProps> = ({
             id: 'video-render-3',
             title: 'Bioconstrucción Sismorresistente en Bambú Guadua',
             description: 'Animación estructural de losa flotante de concreto a 40 cm y columnas de Guadua angustifolia.',
-            url: 'https://assets.mixkit.co/videos/preview/mixkit-river-surrounded-by-trees-in-a-forest-41006-large.mp4',
+            url: 'https://www.youtube.com/embed/LXb3EKWsInQ',
+            videoUrl: 'https://www.youtube.com/embed/LXb3EKWsInQ',
             videoType: 'bioconstruccion',
             duration: '01:30',
           },
         ];
 
-  const [selectedVideoIndex, setSelectedVideoIndex] = useState<number>(0);
+  const initialIndex = React.useMemo(() => {
+    if (valueProp.selectedVideoId && videos.length > 0) {
+      const idx = videos.findIndex((v) => v.id === valueProp.selectedVideoId);
+      if (idx !== -1) return idx;
+    }
+    return 0;
+  }, [valueProp.selectedVideoId, videos]);
+
+  const [selectedVideoIndex, setSelectedVideoIndex] = useState<number>(initialIndex);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [videoError, setVideoError] = useState<boolean>(false);
   const [videoProxyAttempt, setVideoProxyAttempt] = useState<boolean>(false);
   const [activeMediaTab, setActiveMediaTab] = useState<'video' | 'foto'>('video');
+
+  React.useEffect(() => {
+    if (initialIndex !== selectedVideoIndex && !isPlaying) {
+      setSelectedVideoIndex(initialIndex);
+    }
+  }, [initialIndex]);
 
   const switchVideo = (index: number) => {
     setSelectedVideoIndex(index);
@@ -251,6 +268,7 @@ export const ValuePropSection: React.FC<ValuePropSectionProps> = ({
                         controls
                         autoPlay
                         playsInline
+                        preload="auto"
                         onError={() => {
                           if (
                             !videoProxyAttempt &&
@@ -265,7 +283,6 @@ export const ValuePropSection: React.FC<ValuePropSectionProps> = ({
                         }}
                         className="w-full h-full object-cover"
                       >
-                        <source src={videoSourceUrl} type="video/mp4" />
                         Tu navegador no soporta la reproducción de video HTML5.
                       </video>
                     )

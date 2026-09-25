@@ -144,6 +144,7 @@ export const MariaDbCmsTab: React.FC<MariaDbCmsTabProps> = ({ onRefreshCms }) =>
       setTestResult(result);
       if (result.success) {
         loadStatus();
+        loadSectionsStatus();
       }
     } catch (err: any) {
       setTestResult({

@@ -61,7 +61,7 @@ export const MariaDbCmsTab: React.FC<MariaDbCmsTabProps> = ({ onRefreshCms }) =>
   const [host, setHost] = useState('45.79.40.132');
   const [port, setPort] = useState(3306);
   const [user, setUser] = useState('siacecom_aapu');
-  const [password, setPassword] = useState('Admin21aapu');
+  const [password, setPassword] = useState('Admin2104aapu*');
   const [database, setDatabase] = useState('siacecom_misdelirios');
   const [enabled, setEnabled] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
@@ -77,13 +77,13 @@ export const MariaDbCmsTab: React.FC<MariaDbCmsTabProps> = ({ onRefreshCms }) =>
       setHost('45.79.40.132');
       setPort(3306);
       setUser('siacecom_aapu');
-      setPassword('Admin21aapu');
+      setPassword('Admin2104aapu*');
       setDatabase('siacecom_misdelirios');
     } else {
-      setHost('misdelirios.360siace.com');
+      setHost('www.360siace.com');
       setPort(3306);
       setUser('siacecom_aapu');
-      setPassword('Admin21aapu');
+      setPassword('Admin2104aapu*');
       setDatabase('siacecom_misdelirios');
     }
   };
@@ -719,7 +719,7 @@ export const MariaDbCmsTab: React.FC<MariaDbCmsTabProps> = ({ onRefreshCms }) =>
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Admin21aapu"
+                  placeholder="Admin2104aapu*"
                   className="w-full bg-stone-950 border border-stone-800 rounded-xl px-3.5 py-2 pr-16 text-xs text-stone-100 focus:border-amber-500 focus:outline-none font-mono"
                   required
                 />

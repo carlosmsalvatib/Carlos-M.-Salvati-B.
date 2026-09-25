@@ -39,7 +39,7 @@ const defaultConfig: MariaDbConfig = {
   host: cleanEnvHost || '45.79.40.132',
   port: Number(process.env.MARIADB_PORT) || 3306,
   user: process.env.MARIADB_USER || 'siacecom_aapu',
-  password: process.env.MARIADB_PASSWORD || 'Admin21aapu',
+  password: process.env.MARIADB_PASSWORD || 'Admin2104aapu*',
   database: process.env.MARIADB_DATABASE || 'siacecom_misdelirios',
   enabled: true,
 };
@@ -125,20 +125,22 @@ function loadSavedConfig(): MariaDbConfig {
     console.info('[MariaDB Info] Leyendo configuración por defecto.');
   }
 
-  // Secrets from environment variables take priority or provide secure defaults
-  if (saved.password === 'Aapu2104MD..') {
-    saved.password = 'Admin21aapu';
+  // Environment variables from SECRETS always take priority if present
+  if (!saved.password || saved.password === 'Aapu2104MD..' || saved.password === 'Admin21aapu' || saved.password === 'Admin21aapu*') {
+    saved.password = process.env.MARIADB_PASSWORD || 'Admin2104aapu*';
   }
-  const rawTargetHost = saved.host || process.env.MARIADB_HOST || defaultConfig.host;
-  const rawPassword = saved.password || process.env.MARIADB_PASSWORD || defaultConfig.password || 'Admin21aapu';
+  const rawTargetHost = process.env.MARIADB_HOST || saved.host || defaultConfig.host;
+  const rawPort = process.env.MARIADB_PORT || saved.port || defaultConfig.port;
+  const rawUser = process.env.MARIADB_USER || saved.user || defaultConfig.user;
+  const rawPassword = process.env.MARIADB_PASSWORD || saved.password || defaultConfig.password || 'Admin2104aapu*';
   const cleanPassword = String(rawPassword).trim();
 
   const merged: MariaDbConfig = {
-    host: resolveEffectiveHost(rawTargetHost),
-    port: Number(saved.port || process.env.MARIADB_PORT || defaultConfig.port),
-    user: String(saved.user || process.env.MARIADB_USER || defaultConfig.user).trim(),
+    host: resolveEffectiveHost(String(rawTargetHost)),
+    port: Number(rawPort),
+    user: String(rawUser).trim(),
     password: cleanPassword,
-    database: String(saved.database || process.env.MARIADB_DATABASE || defaultConfig.database).trim(),
+    database: String(process.env.MARIADB_DATABASE || saved.database || defaultConfig.database).trim(),
     enabled: saved.enabled !== undefined ? saved.enabled : defaultConfig.enabled,
   };
 
@@ -235,8 +237,8 @@ export async function testMariaDbConnection(configOverride?: Partial<MariaDbConf
   if (cfg.host) {
     cfg.host = resolveEffectiveHost(cfg.host);
   }
-  if (!cfg.password || cfg.password === 'Aapu2104MD..') {
-    cfg.password = 'Admin21aapu';
+  if (!cfg.password || cfg.password === 'Aapu2104MD..' || cfg.password === 'Admin21aapu' || cfg.password === 'Admin21aapu*') {
+    cfg.password = process.env.MARIADB_PASSWORD || 'Admin2104aapu*';
   }
   try {
     // First try connecting with database specified
@@ -251,14 +253,15 @@ export async function testMariaDbConnection(configOverride?: Partial<MariaDbConf
         connectTimeout: 3000,
       });
     } catch (dbErr: any) {
+      const fallbackPw = process.env.MARIADB_PASSWORD || 'Admin2104aapu*';
       // If access denied with override password, try valid default
-      if (dbErr.code === 'ER_ACCESS_DENIED_ERROR' && cfg.password !== 'Admin21aapu') {
-        cfg.password = 'Admin21aapu';
+      if (dbErr.code === 'ER_ACCESS_DENIED_ERROR' && cfg.password !== fallbackPw) {
+        cfg.password = fallbackPw;
         connection = await mysql.createConnection({
           host: cfg.host,
           port: cfg.port,
           user: cfg.user,
-          password: 'Admin21aapu',
+          password: fallbackPw,
           database: cfg.database,
           connectTimeout: 3000,
         });

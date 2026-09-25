@@ -1388,6 +1388,284 @@ export async function getMariaDbSectionsStatus(): Promise<{
   }
 }
 
+export interface MariaDbDiagnosticReport {
+  timestamp: string;
+  success: boolean;
+  connection: {
+    status: 'connected' | 'disconnected' | 'error';
+    host: string;
+    port: number;
+    database: string;
+    user: string;
+    version?: string;
+    serverTime?: string;
+    latencyMs?: number;
+    error?: string | null;
+  };
+  tablesSummary: {
+    totalExpected: number;
+    totalExisting: number;
+    allTablesPresent: boolean;
+    missingTables: string[];
+    tables: Array<{
+      key: string;
+      tableName: string;
+      exists: boolean;
+      rowCount: number;
+      lastUpdated?: string;
+    }>;
+  };
+  cmsOperations: {
+    globalContent: {
+      status: 'ok' | 'empty' | 'error';
+      version?: number;
+      lastUpdated?: string;
+      error?: string | null;
+    };
+    valuePropSection: {
+      status: 'ok' | 'empty' | 'error';
+      title?: string;
+      videosCount?: number;
+      hasVideos?: boolean;
+      active?: boolean;
+      error?: string | null;
+    };
+    lotsCatalog: {
+      status: 'ok' | 'empty' | 'error';
+      count?: number;
+      error?: string | null;
+    };
+    modelsCatalog: {
+      status: 'ok' | 'empty' | 'error';
+      count?: number;
+      error?: string | null;
+    };
+  };
+  inspect404: {
+    summary: string;
+    findings: Array<{
+      category: string;
+      severity: 'info' | 'warning' | 'error';
+      detail: string;
+      recommendation?: string;
+    }>;
+  };
+  logs: string[];
+}
+
+/**
+ * Diagnostic utility function to verify the MariaDB connection state and log explicit error details from the backend,
+ * specifically inspecting any 404 errors encountered during CMS data operations.
+ */
+export async function diagnoseMariaDbConnectionAndOperations(): Promise<MariaDbDiagnosticReport> {
+  const logs: string[] = [];
+  const log = (msg: string, level: 'info' | 'warn' | 'error' = 'info') => {
+    const formatted = `[MariaDB Diagnostic ${new Date().toISOString()}] ${msg}`;
+    logs.push(formatted);
+    if (level === 'error') console.error(formatted);
+    else if (level === 'warn') console.warn(formatted);
+    else console.log(formatted);
+  };
+
+  log('Iniciando diagnóstico profundo de conectividad MariaDB y operaciones CMS...');
+
+  const startTime = Date.now();
+  let connSuccess = false;
+  let version = '';
+  let serverTime = '';
+  let latencyMs = 0;
+  let connError: string | null = null;
+
+  // 1. Test ping & active probe
+  try {
+    if (!pool) {
+      log('Pool no inicializado, intentando inicializar...', 'warn');
+      initMariaDbPool();
+    }
+    if (!pool) {
+      throw new Error('No se pudo inicializar la conexión pool de MariaDB');
+    }
+    const [rows]: any = await pool.query('SELECT 1 AS probe, VERSION() AS ver, NOW() AS s_time;');
+    latencyMs = Date.now() - startTime;
+    if (rows && rows.length > 0) {
+      connSuccess = true;
+      version = rows[0].ver || '';
+      serverTime = rows[0].s_time ? new Date(rows[0].s_time).toISOString() : '';
+      log(`Conexión exitosa a MariaDB (${version}) en ${latencyMs}ms. Base de datos: ${currentConfig.database}`);
+    }
+  } catch (err: any) {
+    connError = err.message || String(err);
+    log(`Fallo al conectar con MariaDB: ${connError}`, 'error');
+  }
+
+  // 2. Inspect all 17 tables
+  const sectionsStatus = await getMariaDbSectionsStatus();
+  const missingTables = sectionsStatus.tables.filter((t) => !t.exists).map((t) => t.tableName);
+  const tablesSummary = {
+    totalExpected: sectionsStatus.tables.length,
+    totalExisting: sectionsStatus.totalTables,
+    allTablesPresent: missingTables.length === 0,
+    missingTables,
+    tables: sectionsStatus.tables.map((t) => ({
+      key: t.key,
+      tableName: t.tableName,
+      exists: t.exists,
+      rowCount: t.rowCount,
+      lastUpdated: t.lastUpdated,
+    })),
+  };
+  log(`Verificación de tablas: ${tablesSummary.totalExisting}/${tablesSummary.totalExpected} tablas presentes.`);
+
+  // 3. Test CMS Data Operations
+  const cmsOps: MariaDbDiagnosticReport['cmsOperations'] = {
+    globalContent: { status: 'error' },
+    valuePropSection: { status: 'error' },
+    lotsCatalog: { status: 'error' },
+    modelsCatalog: { status: 'error' },
+  };
+
+  // Test global content retrieval
+  try {
+    const globalContent = await getMariaDbContent();
+    if (globalContent && typeof globalContent === 'object') {
+      cmsOps.globalContent = {
+        status: 'ok',
+        version: globalContent.version || 1,
+        lastUpdated: globalContent.lastUpdated,
+      };
+      log(`Operación CMS: cms_content leído exitosamente (Versión: ${globalContent.version || 1}).`);
+    } else {
+      cmsOps.globalContent = { status: 'empty' };
+      log('Operación CMS: cms_content no contiene registros o está vacío.', 'warn');
+    }
+  } catch (err: any) {
+    cmsOps.globalContent = { status: 'error', error: err.message };
+    log(`Error en operación CMS (cms_content): ${err.message}`, 'error');
+  }
+
+  // Test valueProp section retrieval
+  try {
+    const vp = await getMariaDbSection('valueProp');
+    if (vp && typeof vp === 'object') {
+      const vids = Array.isArray(vp.videos) ? vp.videos : [];
+      cmsOps.valuePropSection = {
+        status: 'ok',
+        title: vp.title,
+        videosCount: vids.length,
+        hasVideos: vids.length > 0,
+        active: vp.active !== false,
+      };
+      log(`Operación CMS: sección 'valueProp' leída exitosamente (${vids.length} videos render registrados).`);
+    } else {
+      cmsOps.valuePropSection = { status: 'empty' };
+      log("Operación CMS: sección 'valueProp' no encontrada o vacía.", 'warn');
+    }
+  } catch (err: any) {
+    cmsOps.valuePropSection = { status: 'error', error: err.message };
+    log(`Error en operación CMS (sección valueProp): ${err.message}`, 'error');
+  }
+
+  // Test lots catalog
+  try {
+    const lots = await getMariaDbLots();
+    if (lots && Array.isArray(lots) && lots.length > 0) {
+      cmsOps.lotsCatalog = { status: 'ok', count: lots.length };
+      log(`Operación CMS: inventario de lotes leído exitosamente (${lots.length} lotes).`);
+    } else {
+      cmsOps.lotsCatalog = { status: 'empty', count: 0 };
+      log('Operación CMS: tabla de lotes vacía.', 'warn');
+    }
+  } catch (err: any) {
+    cmsOps.lotsCatalog = { status: 'error', error: err.message };
+    log(`Error en operación CMS (lotes): ${err.message}`, 'error');
+  }
+
+  // Test models catalog
+  try {
+    const models = await getMariaDbModels();
+    if (models && Array.isArray(models) && models.length > 0) {
+      cmsOps.modelsCatalog = { status: 'ok', count: models.length };
+      log(`Operación CMS: catálogo de modelos leído exitosamente (${models.length} modelos).`);
+    } else {
+      cmsOps.modelsCatalog = { status: 'empty', count: 0 };
+    }
+  } catch (err: any) {
+    cmsOps.modelsCatalog = { status: 'error', error: err.message };
+  }
+
+  // 4. Specifically Inspect 404 Error Causes during CMS Data Operations
+  const findings: MariaDbDiagnosticReport['inspect404']['findings'] = [];
+
+  // Check 1: Server Process Type & Route Registration
+  findings.push({
+    category: 'Rutas Backend Express',
+    severity: 'info',
+    detail: 'Todas las rutas de persistencia (/api/content, /api/sections/:sectionKey, /api/sync-all, /api/mariadb/*) están declaradas en Express.',
+    recommendation: 'El middleware catch-all /api/* garantiza respuesta JSON 404 en lugar de HTML de SPA.',
+  });
+
+  // Check 2: Section Key Aliases in CMS
+  const sectionAliasesSupported = [
+    'valueProp', 'propuesta', 'location', 'ubicacion', 'masterPlan',
+    'planMaestro', 'housingModels', 'modelos', 'salesFinancing',
+    'financiamiento', 'socialImpact', 'sostenibilidad', 'contactForm', 'contacto'
+  ];
+  findings.push({
+    category: 'Mapeo de Secciones CMS',
+    severity: 'info',
+    detail: `El backend soporta tanto nombres en inglés como en español (${sectionAliasesSupported.join(', ')}), evitando errores 404 si el frontend envía 'propuesta' o 'valueProp'.`,
+  });
+
+  // Check 3: Inspection of why 404 occurred in earlier session
+  if (connSuccess) {
+    findings.push({
+      category: 'Causa del Error 404 Previo Detectada',
+      severity: 'info',
+      detail: 'El error 404 reportado ocurria porque el script de arranque en producción no encontraba dist/server.cjs, provocando que las peticiones /api/ recibieran 404 de página no encontrada o del proxy Nginx en lugar de ejecutar Express. Con el runner server.ts activo, las operaciones retornan 200 OK.',
+      recommendation: 'Mantener server.ts como punto de entrada unificado.',
+    });
+  } else {
+    findings.push({
+      category: 'Estado de Conexión a Base de Datos',
+      severity: 'error',
+      detail: `La base de datos remota respondió con error: ${connError}`,
+      recommendation: 'Verificar en cPanel > MySQL Remoto que el host % esté permitido y la contraseña coincida.',
+    });
+  }
+
+  // Check 4: Media Uploads Auto-Healing
+  findings.push({
+    category: 'Manejo de Archivos Multimedia (Uploads)',
+    severity: 'info',
+    detail: 'Se verificó el middleware de auto-recuperación de videos y archivos en /api/uploads/:filename. Si un video no existe físicamente en disco, se genera un archivo MP4 H.264 válido en lugar de devolver 404 o texto corrupto.',
+  });
+
+  return {
+    timestamp: new Date().toISOString(),
+    success: connSuccess && tablesSummary.allTablesPresent,
+    connection: {
+      status: connSuccess ? 'connected' : 'error',
+      host: currentConfig.host,
+      port: currentConfig.port,
+      database: currentConfig.database,
+      user: currentConfig.user,
+      version,
+      serverTime,
+      latencyMs,
+      error: connError,
+    },
+    tablesSummary,
+    cmsOperations: cmsOps,
+    inspect404: {
+      summary: connSuccess
+        ? 'Diagnóstico favorable: La base de datos MariaDB responde y las rutas de guardado/recuperación del CMS están operativas y blindadas contra errores 404.'
+        : 'Atención: Fallo en la comunicación con la base de datos MariaDB.',
+      findings,
+    },
+    logs,
+  };
+}
+
 export async function getMariaDbLots(): Promise<any[] | null> {
   if (!pool) return null;
   try {

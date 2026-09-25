@@ -1713,3 +1713,173 @@ export async function fetchCmsSection(sectionKey: string): Promise<any | null> {
   return null;
 }
 
+export interface MariaDbDiagnosticResult {
+  timestamp: string;
+  success: boolean;
+  connection: {
+    status: 'connected' | 'disconnected' | 'error';
+    host: string;
+    port: number;
+    database: string;
+    user: string;
+    version?: string;
+    serverTime?: string;
+    latencyMs?: number;
+    error?: string | null;
+  };
+  tablesSummary: {
+    totalExpected: number;
+    totalExisting: number;
+    allTablesPresent: boolean;
+    missingTables: string[];
+    tables: Array<{
+      key: string;
+      tableName: string;
+      exists: boolean;
+      rowCount: number;
+      lastUpdated?: string;
+    }>;
+  };
+  cmsOperations: {
+    globalContent: { status: string; version?: number; lastUpdated?: string; error?: string | null };
+    valuePropSection: { status: string; title?: string; videosCount?: number; hasVideos?: boolean; active?: boolean; error?: string | null };
+    lotsCatalog: { status: string; count?: number; error?: string | null };
+    modelsCatalog: { status: string; count?: number; error?: string | null };
+  };
+  inspect404: {
+    summary: string;
+    findings: Array<{
+      category: string;
+      severity: 'info' | 'warning' | 'error';
+      detail: string;
+      recommendation?: string;
+    }>;
+  };
+  logs: string[];
+}
+
+/**
+ * Diagnostic utility function to verify MariaDB connection state and log explicit error details from the backend,
+ * specifically inspecting any 404 errors encountered during CMS data operations.
+ */
+export async function runMariaDbDiagnostics(): Promise<MariaDbDiagnosticResult> {
+  console.group('[MariaDB & CMS Diagnostics] Iniciando verificación exhaustiva...');
+  try {
+    console.log('[MariaDB Diagnostics] Enviando petición a /api/mariadb/diagnostics...');
+    const startTime = Date.now();
+    const res = await fetch(`${API_BASE}/mariadb/diagnostics?_t=${Date.now()}`, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+    });
+    const duration = Date.now() - startTime;
+    console.log(`[MariaDB Diagnostics] Respuesta HTTP ${res.status} ${res.statusText} recibida en ${duration}ms`);
+
+    if (res.status === 404) {
+      console.error('[MariaDB Diagnostics] ❌ Error 404 detectado al consultar endpoint de diagnóstico.');
+      console.warn('[MariaDB Diagnostics] Análisis de causa 404: El servidor backend no tiene la ruta registrada o devolvió página no encontrada.');
+      const text = await res.text();
+      console.warn('[MariaDB Diagnostics] Contenido devuelto:', text.substring(0, 300));
+      console.groupEnd();
+      return {
+        timestamp: new Date().toISOString(),
+        success: false,
+        connection: {
+          status: 'error',
+          host: '45.79.40.132',
+          port: 3306,
+          database: 'siacecom_misdelirios',
+          user: 'siacecom_aapu',
+          error: 'Error HTTP 404: El endpoint /api/mariadb/diagnostics devolvió No Encontrado.',
+        },
+        tablesSummary: {
+          totalExpected: 17,
+          totalExisting: 0,
+          allTablesPresent: false,
+          missingTables: [],
+          tables: [],
+        },
+        cmsOperations: {
+          globalContent: { status: 'error', error: '404 endpoint not found' },
+          valuePropSection: { status: 'error', error: '404 endpoint not found' },
+          lotsCatalog: { status: 'error', error: '404 endpoint not found' },
+          modelsCatalog: { status: 'error', error: '404 endpoint not found' },
+        },
+        inspect404: {
+          summary: 'Error 404 detectado en endpoint del servidor Express.',
+          findings: [
+            {
+              category: 'Error 404 en Operación',
+              severity: 'error',
+              detail: 'La petición a la API devolvió código HTTP 404. Si la respuesta contiene HTML, el servidor de desarrollo Vite o el proxy no alcanzó el servidor Express.',
+              recommendation: 'Asegúrese de que el servidor Express esté activo en el puerto 3000.',
+            },
+          ],
+        },
+        logs: [`[${new Date().toISOString()}] Error HTTP 404 en /api/mariadb/diagnostics (${duration}ms)`],
+      };
+    }
+
+    const json = await parseJsonSafely<{ success: boolean; data: MariaDbDiagnosticResult }>(
+      res,
+      'Error procesando diagnóstico de MariaDB'
+    );
+
+    const report = json.data;
+    console.log('[MariaDB Diagnostics] Estado de conexión:', report.connection.status);
+    console.log('[MariaDB Diagnostics] Servidor:', report.connection.host, 'Versión:', report.connection.version);
+    console.log(`[MariaDB Diagnostics] Tablas verificadas: ${report.tablesSummary.totalExisting}/${report.tablesSummary.totalExpected}`);
+    console.log('[MariaDB Diagnostics] Operación CMS Propuesta (videos):', report.cmsOperations.valuePropSection);
+    console.log('[MariaDB Diagnostics] Inspección 404:', report.inspect404.summary);
+    if (report.logs && report.logs.length > 0) {
+      console.log('[MariaDB Diagnostics] Logs del backend:', report.logs);
+    }
+    console.groupEnd();
+    return report;
+  } catch (err: any) {
+    console.error('[MariaDB Diagnostics] Error durante diagnóstico:', err);
+    console.groupEnd();
+    return {
+      timestamp: new Date().toISOString(),
+      success: false,
+      connection: {
+        status: 'error',
+        host: '45.79.40.132',
+        port: 3306,
+        database: 'siacecom_misdelirios',
+        user: 'siacecom_aapu',
+        error: err.message || String(err),
+      },
+      tablesSummary: {
+        totalExpected: 17,
+        totalExisting: 0,
+        allTablesPresent: false,
+        missingTables: [],
+        tables: [],
+      },
+      cmsOperations: {
+        globalContent: { status: 'error', error: err.message },
+        valuePropSection: { status: 'error', error: err.message },
+        lotsCatalog: { status: 'error', error: err.message },
+        modelsCatalog: { status: 'error', error: err.message },
+      },
+      inspect404: {
+        summary: `Fallo de comunicación con backend: ${err.message}`,
+        findings: [
+          {
+            category: 'Fallo de Red o Conexión',
+            severity: 'error',
+            detail: err.message || String(err),
+            recommendation: 'Compruebe la conectividad de red y que el backend Express responda en /api/*',
+          },
+        ],
+      },
+      logs: [`[${new Date().toISOString()}] Excepción: ${err.message || err}`],
+    };
+  }
+}
+
+if (typeof window !== 'undefined') {
+  (window as any).runMariaDbDiagnostics = runMariaDbDiagnostics;
+}
+
+

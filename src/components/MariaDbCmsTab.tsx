@@ -19,6 +19,10 @@ import {
   Clock,
   HardDrive,
   FileSpreadsheet,
+  Activity,
+  Terminal,
+  FileText,
+  X,
 } from 'lucide-react';
 import {
   fetchMariaDbStatus,
@@ -31,6 +35,8 @@ import {
   saveCmsSection,
   DatabaseSectionsStatusResponse,
   SectionTableStatusItem,
+  runMariaDbDiagnostics,
+  MariaDbDiagnosticResult,
 } from '../lib/api';
 
 interface MariaDbCmsTabProps {
@@ -43,6 +49,9 @@ export const MariaDbCmsTab: React.FC<MariaDbCmsTabProps> = ({ onRefreshCms }) =>
   const [loading, setLoading] = useState(true);
   const [loadingSections, setLoadingSections] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [diagnosing, setDiagnosing] = useState(false);
+  const [diagnosticReport, setDiagnosticReport] = useState<MariaDbDiagnosticResult | null>(null);
+  const [showDiagnosticModal, setShowDiagnosticModal] = useState(false);
   const [migrating, setMigrating] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
   const [inspectedTableKey, setInspectedTableKey] = useState<string | null>(null);
@@ -154,6 +163,21 @@ export const MariaDbCmsTab: React.FC<MariaDbCmsTabProps> = ({ onRefreshCms }) =>
       });
     } finally {
       setTesting(false);
+    }
+  };
+
+  const handleRunDiagnostic = async () => {
+    setDiagnosing(true);
+    try {
+      const rep = await runMariaDbDiagnostics();
+      setDiagnosticReport(rep);
+      setShowDiagnosticModal(true);
+      loadStatus();
+      loadSectionsStatus();
+    } catch (err: any) {
+      alert('Error ejecutando diagnóstico: ' + (err.message || err));
+    } finally {
+      setDiagnosing(false);
     }
   };
 
@@ -284,6 +308,17 @@ export const MariaDbCmsTab: React.FC<MariaDbCmsTabProps> = ({ onRefreshCms }) =>
 
           <div className="flex flex-wrap items-center gap-2.5">
             <button
+              onClick={handleRunDiagnostic}
+              disabled={diagnosing}
+              className="px-4 py-2 bg-purple-950/80 hover:bg-purple-900 text-purple-200 text-xs font-semibold rounded-xl border border-purple-700/80 transition-all flex items-center gap-2 disabled:opacity-50 shadow-md"
+              id="btn-diagnostic-mariadb"
+              title="Diagnóstico exhaustivo de conexión y verificación de rutas 404 del CMS"
+            >
+              <Activity className={`w-3.5 h-3.5 ${diagnosing ? 'animate-spin text-purple-400' : 'text-purple-400'}`} />
+              <span>{diagnosing ? 'Diagnosticando...' : 'Diagnosticar Conexión & 404'}</span>
+            </button>
+
+            <button
               onClick={() => handleTestConnection()}
               disabled={testing}
               className="px-4 py-2 bg-stone-800 hover:bg-stone-700 text-stone-200 text-xs font-semibold rounded-xl border border-stone-700 transition-all flex items-center gap-2 disabled:opacity-50"
@@ -304,6 +339,190 @@ export const MariaDbCmsTab: React.FC<MariaDbCmsTabProps> = ({ onRefreshCms }) =>
             </button>
           </div>
         </div>
+
+        {/* Comprehensive Diagnostic Modal / Report */}
+        {showDiagnosticModal && diagnosticReport && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
+            <div className="bg-stone-900 border border-stone-700 w-full max-w-4xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden text-xs text-stone-200">
+              {/* Header */}
+              <div className="p-4 border-b border-stone-800 flex items-center justify-between bg-stone-950/80">
+                <div className="flex items-center gap-2.5">
+                  <div className={`p-2 rounded-xl ${diagnosticReport.success ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                    <Activity className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white text-sm">
+                      Diagnóstico Exhaustivo de MariaDB & Rutas CMS
+                    </h3>
+                    <p className="text-[11px] text-stone-400">
+                      Ejecutado el {new Date(diagnosticReport.timestamp).toLocaleString()} &bull; Latencia: {diagnosticReport.connection.latencyMs || 0}ms
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowDiagnosticModal(false)}
+                  className="p-1.5 rounded-lg text-stone-400 hover:text-white hover:bg-stone-800 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="p-5 overflow-y-auto space-y-4">
+                {/* Connection Banner */}
+                <div className={`p-3.5 rounded-xl border flex items-center justify-between ${
+                  diagnosticReport.connection.status === 'connected'
+                    ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300'
+                    : 'bg-red-950/40 border-red-500/40 text-red-300'
+                }`}>
+                  <div className="flex items-center gap-3">
+                    {diagnosticReport.connection.status === 'connected' ? (
+                      <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                    ) : (
+                      <AlertTriangle className="w-5 h-5 text-red-400 shrink-0" />
+                    )}
+                    <div>
+                      <p className="font-bold text-sm">
+                        {diagnosticReport.connection.status === 'connected'
+                          ? `Conexión con MariaDB Activa (${diagnosticReport.connection.version || '10.11'})`
+                          : 'Error en la conexión con MariaDB'}
+                      </p>
+                      <p className="text-[11px] opacity-80 font-mono">
+                        Servidor: {diagnosticReport.connection.host}:{diagnosticReport.connection.port} &bull; Base de Datos: {diagnosticReport.connection.database} &bull; Usuario: {diagnosticReport.connection.user}
+                      </p>
+                    </div>
+                  </div>
+                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
+                    diagnosticReport.connection.status === 'connected' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30'
+                  }`}>
+                    {diagnosticReport.connection.status}
+                  </span>
+                </div>
+
+                {/* Inspect 404 Error Section */}
+                <div className="p-4 rounded-xl bg-stone-950 border border-stone-800 space-y-2.5">
+                  <h4 className="font-bold text-amber-400 text-xs flex items-center gap-2">
+                    <HelpCircle className="w-4 h-4" />
+                    <span>Inspección Específica del Error 404 en Operaciones CMS</span>
+                  </h4>
+                  <p className="text-stone-300 text-[11px] leading-relaxed">
+                    {diagnosticReport.inspect404.summary}
+                  </p>
+                  <div className="space-y-2 pt-1">
+                    {diagnosticReport.inspect404.findings.map((f, i) => (
+                      <div key={i} className="p-2.5 rounded-lg bg-stone-900 border border-stone-800 text-[11px] space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-white flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                            {f.category}
+                          </span>
+                          <span className="px-2 py-0.5 rounded bg-stone-800 text-stone-400 text-[10px] uppercase font-mono">
+                            {f.severity}
+                          </span>
+                        </div>
+                        <p className="text-stone-300 font-sans">{f.detail}</p>
+                        {f.recommendation && (
+                          <p className="text-emerald-400 font-sans text-[10px]">
+                            Recomendación: {f.recommendation}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* CMS Operations Check */}
+                <div className="p-4 rounded-xl bg-stone-950 border border-stone-800 space-y-3">
+                  <h4 className="font-bold text-stone-200 text-xs flex items-center gap-2">
+                    <Table className="w-4 h-4 text-emerald-400" />
+                    <span>Verificación de Operaciones de Lectura / Escritura CMS</span>
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                    <div className="p-2.5 rounded-lg bg-stone-900 border border-stone-800">
+                      <span className="text-[10px] text-stone-400 block uppercase font-mono">cms_content</span>
+                      <span className="font-bold text-white text-xs block mt-1">
+                        Estado: <span className={diagnosticReport.cmsOperations.globalContent.status === 'ok' ? 'text-emerald-400' : 'text-amber-400'}>{diagnosticReport.cmsOperations.globalContent.status}</span>
+                      </span>
+                      <span className="text-[10px] text-stone-400 block mt-0.5 font-mono">
+                        Versión: {diagnosticReport.cmsOperations.globalContent.version || 1}
+                      </span>
+                    </div>
+
+                    <div className="p-2.5 rounded-lg bg-stone-900 border border-stone-800">
+                      <span className="text-[10px] text-stone-400 block uppercase font-mono">Sección Propuesta (valueProp)</span>
+                      <span className="font-bold text-white text-xs block mt-1">
+                        Estado: <span className={diagnosticReport.cmsOperations.valuePropSection.status === 'ok' ? 'text-emerald-400' : 'text-amber-400'}>{diagnosticReport.cmsOperations.valuePropSection.status}</span>
+                      </span>
+                      <span className="text-[10px] text-stone-400 block mt-0.5">
+                        Videos Render: <strong className="text-amber-300 font-mono">{diagnosticReport.cmsOperations.valuePropSection.videosCount || 0}</strong>
+                      </span>
+                    </div>
+
+                    <div className="p-2.5 rounded-lg bg-stone-900 border border-stone-800">
+                      <span className="text-[10px] text-stone-400 block uppercase font-mono">Inventario de Lotes</span>
+                      <span className="font-bold text-white text-xs block mt-1">
+                        Estado: <span className={diagnosticReport.cmsOperations.lotsCatalog.status === 'ok' ? 'text-emerald-400' : 'text-amber-400'}>{diagnosticReport.cmsOperations.lotsCatalog.status}</span>
+                      </span>
+                      <span className="text-[10px] text-stone-400 block mt-0.5 font-mono">
+                        Total: {diagnosticReport.cmsOperations.lotsCatalog.count || 0} lotes
+                      </span>
+                    </div>
+
+                    <div className="p-2.5 rounded-lg bg-stone-900 border border-stone-800">
+                      <span className="text-[10px] text-stone-400 block uppercase font-mono">Modelos de Vivienda</span>
+                      <span className="font-bold text-white text-xs block mt-1">
+                        Estado: <span className={diagnosticReport.cmsOperations.modelsCatalog.status === 'ok' ? 'text-emerald-400' : 'text-amber-400'}>{diagnosticReport.cmsOperations.modelsCatalog.status}</span>
+                      </span>
+                      <span className="text-[10px] text-stone-400 block mt-0.5 font-mono">
+                        Total: {diagnosticReport.cmsOperations.modelsCatalog.count || 0} modelos
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Backend Diagnostic Logs */}
+                {diagnosticReport.logs && diagnosticReport.logs.length > 0 && (
+                  <div className="p-4 rounded-xl bg-stone-950 border border-stone-800 space-y-2">
+                    <h4 className="font-bold text-stone-300 text-xs flex items-center gap-2">
+                      <Terminal className="w-4 h-4 text-stone-400" />
+                      <span>Registro de Eventos y Trazas del Backend</span>
+                    </h4>
+                    <div className="bg-black/60 p-3 rounded-lg border border-stone-800 font-mono text-[10px] space-y-1 max-h-40 overflow-y-auto text-stone-300">
+                      {diagnosticReport.logs.map((logStr, lIdx) => (
+                        <div key={lIdx} className="leading-relaxed break-all">
+                          {logStr}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="p-4 border-t border-stone-800 bg-stone-950/80 flex items-center justify-between">
+                <span className="text-[11px] text-stone-400">
+                  {diagnosticReport.tablesSummary.totalExisting} de {diagnosticReport.tablesSummary.totalExpected} tablas relacionales disponibles en MariaDB.
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleRunDiagnostic}
+                    disabled={diagnosing}
+                    className="px-3.5 py-1.5 bg-stone-800 hover:bg-stone-700 text-stone-200 text-xs font-semibold rounded-lg border border-stone-700 transition-colors flex items-center gap-1.5"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${diagnosing ? 'animate-spin' : ''}`} />
+                    <span>Volver a diagnosticar</span>
+                  </button>
+                  <button
+                    onClick={() => setShowDiagnosticModal(false)}
+                    className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow-md transition-colors"
+                  >
+                    Aceptar y Cerrar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Live Test Alert Feedback */}
         {testResult && (

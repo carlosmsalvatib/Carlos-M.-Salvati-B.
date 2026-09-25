@@ -26,6 +26,7 @@ import {
   saveMariaDbUsers,
   getMariaDbUsers,
   getMariaDbSectionsStatus,
+  diagnoseMariaDbConnectionAndOperations,
 } from './server/mariadb';
 
 const PORT = 3000;
@@ -701,6 +702,23 @@ async function startServer() {
       res.json({ success: true, data: status });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Comprehensive diagnostic endpoint to verify MariaDB connection & inspect 404s during CMS operations
+  app.all('/api/mariadb/diagnostics', async (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    try {
+      console.log(`[MariaDB Diagnostic API] Solicitud de diagnóstico recibida: ${req.method} ${req.originalUrl}`);
+      const report = await diagnoseMariaDbConnectionAndOperations();
+      res.json({ success: report.success, data: report });
+    } catch (err: any) {
+      console.error('[MariaDB Diagnostic API] Error crítico ejecutando diagnóstico:', err);
+      res.status(500).json({
+        success: false,
+        error: err.message || String(err),
+        timestamp: new Date().toISOString(),
+      });
     }
   });
 

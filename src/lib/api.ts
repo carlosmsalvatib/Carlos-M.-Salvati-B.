@@ -165,18 +165,41 @@ async function parseJsonSafely<T>(res: Response, fallbackErrorMsg?: string): Pro
   return parsed;
 }
 
-export async function uploadMediaToServer(file: File): Promise<{ url: string }> {
-  const formData = new FormData();
-  formData.append('file', file);
+/**
+ * Sube un medio (objeto File o data URL base64) al servidor para persistirlo
+ * como archivo físico y obtener una URL reproducible (/api/uploads/...).
+ * Retorna la URL directa del archivo guardado.
+ */
+export async function uploadMediaToServer(
+  fileOrDataUrl: File | string,
+  filename?: string
+): Promise<string> {
+  let dataUrl: string;
+  let name: string;
+
+  if (typeof fileOrDataUrl === 'string') {
+    dataUrl = fileOrDataUrl;
+    name = filename || 'archivo';
+  } else {
+    dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('No se pudo leer el archivo seleccionado.'));
+      reader.onload = () => resolve(reader.result as string);
+      reader.readAsDataURL(fileOrDataUrl);
+    });
+    name = fileOrDataUrl.name;
+  }
+
   const res = await fetch(`${API_BASE}/upload`, {
     method: 'POST',
-    body: formData,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ dataUrl, filename: name }),
   });
   const json = await parseJsonSafely<{ success: boolean; url: string; fileUrl?: string }>(
     res,
     'Error al subir archivo'
   );
-  return { url: json.url || json.fileUrl || '' };
+  return json.url || json.fileUrl || '';
 }
 
 export async function fetchCmsContent(): Promise<CmsContent> {
@@ -356,16 +379,16 @@ export async function deleteLot(id: string): Promise<void> {
   saveLocalCache(undefined, nextLots);
 }
 
-export async function fetchHousingModels(): Promise<{ models: HousingModel[] }> {
+export async function fetchHousingModels(): Promise<{ models: HousingModel[]; section?: any }> {
   try {
     const res = await fetch(`${API_BASE}/models?_t=${Date.now()}`);
-    const json = await parseJsonSafely<{ success: boolean; data: HousingModel[] }>(
+    const json = await parseJsonSafely<{ success: boolean; data: HousingModel[]; section?: any }>(
       res,
       'Error al cargar modelos'
     );
     if (json.data && Array.isArray(json.data)) {
       saveLocalCache(undefined, undefined, json.data);
-      return { models: json.data };
+      return { models: json.data, section: json.section };
     }
   } catch (err) {
     console.warn('Aviso cargando modelos de vivienda:', err);
@@ -378,12 +401,15 @@ export async function fetchHousingModels(): Promise<{ models: HousingModel[] }> 
   return { models: initialCmsContent.housingModels?.models || [] };
 }
 
-export async function saveHousingModelsBulk(models: HousingModel[]): Promise<HousingModel[]> {
+export async function saveHousingModelsBulk(
+  models: HousingModel[],
+  section?: any
+): Promise<HousingModel[]> {
   try {
     const res = await fetch(`${API_BASE}/models/bulk-save`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ models }),
+      body: JSON.stringify({ models, section }),
     });
     const json = await parseJsonSafely<{ success: boolean; data: HousingModel[] }>(
       res,

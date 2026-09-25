@@ -62,12 +62,9 @@ let circuitBreaker = {
 
 export function isMariaDbOperational(): boolean {
   if (!currentConfig.enabled) return false;
+  if (!pool) initMariaDbPool();
   if (!pool) return false;
-  if (circuitBreaker.isOpen) {
-    if (Date.now() - circuitBreaker.lastFailureTime < circuitBreaker.cooldownMs) {
-      return false;
-    }
-  }
+  circuitBreaker.isOpen = false;
   return true;
 }
 
@@ -86,15 +83,12 @@ export function recordMariaDbSuccess() {
 
 export function handleMariaDbQueryError(context: string, err: any) {
   const errMsg = err?.message || String(err);
-  circuitBreaker.isOpen = true;
-  circuitBreaker.lastFailureTime = Date.now();
-  circuitBreaker.failureReason = errMsg;
+  circuitBreaker.isOpen = false;
   lastStatus.connected = false;
   lastStatus.error = errMsg;
   lastStatus.lastChecked = new Date().toISOString();
 
-  // Log as informational notice to avoid triggering unhandled error monitors
-  console.info(`[MariaDB Info] Operación diferida en '${context}': ${errMsg}. Sincronización asegurada en Firebase y almacenamiento local.`);
+  console.error(`[MariaDB Error] Operación en '${context}': ${errMsg}`);
 }
 
 export async function checkMariaDbConnection(): Promise<boolean> {

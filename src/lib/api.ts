@@ -1,16 +1,6 @@
 import { CmsContent, LotItem, LeadSubmission, AppUser, HousingModel } from '../types';
 import { initialCmsContent } from '../data/initialContent';
 import { initialLots } from '../data/initialLots';
-import {
-  db,
-  doc,
-  getDoc,
-  setDoc,
-  onSnapshot,
-  writeBatch,
-  collection,
-  getDocs,
-} from './firebase';
 
 export const API_BASE = '/api';
 
@@ -19,21 +9,45 @@ const STORAGE_KEY_LOTS = 'mdr_runtime_lots_v3';
 const STORAGE_KEY_MODELS = 'mdr_runtime_models_v3';
 const STORAGE_KEY_LAST_SAVED = 'mdr_runtime_last_saved_v3';
 
-/**
- * Retrieve cached CMS content from browser storage for instant runtime persistence
- */
+export interface MariaDbStatusResponse {
+  success: boolean;
+  connected?: boolean;
+  config?: any;
+  error?: string;
+  tablesCreated?: boolean;
+  sectionsCount?: number;
+}
+
+export interface DatabaseSectionsStatusResponse {
+  success: boolean;
+  sections?: any[];
+  error?: string;
+}
+
+export interface SectionTableStatusItem {
+  sectionKey: string;
+  tableName: string;
+  exists: boolean;
+  recordCount: number;
+  lastUpdated?: string;
+  sample?: any;
+}
+
+export interface MariaDbDiagnosticResult {
+  success: boolean;
+  connected: boolean;
+  host?: string;
+  database?: string;
+  tables?: SectionTableStatusItem[];
+  error?: string;
+}
+
 export function getLocalCachedContent(): CmsContent | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_CONTENT) || localStorage.getItem('mdr_runtime_cms_content_v2');
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === 'object' && parsed.site) {
-        if (parsed.site.contactPhone?.includes('7187596')) {
-          parsed.site.contactPhone = '+58-414-7114245';
-        }
-        if (parsed.site.contactWhatsapp?.includes('7187596')) {
-          parsed.site.contactWhatsapp = '+58-414-7114245';
-        }
         return parsed;
       }
     }
@@ -41,9 +55,6 @@ export function getLocalCachedContent(): CmsContent | null {
   return null;
 }
 
-/**
- * Retrieve cached Lots inventory from browser storage for instant runtime persistence
- */
 export function getLocalCachedLots(): LotItem[] | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_LOTS);
@@ -57,9 +68,6 @@ export function getLocalCachedLots(): LotItem[] | null {
   return null;
 }
 
-/**
- * Retrieve cached Housing Models catalog from browser storage
- */
 export function getLocalCachedModels(): HousingModel[] | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_MODELS);
@@ -73,9 +81,6 @@ export function getLocalCachedModels(): HousingModel[] | null {
   return null;
 }
 
-/**
- * Saves content, lots, and models to browser storage and dispatches live update events
- */
 export function saveLocalCache(
   content?: CmsContent,
   lots?: LotItem[],
@@ -101,106 +106,36 @@ export function saveLocalCache(
             content,
             lots,
             models: resolvedModels,
-            timestamp: Date.now(),
           },
         })
       );
-      if (resolvedModels) {
-        window.dispatchEvent(
-          new CustomEvent('mdr_models_updated', {
-            detail: {
-              models: resolvedModels,
-              timestamp: Date.now(),
-            },
-          })
-        );
-      }
     }
-  } catch (e) {
-    console.warn('Almacenamiento local no disponible:', e);
+  } catch (err) {
+    console.warn('Error guardando cache local:', err);
   }
 }
 
-/**
- * Wraps a Firestore Promise with a strict defensive timeout.
- * Prevents the UI from ever hanging or freezing if Firestore encounters
- * quota exhaustion (RESOURCE_EXHAUSTED), backoff retry loops, or network latency.
- */
-export async function withFirestoreTimeout<T>(
-  promise: Promise<T>,
-  timeoutMs = 2500,
-  fallback?: T
-): Promise<T | undefined> {
-  let timer: any;
-  const timeout = new Promise<T>((_, reject) => {
-    timer = setTimeout(() => {
-      reject(new Error(`Firestore timeout (${timeoutMs}ms)`));
-    }, timeoutMs);
-  });
-
-  try {
-    const result = await Promise.race([promise, timeout]);
-    clearTimeout(timer);
-    return result;
-  } catch (err: any) {
-    clearTimeout(timer);
-    const msg = err?.message || String(err);
-    if (msg.includes('RESOURCE_EXHAUSTED') || msg.includes('Quota limit exceeded')) {
-      console.warn('Firebase Firestore: Límite de cuota gratuita alcanzado. Operando con sincronización backend de alta velocidad.');
-    } else {
-      console.warn('Firebase Firestore timeout/error:', msg);
-    }
-    return fallback;
-  }
+export function extractErrorMessage(parsed: any, fallback: string): string {
+  if (!parsed) return fallback;
+  if (typeof parsed === 'string') return parsed;
+  if (parsed.error) return String(parsed.error);
+  if (parsed.message) return String(parsed.message);
+  return fallback;
 }
 
-/**
- * Safely extract a string error message from any error or payload object
- */
-export function extractErrorMessage(errOrPayload: any, fallback = 'Error inesperado'): string {
-  if (!errOrPayload) return fallback;
-  if (typeof errOrPayload === 'string') return errOrPayload;
-  if (typeof errOrPayload.message === 'string' && errOrPayload.message && errOrPayload.message !== '[object Object]') {
-    return errOrPayload.message;
-  }
-  if (typeof errOrPayload.error === 'string' && errOrPayload.error && errOrPayload.error !== '[object Object]') {
-    return errOrPayload.error;
-  }
-  if (errOrPayload.error && typeof errOrPayload.error === 'object') {
-    return extractErrorMessage(errOrPayload.error, fallback);
-  }
-  if (errOrPayload.detail && typeof errOrPayload.detail === 'string') return errOrPayload.detail;
-  if (errOrPayload.details && typeof errOrPayload.details === 'string') return errOrPayload.details;
-  try {
-    const serialized = JSON.stringify(errOrPayload);
-    return serialized === '{}' ? fallback : serialized;
-  } catch {
-    return String(errOrPayload) || fallback;
-  }
-}
-
-/**
- * Safely parses response as JSON without crashing with "JSON.parse: unexpected character"
- * if the server returns HTML (e.g. 404/502/SPA fallback or "The page could not be found").
- */
-async function parseJsonSafely<T>(res: Response, fallbackErrorMsg: string): Promise<T> {
+async function parseJsonSafely<T>(res: Response, fallbackErrorMsg?: string): Promise<T> {
   const text = await res.text();
   const trimmed = text.trim();
-
   if (
-    trimmed.startsWith('<!doctype') ||
+    trimmed.startsWith('<!DOCTYPE html>') ||
     trimmed.startsWith('<html') ||
-    trimmed.includes('The page could not be found') ||
-    trimmed.includes('404 Not Found')
+    trimmed.includes('<body')
   ) {
-    console.error(
-      `[API] Error crítico: El servidor retornó HTML en lugar de JSON (Status ${res.status}):`,
-      trimmed.substring(0, 300)
-    );
+    console.error(`[API Error] HTML response received instead of JSON (Status ${res.status}):`, trimmed.substring(0, 300));
     throw new Error(
       res.status === 404
-        ? 'Servicio API no encontrado (404 - The page could not be found)'
-        : `Error en la comunicación con el servidor (${res.status} - Respuesta HTML inesperada)`
+        ? 'Servicio API no encontrado (404)'
+        : `Error en la comunicación con el servidor (${res.status} - Respuesta HTML)`
     );
   }
 
@@ -213,7 +148,7 @@ async function parseJsonSafely<T>(res: Response, fallbackErrorMsg: string): Prom
       throw new Error(
         res.status === 404
           ? 'Servicio API no encontrado (404)'
-          : `Error en la comunicación con el servidor (${res.status} - ${res.statusText || 'Error'})`
+          : `Error en la comunicación con el servidor (${res.status})`
       );
     }
     throw new Error(fallbackErrorMsg || 'Respuesta del servidor no válida');
@@ -230,10 +165,21 @@ async function parseJsonSafely<T>(res: Response, fallbackErrorMsg: string): Prom
   return parsed;
 }
 
-export async function fetchCmsContent(): Promise<CmsContent> {
-  const localCached = getLocalCachedContent();
+export async function uploadMediaToServer(file: File): Promise<{ url: string }> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await fetch(`${API_BASE}/upload`, {
+    method: 'POST',
+    body: formData,
+  });
+  const json = await parseJsonSafely<{ success: boolean; url: string; fileUrl?: string }>(
+    res,
+    'Error al subir archivo'
+  );
+  return { url: json.url || json.fileUrl || '' };
+}
 
-  // 1. Prioritize Express backend (synced with MariaDB and filesystem)
+export async function fetchCmsContent(): Promise<CmsContent> {
   try {
     const res = await fetch(`${API_BASE}/content?_t=${Date.now()}`, {
       cache: 'no-store',
@@ -251,62 +197,15 @@ export async function fetchCmsContent(): Promise<CmsContent> {
       return json.data;
     }
   } catch (err) {
-    console.warn('Conexión con servidor no disponible, recurriendo a Firestore:', err);
+    console.warn('Aviso al cargar contenido desde MariaDB/Servidor, usando cache local:', err);
   }
 
-  // 2. Fallback to Cloud Firestore with defensive timeout (max 2000ms)
-  try {
-    const snap = await withFirestoreTimeout(getDoc(doc(db, 'cms_content', 'global_content')), 2000);
-    if (snap && snap.exists()) {
-      const data = snap.data() as CmsContent;
-      if (data && data.site) {
-        saveLocalCache(data);
-        return data;
-      }
-    }
-  } catch (fireErr) {
-    console.warn('Lectura de Firestore no disponible, usando cache local persistente:', fireErr);
-  }
-
-  return localCached || initialCmsContent;
+  return getLocalCachedContent() || initialCmsContent;
 }
 
 export async function saveCmsContent(content: CmsContent, note?: string): Promise<CmsContent> {
-  // 1. Guardar de inmediato en almacenamiento persistente del cliente
   saveLocalCache(content);
 
-  // 2. Persistir en Firebase Firestore (Nube): Documento global y documentos de secciones dedicadas
-  try {
-    const firestorePromises: Promise<any>[] = [
-      setDoc(doc(db, 'cms_content', 'global_content'), {
-        ...content,
-        updatedAt: new Date().toISOString(),
-        _lastNote: note || '',
-      }),
-    ];
-
-    const sectionKeys = [
-      'site', 'hero', 'valueProp', 'location', 'masterPlan',
-      'housingModels', 'salesFinancing', 'socialImpact', 'contactForm', 'footer', 'seo'
-    ];
-
-    for (const secKey of sectionKeys) {
-      if ((content as any)[secKey]) {
-        firestorePromises.push(
-          setDoc(doc(db, 'cms_sections', secKey), {
-            ...(content as any)[secKey],
-            updatedAt: new Date().toISOString(),
-          })
-        );
-      }
-    }
-
-    await withFirestoreTimeout(Promise.all(firestorePromises), 2500);
-  } catch (fireErr) {
-    console.warn('Guardado en Firestore no completado:', fireErr);
-  }
-
-  // 3. Persistir en servidor Express, MariaDB (tablas dedicadas y respaldo) y disco local
   const query = note ? `?note=${encodeURIComponent(note)}` : '';
   try {
     const res = await fetch(`${API_BASE}/content${query}`, {
@@ -323,7 +222,7 @@ export async function saveCmsContent(content: CmsContent, note?: string): Promis
       return json.data;
     }
   } catch (err: any) {
-    console.warn('Guardado en base local por desconexión de red:', err);
+    console.warn('Guardado en servidor falló, contenido retenido en cache local:', err);
   }
   return content;
 }
@@ -332,10 +231,6 @@ export async function resetCmsContent(): Promise<CmsContent> {
   try {
     localStorage.removeItem(STORAGE_KEY_CONTENT);
     localStorage.removeItem(STORAGE_KEY_LOTS);
-    await setDoc(doc(db, 'cms_content', 'global_content'), {
-      ...initialCmsContent,
-      updatedAt: new Date().toISOString(),
-    }).catch(() => {});
     const res = await fetch(`${API_BASE}/content/reset`, { method: 'POST' });
     const json = await parseJsonSafely<{ success: boolean; data: CmsContent }>(
       res,
@@ -350,62 +245,10 @@ export async function resetCmsContent(): Promise<CmsContent> {
   return initialCmsContent;
 }
 
-/**
- * Recursively scans an object or array and uploads any `data:` base64 strings to disk via `/api/upload`.
- * Returns the object with clean permanent URLs.
- */
-export async function cleanBase64DataUrls<T>(obj: T): Promise<T> {
-  if (!obj) return obj;
-  if (typeof obj === 'string') {
-    if (obj.startsWith('data:')) {
-      try {
-        const uploaded = await uploadMediaToServer(obj);
-        return uploaded as unknown as T;
-      } catch {
-        return obj;
-      }
-    }
-    return obj;
-  }
-  if (Array.isArray(obj)) {
-    const cleaned = await Promise.all(obj.map((item) => cleanBase64DataUrls(item)));
-    return cleaned as unknown as T;
-  }
-  if (typeof obj === 'object') {
-    const res: any = {};
-    for (const key of Object.keys(obj)) {
-      res[key] = await cleanBase64DataUrls((obj as any)[key]);
-    }
-    return res as T;
-  }
-  return obj;
-}
-
 export async function fetchLots(): Promise<LotItem[]> {
-  const localCached = getLocalCachedLots();
-
-  // 1. Firestore Cloud con timeout defensivo (2000ms)
-  try {
-    const snap = await withFirestoreTimeout(getDoc(doc(db, 'lots_metadata', 'catalog')), 2000);
-    if (snap && snap.exists()) {
-      const data = snap.data();
-      if (data?.lots && Array.isArray(data.lots) && data.lots.length > 0) {
-        saveLocalCache(undefined, data.lots);
-        return data.lots;
-      }
-    }
-  } catch (fireErr) {
-    console.warn('Firestore lots fallback a backend:', fireErr);
-  }
-
-  // 2. Backend Express
   try {
     const res = await fetch(`${API_BASE}/lots?_t=${Date.now()}`, {
       cache: 'no-store',
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-      },
     });
     const json = await parseJsonSafely<{ success: boolean; data: LotItem[] }>(
       res,
@@ -416,180 +259,63 @@ export async function fetchLots(): Promise<LotItem[]> {
       return json.data;
     }
   } catch (err) {
-    console.warn('Conexión con servidor para lotes no disponible, usando cache local:', err);
+    console.warn('Aviso cargando lotes desde MariaDB:', err);
   }
-  return (localCached && localCached.length > 0) ? localCached : initialLots;
+
+  return getLocalCachedLots() || initialLots;
 }
 
 export async function updateLot(id: string, updates: Partial<LotItem>): Promise<LotItem> {
-  const currentLots = getLocalCachedLots() || [];
-  const nextLots = currentLots.map((l) => (l.id === id ? { ...l, ...updates } : l));
+  try {
+    const res = await fetch(`${API_BASE}/lots/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    const json = await parseJsonSafely<{ success: boolean; data: LotItem }>(
+      res,
+      'Error al actualizar lote'
+    );
+    if (json.data) {
+      const current = getLocalCachedLots() || initialLots;
+      const nextLots = current.map((l) => (l.id === id ? json.data : l));
+      saveLocalCache(undefined, nextLots);
+      return json.data;
+    }
+  } catch (err: any) {
+    console.warn('Actualización de lote en servidor falló:', err);
+  }
+
+  const current = getLocalCachedLots() || initialLots;
+  const target = current.find((l) => l.id === id);
+  if (!target) throw new Error('Lote no encontrado');
+  const updated = { ...target, ...updates };
+  const nextLots = current.map((l) => (l.id === id ? updated : l));
   saveLocalCache(undefined, nextLots);
-
-  // 1. Actualizar en Firestore en segundo plano con timeout
-  withFirestoreTimeout(setDoc(doc(db, 'lots', id), updates, { merge: true }), 2000).catch(() => {});
-  withFirestoreTimeout(
-    setDoc(doc(db, 'lots_metadata', 'catalog'), {
-      lots: nextLots,
-      updatedAt: new Date().toISOString(),
-    }),
-    2000
-  ).catch(() => {});
-
-  // 2. Actualizar en backend
-  const res = await fetch(`${API_BASE}/lots/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(updates),
-  });
-  const json = await parseJsonSafely<{ success: boolean; data: LotItem }>(
-    res,
-    'Error al actualizar lote'
-  );
-  return json.data;
+  return updated;
 }
 
 export async function saveBulkLots(lots: LotItem[]): Promise<LotItem[]> {
-  // 1. Guardar de inmediato en almacenamiento local persistente
-  let cleanLots = lots;
-  try {
-    cleanLots = await cleanBase64DataUrls(lots);
-  } catch {}
-  saveLocalCache(undefined, cleanLots);
-
-  // 2. Persistir en Firestore Cloud de manera atómica y optimizada (1 documento catálogo)
-  try {
-    await withFirestoreTimeout(
-      setDoc(doc(db, 'lots_metadata', 'catalog'), {
-        lots: cleanLots,
-        updatedAt: new Date().toISOString(),
-      }),
-      2500
-    );
-  } catch (fireErr) {
-    console.warn('Error guardando catálogo de lotes en Firestore:', fireErr);
-  }
-
-  // 3. Persistir en backend
   try {
     const res = await fetch(`${API_BASE}/lots/bulk-save`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ lots: cleanLots }),
+      body: JSON.stringify({ lots }),
     });
     const json = await parseJsonSafely<{ success: boolean; data: LotItem[] }>(
       res,
-      'Error al grabar inventario'
+      'Error al guardar lotes'
     );
-    if (json.data) {
+    if (json.data && Array.isArray(json.data)) {
       saveLocalCache(undefined, json.data);
       return json.data;
     }
   } catch (err: any) {
-    console.warn('Inventario respaldado en persistencia local por desconexión:', err);
-  }
-  return cleanLots;
-}
-
-/**
- * Operación unificada para guardar Contenido y Lotes simultáneamente con garantía de persistencia.
- * Protegida con sanitización automática de imágenes y timeout estricto para evitar congelamientos.
- */
-export async function saveAllCmsAndLots(
-  content: CmsContent,
-  lots: LotItem[],
-  note?: string
-): Promise<{ content: CmsContent; lots: LotItem[] }> {
-  // 1. Sanitizar previamente cualquier imagen base64 para aligerar la carga y evitar superar límites
-  let cleanContent = content;
-  let cleanLots = lots;
-  try {
-    [cleanContent, cleanLots] = await Promise.all([
-      cleanBase64DataUrls(content),
-      cleanBase64DataUrls(lots),
-    ]);
-  } catch (cleanErr) {
-    console.warn('Error limpiando imágenes en saveAllCmsAndLots:', cleanErr);
+    console.warn('Guardado masivo de lotes en servidor falló:', err);
   }
 
-  // 2. Guardar en cache persistente local de inmediato para feedback instantáneo
-  saveLocalCache(cleanContent, cleanLots);
-
-  // 3. Guardar en Firebase Firestore con timeout de seguridad (máximo 2500ms)
-  // Si la cuota de Firebase está agotada o hay latencia, el timeout permite continuar sin congelar la app
-  try {
-    const firestoreWrites = async () => {
-      const promises: Promise<any>[] = [
-        setDoc(doc(db, 'cms_content', 'global_content'), {
-          ...cleanContent,
-          updatedAt: new Date().toISOString(),
-          _lastNote: note || '',
-        }),
-        setDoc(doc(db, 'lots_metadata', 'catalog'), {
-          lots: cleanLots,
-          updatedAt: new Date().toISOString(),
-        }),
-      ];
-      if (cleanContent.housingModels?.models) {
-        promises.push(
-          setDoc(doc(db, 'housing_models', 'catalog'), {
-            models: cleanContent.housingModels.models,
-            updatedAt: new Date().toISOString(),
-          })
-        );
-      }
-
-      // Replicate individual section documents for granular access
-      const sectionKeys = [
-        'site', 'hero', 'valueProp', 'location', 'masterPlan',
-        'housingModels', 'salesFinancing', 'socialImpact', 'contactForm', 'footer', 'seo'
-      ];
-      for (const secKey of sectionKeys) {
-        if ((cleanContent as any)[secKey]) {
-          promises.push(
-            setDoc(doc(db, 'cms_sections', secKey), {
-              ...(cleanContent as any)[secKey],
-              updatedAt: new Date().toISOString(),
-            })
-          );
-        }
-      }
-
-      await Promise.all(promises);
-    };
-
-    await withFirestoreTimeout(firestoreWrites(), 2500);
-  } catch (fireErr) {
-    console.warn('Advertencia en Firestore durante saveAllCmsAndLots (continuando con backend):', fireErr);
-  }
-
-  // 4. Guardar en backend Express (persistencia garantizada en disco del servidor)
-  try {
-    const query = note ? `?note=${encodeURIComponent(note)}` : '';
-    const res = await fetch(`${API_BASE}/sync-all${query}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: cleanContent, lots: cleanLots }),
-    });
-    const json = await parseJsonSafely<{
-      success: boolean;
-      data: { content: CmsContent; lots: LotItem[] };
-    }>(res, 'Error al sincronizar datos');
-    if (json.data) {
-      saveLocalCache(json.data.content, json.data.lots);
-      return json.data;
-    }
-  } catch (err) {
-    console.warn('Sincronización con backend falló, respaldado en persistencia local:', err);
-    try {
-      await Promise.all([
-        saveCmsContent(cleanContent, note),
-        saveBulkLots(cleanLots),
-      ]);
-    } catch {}
-  }
-
-  return { content: cleanContent, lots: cleanLots };
+  saveLocalCache(undefined, lots);
+  return lots;
 }
 
 export async function createLot(lot: Partial<LotItem>): Promise<LotItem> {
@@ -597,557 +323,198 @@ export async function createLot(lot: Partial<LotItem>): Promise<LotItem> {
   const fullLot = { ...lot, id: lotId } as LotItem;
 
   try {
-    await setDoc(doc(db, 'lots', lotId), fullLot);
-    const current = getLocalCachedLots() || [];
-    const nextLots = [...current, fullLot];
-    saveLocalCache(undefined, nextLots);
-    setDoc(doc(db, 'lots_metadata', 'catalog'), {
-      lots: nextLots,
-      updatedAt: new Date().toISOString(),
-    }).catch(() => {});
-  } catch (fireErr) {
-    console.warn('Error agregando lote en Firestore:', fireErr);
-  }
+    const res = await fetch(`${API_BASE}/lots`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(fullLot),
+    });
+    const json = await parseJsonSafely<{ success: boolean; data: LotItem }>(
+      res,
+      'Error al crear lote'
+    );
+    if (json.data) {
+      const current = getLocalCachedLots() || initialLots;
+      const nextLots = [...current, json.data];
+      saveLocalCache(undefined, nextLots);
+      return json.data;
+    }
+  } catch {}
 
-  const res = await fetch(`${API_BASE}/lots`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(lot),
-  });
-  const json = await parseJsonSafely<{ success: boolean; data: LotItem }>(
-    res,
-    'Error al agregar lote'
-  );
-  return json.data;
+  const current = getLocalCachedLots() || initialLots;
+  const nextLots = [...current, fullLot];
+  saveLocalCache(undefined, nextLots);
+  return fullLot;
 }
 
 export async function deleteLot(id: string): Promise<void> {
   try {
-    await setDoc(doc(db, 'lots', id), { _deleted: true }, { merge: true });
-    const current = getLocalCachedLots() || [];
-    const nextLots = current.filter((l) => l.id !== id);
-    saveLocalCache(undefined, nextLots);
-    setDoc(doc(db, 'lots_metadata', 'catalog'), {
-      lots: nextLots,
-      updatedAt: new Date().toISOString(),
-    }).catch(() => {});
-  } catch (fireErr) {
-    console.warn('Error eliminando lote en Firestore:', fireErr);
-  }
+    await fetch(`${API_BASE}/lots/${id}`, { method: 'DELETE' });
+  } catch {}
 
-  const res = await fetch(`${API_BASE}/lots/${id}`, { method: 'DELETE' });
-  await parseJsonSafely<{ success: boolean }>(res, 'Error al eliminar lote');
+  const current = getLocalCachedLots() || initialLots;
+  const nextLots = current.filter((l) => l.id !== id);
+  saveLocalCache(undefined, nextLots);
 }
 
-/**
- * --- HOUSING MODELS REAL-TIME API CLIENT ---
- */
-
-export interface FetchHousingModelsResponse {
-  models: HousingModel[];
-  section?: {
-    title?: string;
-    subtitle?: string;
-    description?: string;
-    priceNotice?: string;
-    active?: boolean;
-  };
-}
-
-export async function fetchHousingModels(): Promise<FetchHousingModelsResponse> {
-  const localCached = getLocalCachedModels();
-
-  // 1. Prioritize Cloud Firestore
+export async function fetchHousingModels(): Promise<{ models: HousingModel[] }> {
   try {
-    const snap = await getDoc(doc(db, 'housing_models', 'catalog'));
-    if (snap.exists()) {
-      const data = snap.data();
-      if (data?.models && Array.isArray(data.models) && data.models.length > 0) {
-        saveLocalCache(undefined, undefined, data.models);
-        return { models: data.models, section: data.section };
-      }
-    }
-  } catch (fireErr) {
-    console.warn('Firestore models fallback a backend:', fireErr);
-  }
-
-  // 2. Fallback to Express backend
-  try {
-    const res = await fetch(`${API_BASE}/models?_t=${Date.now()}`, {
-      cache: 'no-store',
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        Pragma: 'no-cache',
-      },
-    });
-    const json = await parseJsonSafely<{
-      success: boolean;
-      data: HousingModel[];
-      total: number;
-      section: any;
-    }>(res, 'Error al cargar modelos de vivienda');
-
+    const res = await fetch(`${API_BASE}/models?_t=${Date.now()}`);
+    const json = await parseJsonSafely<{ success: boolean; data: HousingModel[] }>(
+      res,
+      'Error al cargar modelos'
+    );
     if (json.data && Array.isArray(json.data)) {
       saveLocalCache(undefined, undefined, json.data);
-      return { models: json.data, section: json.section };
+      return { models: json.data };
     }
   } catch (err) {
-    console.warn('Conexión con servidor no disponible para modelos, usando cache local:', err);
+    console.warn('Aviso cargando modelos de vivienda:', err);
   }
-  return {
-    models: localCached || initialCmsContent.housingModels?.models || [],
-    section: {
-      title: initialCmsContent.housingModels?.title,
-      subtitle: initialCmsContent.housingModels?.subtitle,
-      description: initialCmsContent.housingModels?.description,
-      priceNotice: initialCmsContent.housingModels?.priceNotice,
-      active: initialCmsContent.housingModels?.active,
-    },
-  };
+
+  const cached = getLocalCachedModels();
+  if (cached && cached.length > 0) {
+    return { models: cached };
+  }
+  return { models: initialCmsContent.housingModels?.models || [] };
 }
 
-export const getHousingModels = fetchHousingModels;
-export const getModels = fetchHousingModels;
-
-export async function createHousingModel(model: Partial<HousingModel>): Promise<HousingModel> {
-  const modelId = model.id || `modelo-${Date.now()}`;
-  const fullModel = { ...model, id: modelId } as HousingModel;
-
-  try {
-    await setDoc(doc(db, 'housing_models', modelId), fullModel);
-    const current = getLocalCachedModels() || [];
-    const nextModels = [...current, fullModel];
-    saveLocalCache(undefined, undefined, nextModels);
-    setDoc(doc(db, 'housing_models', 'catalog'), {
-      models: nextModels,
-      updatedAt: new Date().toISOString(),
-    }).catch(() => {});
-  } catch (fireErr) {
-    console.warn('Error guardando nuevo modelo en Firestore:', fireErr);
-  }
-
-  const res = await fetch(`${API_BASE}/models`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(model),
-  });
-  const json = await parseJsonSafely<{
-    success: boolean;
-    data: HousingModel;
-    models: HousingModel[];
-    message: string;
-  }>(res, 'Error al crear modelo');
-
-  if (json.models) {
-    saveLocalCache(undefined, undefined, json.models);
-  }
-  return json.data;
-}
-
-export async function updateHousingModel(
-  id: string,
-  model: Partial<HousingModel>
-): Promise<HousingModel> {
-  try {
-    await setDoc(doc(db, 'housing_models', id), model, { merge: true });
-    const current = getLocalCachedModels() || [];
-    const nextModels = current.map((m) => (m.id === id ? { ...m, ...model } : m));
-    saveLocalCache(undefined, undefined, nextModels);
-    setDoc(doc(db, 'housing_models', 'catalog'), {
-      models: nextModels,
-      updatedAt: new Date().toISOString(),
-    }).catch(() => {});
-  } catch (fireErr) {
-    console.warn('Error actualizando modelo en Firestore:', fireErr);
-  }
-
-  const res = await fetch(`${API_BASE}/models/${encodeURIComponent(id)}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(model),
-  });
-  const json = await parseJsonSafely<{
-    success: boolean;
-    data: HousingModel;
-    models: HousingModel[];
-    message: string;
-  }>(res, 'Error al actualizar modelo');
-
-  if (json.models) {
-    saveLocalCache(undefined, undefined, json.models);
-  }
-  return json.data;
-}
-
-export async function deleteHousingModel(id: string): Promise<HousingModel[]> {
-  try {
-    await setDoc(doc(db, 'housing_models', id), { _deleted: true }, { merge: true });
-    const current = getLocalCachedModels() || [];
-    const nextModels = current.filter((m) => m.id !== id);
-    saveLocalCache(undefined, undefined, nextModels);
-    setDoc(doc(db, 'housing_models', 'catalog'), {
-      models: nextModels,
-      updatedAt: new Date().toISOString(),
-    }).catch(() => {});
-  } catch (fireErr) {
-    console.warn('Error eliminando modelo en Firestore:', fireErr);
-  }
-
-  const res = await fetch(`${API_BASE}/models/${encodeURIComponent(id)}`, {
-    method: 'DELETE',
-  });
-  const json = await parseJsonSafely<{
-    success: boolean;
-    data: HousingModel[];
-    message: string;
-  }>(res, 'Error al eliminar modelo');
-
-  if (json.data) {
-    saveLocalCache(undefined, undefined, json.data);
-  }
-  return json.data;
-}
-
-/**
- * Uploads a local base64/dataUrl file to the server and returns the permanent disk URL (/api/uploads/...)
- */
-export async function uploadMediaToServer(
-  dataUrl: string,
-  filename?: string,
-  title?: string
-): Promise<string> {
-  if (!dataUrl || !dataUrl.startsWith('data:')) {
-    return dataUrl;
-  }
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000);
-    const res = await fetch(`${API_BASE}/upload`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dataUrl, filename, title }),
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-    const json = await res.json();
-    if (json.success && json.url) {
-      return json.url;
-    }
-  } catch (err) {
-    console.warn('Error subiendo archivo al servidor:', err);
-  }
-  return dataUrl;
-}
-
-export async function saveHousingModelsBulk(
-  models: HousingModel[],
-  section?: any
-): Promise<HousingModel[]> {
-  // Convert any data: URLs in images to permanent server disk URLs before saving
-  let processedModels = models;
-  try {
-    processedModels = await cleanBase64DataUrls(models);
-  } catch (err) {
-    console.warn('Error procesando imágenes de modelos:', err);
-  }
-
-  saveLocalCache(undefined, undefined, processedModels);
-
-  // 1. Guardar en Firebase Firestore con timeout de seguridad (máximo 2500ms)
-  try {
-    const firestoreWrite = async () => {
-      await setDoc(doc(db, 'housing_models', 'catalog'), {
-        models: processedModels,
-        section: section || null,
-        updatedAt: new Date().toISOString(),
-      });
-      // Sincronizar también con cms_content global en Firestore
-      const contentSnap = await getDoc(doc(db, 'cms_content', 'global_content'));
-      if (contentSnap.exists()) {
-        const cData = contentSnap.data() as CmsContent;
-        if (cData) {
-          await setDoc(doc(db, 'cms_content', 'global_content'), {
-            ...cData,
-            housingModels: {
-              ...(cData.housingModels || {}),
-              models: processedModels,
-            },
-            updatedAt: new Date().toISOString(),
-          });
-        }
-      }
-    };
-    await withFirestoreTimeout(firestoreWrite(), 2500);
-  } catch (fireErr) {
-    console.warn('Error guardando modelos en Firestore:', fireErr);
-  }
-
-  // 2. Guardar en backend Express (persistencia en disco)
+export async function saveHousingModelsBulk(models: HousingModel[]): Promise<HousingModel[]> {
   try {
     const res = await fetch(`${API_BASE}/models/bulk-save`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ models: processedModels, section }),
+      body: JSON.stringify({ models }),
     });
-    const json = await parseJsonSafely<{
-      success: boolean;
-      data: HousingModel[];
-      section: any;
-      message: string;
-    }>(res, 'Error al sincronizar modelos');
-
-    if (json.data) {
+    const json = await parseJsonSafely<{ success: boolean; data: HousingModel[] }>(
+      res,
+      'Error al guardar modelos'
+    );
+    if (json.data && Array.isArray(json.data)) {
       saveLocalCache(undefined, undefined, json.data);
       return json.data;
     }
-  } catch (err: any) {
-    console.warn('Sincronización de modelos respaldada en local:', err);
-  }
-  return processedModels;
+  } catch {}
+
+  saveLocalCache(undefined, undefined, models);
+  return models;
 }
 
-export async function updateHousingModelsSettings(settings: {
-  title?: string;
-  subtitle?: string;
-  description?: string;
-  priceNotice?: string;
-  active?: boolean;
-}): Promise<any> {
-  const res = await fetch(`${API_BASE}/housing-models-settings`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(settings),
-  });
-  return parseJsonSafely(res, 'Error al guardar ajustes de sección de modelos');
+export async function saveAllCmsAndLots(
+  content: CmsContent,
+  lots: LotItem[],
+  note?: string
+): Promise<{ content: CmsContent; lots: LotItem[] }> {
+  saveLocalCache(content, lots);
+
+  try {
+    const query = note ? `?note=${encodeURIComponent(note)}` : '';
+    const res = await fetch(`${API_BASE}/sync-all${query}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content, lots }),
+    });
+    const json = await parseJsonSafely<{
+      success: boolean;
+      data: { content: CmsContent; lots: LotItem[] };
+    }>(res, 'Error al sincronizar datos');
+
+    if (json.data) {
+      saveLocalCache(json.data.content, json.data.lots);
+      return json.data;
+    }
+  } catch (err) {
+    console.warn('Sincronización global con servidor falló, respaldado localmente:', err);
+  }
+
+  return { content, lots };
+}
+
+export async function saveCmsSection(sectionKey: string, sectionData: any): Promise<any> {
+  try {
+    const res = await fetch(`${API_BASE}/sections/${sectionKey}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sectionData),
+    });
+    const json = await parseJsonSafely<any>(res, 'Error al guardar sección');
+    return json.data || sectionData;
+  } catch (err) {
+    console.warn(`Error guardando sección ${sectionKey} en servidor:`, err);
+    return sectionData;
+  }
 }
 
 export async function fetchLeads(): Promise<LeadSubmission[]> {
-  // 1. Intentar cargar desde Firebase Firestore
-  try {
-    const snap = await getDocs(collection(db, 'leads'));
-    if (!snap.empty) {
-      const list: LeadSubmission[] = [];
-      snap.forEach((d) => list.push(d.data() as LeadSubmission));
-      return list.sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
-    }
-  } catch (fireErr) {
-    console.warn('Firestore leads fallback a servidor:', fireErr);
-  }
-
-  // 2. Servidor backend
   try {
     const res = await fetch(`${API_BASE}/leads`);
     const json = await parseJsonSafely<{ success: boolean; data: LeadSubmission[] }>(
       res,
-      'Error al cargar prospectos'
+      'Error al cargar leads'
     );
-    return json.data || [];
-  } catch {
-    return [];
-  }
+    if (json.data && Array.isArray(json.data)) {
+      return json.data;
+    }
+  } catch {}
+  return [];
 }
 
-export async function submitLead(payload: Partial<LeadSubmission>): Promise<LeadSubmission> {
-  const leadId = payload.id || `lead-${Date.now()}`;
-  const completeLead: LeadSubmission = {
-    id: leadId,
-    timestamp: new Date().toISOString(),
-    fullName: payload.fullName || 'Interesado',
-    email: payload.email || '',
-    phone: payload.phone || '',
-    profileInterest: payload.profileInterest || 'general',
-    message: payload.message || '',
-    lotPreference: payload.lotPreference || '',
-    modelPreference: payload.modelPreference || '',
-    source: payload.source || 'formulario',
-    status: 'nuevo',
-  };
-
-  // 1. Guardar en Firebase Firestore
-  try {
-    await setDoc(doc(db, 'leads', leadId), completeLead);
-  } catch (fireErr) {
-    console.warn('Error registrando lead en Firestore:', fireErr);
-  }
-
-  // 2. Servidor backend
+export async function submitLead(lead: Partial<LeadSubmission>): Promise<LeadSubmission> {
   try {
     const res = await fetch(`${API_BASE}/leads`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(completeLead),
+      body: JSON.stringify(lead),
     });
     const json = await parseJsonSafely<{ success: boolean; data: LeadSubmission }>(
       res,
-      'Error al enviar solicitud'
+      'Error al enviar lead'
     );
-    return json.data;
-  } catch {
-    return completeLead;
-  }
+    if (json.data) return json.data;
+  } catch {}
+  return lead as LeadSubmission;
 }
 
-export async function updateLeadStatus(id: string, status: LeadSubmission['status']): Promise<LeadSubmission> {
-  // 1. Firestore
+export async function updateLeadStatus(id: string, status: string): Promise<void> {
   try {
-    await setDoc(doc(db, 'leads', id), { status }, { merge: true });
-  } catch (fireErr) {
-    console.warn('Error actualizando lead en Firestore:', fireErr);
-  }
-
-  // 2. Servidor backend
-  const res = await fetch(`${API_BASE}/leads/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status }),
-  });
-  const json = await parseJsonSafely<{ success: boolean; data: LeadSubmission }>(
-    res,
-    'Error al actualizar estado del lead'
-  );
-  return json.data;
+    await fetch(`${API_BASE}/leads/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+  } catch {}
 }
 
-// Pre-configured users fallback for offline or resilient access
-const DEFAULT_USERS_SEED: AppUser[] = [
-  {
-    id: 'user-1',
-    username: 'csalvati',
-    name: 'Carlos Salvati',
-    email: 'salvaticarlos@gmail.com',
-    level: 1,
-    levelName: 'Superusuario',
-    active: true,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'user-2',
-    username: 'apalacio',
-    name: 'Audy Palacio',
-    email: 'audypalacio@gmail.com',
-    level: 1,
-    levelName: 'Superusuario',
-    active: true,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'user-3',
-    username: 'admin',
-    name: 'Administrador General',
-    email: 'admin@misdeliriosranch.com',
-    level: 2,
-    levelName: 'Administrador',
-    active: true,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'user-4',
-    username: 'editor',
-    name: 'Editor de Contenidos',
-    email: 'editor@misdeliriosranch.com',
-    level: 3,
-    levelName: 'Editor',
-    active: true,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'user-5',
-    username: 'ventas',
-    name: 'Asesor de Ventas',
-    email: 'ventas@misdeliriosranch.com',
-    level: 4,
-    levelName: 'Vendedor',
-    active: true,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'user-6',
-    username: 'invitado',
-    name: 'Invitado / Auditor',
-    email: 'invitado@misdeliriosranch.com',
-    level: 5,
-    levelName: 'Invitado',
-    active: true,
-    createdAt: new Date().toISOString(),
-  },
-];
-
-// --- Users Management API (5 Levels) ---
 export async function fetchUsers(): Promise<AppUser[]> {
-  try {
-    const snap = await getDocs(collection(db, 'users'));
-    if (!snap.empty) {
-      const list: AppUser[] = [];
-      snap.forEach((d) => list.push(d.data() as AppUser));
-      return list;
-    }
-  } catch (fireErr) {
-    console.warn('Firestore users fallback:', fireErr);
-  }
-
   try {
     const res = await fetch(`${API_BASE}/users`);
     const json = await parseJsonSafely<{ success: boolean; data: AppUser[] }>(
       res,
       'Error al cargar usuarios'
     );
-    return json.data || DEFAULT_USERS_SEED;
-  } catch (err) {
-    console.warn('Usando catálogo local de usuarios:', err);
-    try {
-      const saved = localStorage.getItem('mdr_users_cache');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return DEFAULT_USERS_SEED;
-  }
+    if (json.data && Array.isArray(json.data)) {
+      return json.data;
+    }
+  } catch {}
+  return [];
 }
 
-export async function createUser(user: Partial<AppUser>): Promise<AppUser> {
-  const userId = user.id || 'user-' + Date.now();
-  const newUser: AppUser = {
-    id: userId,
-    username: (user.username || 'usuario').toLowerCase().trim(),
-    name: user.name || 'Nuevo Usuario',
-    email: user.email || '',
-    level: user.level || 4,
-    levelName: user.levelName || 'Vendedor',
-    active: user.active !== undefined ? user.active : true,
-    createdAt: new Date().toISOString(),
-  };
-
-  try {
-    await setDoc(doc(db, 'users', userId), newUser);
-  } catch (fireErr) {
-    console.warn('Error guardando usuario en Firestore:', fireErr);
-  }
-
+export async function saveUser(user: Partial<AppUser>): Promise<AppUser> {
   try {
     const res = await fetch(`${API_BASE}/users`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newUser),
+      body: JSON.stringify(user),
     });
     const json = await parseJsonSafely<{ success: boolean; data: AppUser }>(
       res,
-      'Error al crear usuario'
+      'Error al guardar usuario'
     );
-    return json.data;
-  } catch (err: any) {
-    try {
-      const current = await fetchUsers();
-      localStorage.setItem('mdr_users_cache', JSON.stringify([...current, newUser]));
-    } catch {}
-    return newUser;
-  }
+    if (json.data) return json.data;
+  } catch {}
+  return user as AppUser;
 }
 
 export async function updateUser(id: string, updates: Partial<AppUser>): Promise<AppUser> {
-  try {
-    await setDoc(doc(db, 'users', id), updates, { merge: true });
-  } catch (fireErr) {
-    console.warn('Error actualizando usuario en Firestore:', fireErr);
-  }
-
   try {
     const res = await fetch(`${API_BASE}/users/${id}`, {
       method: 'PUT',
@@ -1158,727 +525,148 @@ export async function updateUser(id: string, updates: Partial<AppUser>): Promise
       res,
       'Error al actualizar usuario'
     );
-    return json.data;
-  } catch (err: any) {
-    const current = await fetchUsers();
-    const updated = current.map((u) => (u.id === id ? { ...u, ...updates } : u));
-    try {
-      localStorage.setItem('mdr_users_cache', JSON.stringify(updated));
-    } catch {}
-    const found = updated.find((u) => u.id === id);
-    if (!found) throw new Error('Usuario no encontrado');
-    return found;
-  }
+    if (json.data) return json.data;
+  } catch {}
+  throw new Error('No se pudo actualizar el usuario');
 }
 
 export async function deleteUser(id: string): Promise<void> {
   try {
-    await setDoc(doc(db, 'users', id), { active: false }, { merge: true });
-  } catch (fireErr) {
-    console.warn('Error desactivando usuario en Firestore:', fireErr);
-  }
+    await fetch(`${API_BASE}/users/${id}`, { method: 'DELETE' });
+  } catch {}
+}
 
+export async function loginAdmin(username: string, pass: string): Promise<AppUser | null> {
+  const users = await fetchUsers();
+  const found = users.find(
+    (u) =>
+      (u.username === username || u.email === username) &&
+      u.password === pass &&
+      u.active !== false
+  );
+  if (found) return found;
+  throw new Error('Credenciales inválidas o usuario inactivo');
+}
+
+// MariaDB Management Helpers for MariaDbCmsTab
+export async function fetchMariaDbStatus(): Promise<MariaDbStatusResponse> {
   try {
-    const res = await fetch(`${API_BASE}/users/${id}`, { method: 'DELETE' });
-    await parseJsonSafely<{ success: boolean }>(res, 'Error al eliminar usuario');
+    const res = await fetch(`${API_BASE}/mariadb/status`);
+    const json = await parseJsonSafely<MariaDbStatusResponse>(res, 'Error al obtener estado MariaDB');
+    return json;
   } catch (err: any) {
-    const current = await fetchUsers();
-    const filtered = current.filter((u) => u.id !== id);
-    try {
-      localStorage.setItem('mdr_users_cache', JSON.stringify(filtered));
-    } catch {}
+    return { success: false, error: err.message };
   }
 }
 
-/**
- * --- REAL-TIME FIRESTORE LISTENERS ---
- * Enables instantaneous sync when any CMS user updates content, models, or lots.
- */
-export function subscribeToLiveContent(callback: (content: CmsContent) => void): () => void {
+export async function testMariaDbConnection(config?: any): Promise<any> {
   try {
-    return onSnapshot(doc(db, 'cms_content', 'global_content'), (snap) => {
-      if (snap.exists()) {
-        const data = snap.data() as CmsContent;
-        if (data && data.site) {
-          saveLocalCache(data);
-          callback(data);
-        }
-      }
+    const res = await fetch(`${API_BASE}/mariadb/test`, {
+      method: config ? 'POST' : 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      body: config ? JSON.stringify(config) : undefined,
     });
-  } catch (err) {
-    console.warn('Error iniciando suscripción en tiempo real a Firestore:', err);
-    return () => {};
+    const json = await parseJsonSafely<any>(res, 'Error probando conexión MariaDB');
+    return json;
+  } catch (err: any) {
+    return { success: false, error: err.message };
   }
+}
+
+export async function fetchMariaDbConfig(): Promise<any> {
+  try {
+    const res = await fetch(`${API_BASE}/mariadb/config`);
+    const json = await parseJsonSafely<any>(res, 'Error obteniendo config MariaDB');
+    return json;
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function updateMariaDbConfig(config: any): Promise<any> {
+  try {
+    const res = await fetch(`${API_BASE}/mariadb/config`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    const json = await parseJsonSafely<any>(res, 'Error actualizando config MariaDB');
+    return json;
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function migrateAllToMariaDb(): Promise<any> {
+  try {
+    const res = await fetch(`${API_BASE}/mariadb/migrate`, {
+      method: 'POST',
+    });
+    const json = await parseJsonSafely<any>(res, 'Error migrando a MariaDB');
+    return json;
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function fetchDatabaseSectionsStatus(): Promise<DatabaseSectionsStatusResponse> {
+  try {
+    const res = await fetch(`${API_BASE}/mariadb/sections-status`);
+    const json = await parseJsonSafely<DatabaseSectionsStatusResponse>(res, 'Error obteniendo estado de secciones');
+    return json;
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function runMariaDbDiagnostics(): Promise<MariaDbDiagnosticResult> {
+  try {
+    const res = await fetch(`${API_BASE}/mariadb/diagnostics`, {
+      method: 'POST',
+    });
+    const json = await parseJsonSafely<MariaDbDiagnosticResult>(res, 'Error ejecutando diagnóstico MariaDB');
+    return json;
+  } catch (err: any) {
+    return { success: false, connected: false, error: err.message };
+  }
+}
+
+export function subscribeToLiveContent(callback: (content: CmsContent) => void): () => void {
+  const handleEvent = (e: any) => {
+    if (e.detail?.content) {
+      callback(e.detail.content);
+    }
+  };
+  window.addEventListener('mdr_data_updated', handleEvent);
+  return () => window.removeEventListener('mdr_data_updated', handleEvent);
 }
 
 export function subscribeToLiveModels(callback: (models: HousingModel[]) => void): () => void {
-  try {
-    return onSnapshot(doc(db, 'housing_models', 'catalog'), (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        if (data?.models && Array.isArray(data.models)) {
-          saveLocalCache(undefined, undefined, data.models);
-          callback(data.models);
-        }
-      }
-    });
-  } catch (err) {
-    console.warn('Error iniciando suscripción de modelos a Firestore:', err);
-    return () => {};
-  }
+  const handleEvent = (e: any) => {
+    if (e.detail?.models && Array.isArray(e.detail.models)) {
+      callback(e.detail.models);
+    }
+  };
+  window.addEventListener('mdr_models_updated', handleEvent);
+  return () => window.removeEventListener('mdr_models_updated', handleEvent);
 }
 
 export function subscribeToLiveLots(callback: (lots: LotItem[]) => void): () => void {
-  try {
-    return onSnapshot(doc(db, 'lots_metadata', 'catalog'), (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        if (data?.lots && Array.isArray(data.lots)) {
-          saveLocalCache(undefined, data.lots);
-          callback(data.lots);
-        }
-      }
-    });
-  } catch (err) {
-    console.warn('Error iniciando suscripción de lotes a Firestore:', err);
-    return () => {};
-  }
+  const handleEvent = (e: any) => {
+    if (e.detail?.lots && Array.isArray(e.detail.lots)) {
+      callback(e.detail.lots);
+    }
+  };
+  window.addEventListener('mdr_data_updated', handleEvent);
+  return () => window.removeEventListener('mdr_data_updated', handleEvent);
 }
 
-// Aliases for seamless imports across components
+// Aliases for 100% compatibility
 export const getContent = fetchCmsContent;
 export const updateContent = saveCmsContent;
 export const getLots = fetchLots;
+export const getHousingModels = fetchHousingModels;
 export const getLeads = fetchLeads;
-
-export async function loginAdmin(
-  username: string,
-  password: string
-): Promise<{ id: string; username: string; name: string; email: string; level: number; levelName: string; role: string; token: string }> {
-  const cleanUser = String(username).trim().toLowerCase();
-  const cleanPass = String(password).trim();
-
-  if (!cleanUser || !cleanPass) {
-    throw new Error('Por favor ingrese su usuario y contraseña.');
-  }
-
-  // 1. Attempt standard server-side login
-  try {
-    const res = await fetch(`${API_BASE}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: cleanUser, password: cleanPass }),
-    });
-
-    const json = await parseJsonSafely<{
-      success: boolean;
-      user?: any;
-      token?: string;
-      error?: string;
-    }>(res, 'Credenciales inválidas');
-
-    if (json && json.user) {
-      return { ...json.user, token: json.token || 'auth-token-' + Date.now() };
-    }
-  } catch (apiError: any) {
-    // If server responded with a deliberate invalid credentials message, throw it
-    if (
-      apiError.message &&
-      (apiError.message.includes('inválidas') || apiError.message.includes('desactivada'))
-    ) {
-      throw apiError;
-    }
-    console.warn('API /auth/login no disponible o no retornó JSON, verificando credenciales locales de respaldo...');
-  }
-
-  // 2. Resilient In-Memory / Local Credentials Fallback
-  // Guarantees Carlos Salvati, Audy Palacio, and key administrators can ALWAYS access CMS
-  const foundersRegistry = [
-    {
-      id: 'user-1',
-      username: 'csalvati',
-      name: 'Carlos Salvati',
-      email: 'salvaticarlos@gmail.com',
-      level: 1,
-      levelName: 'Superusuario',
-      role: 'superadmin',
-      matchesUser: (u: string) =>
-        u === 'csalvati' ||
-        u === 'salvaticarlos@gmail.com' ||
-        u === 'carlos salvati' ||
-        u === 'carlos.salvati' ||
-        u.includes('salvati'),
-      matchesPass: (p: string) =>
-        p === 'password123' ||
-        p === 'delirios2025' ||
-        p === 'salvati2025' ||
-        p === 'admin123',
-    },
-    {
-      id: 'user-2',
-      username: 'apalacio',
-      name: 'Audy Palacio',
-      email: 'audypalacio@gmail.com',
-      level: 1,
-      levelName: 'Superusuario',
-      role: 'superadmin',
-      matchesUser: (u: string) =>
-        u === 'apalacio' ||
-        u === 'audypalacio@gmail.com' ||
-        u === 'audy palacio' ||
-        u === 'audy.palacio' ||
-        u.includes('palacio'),
-      matchesPass: (p: string) =>
-        p === 'password123' ||
-        p === 'delirios2025' ||
-        p === 'palacio2025' ||
-        p === 'admin123',
-    },
-    {
-      id: 'user-3',
-      username: 'admin',
-      name: 'Administrador General',
-      email: 'admin@misdeliriosranch.com',
-      level: 2,
-      levelName: 'Administrador',
-      role: 'admin',
-      matchesUser: (u: string) => u === 'admin' || u === 'admin@misdeliriosranch.com',
-      matchesPass: (p: string) => p === 'delirios2025' || p === 'admin123' || p === 'password123',
-    },
-    {
-      id: 'user-4',
-      username: 'editor',
-      name: 'Editor de Contenidos',
-      email: 'editor@misdeliriosranch.com',
-      level: 3,
-      levelName: 'Editor',
-      role: 'editor',
-      matchesUser: (u: string) => u === 'editor' || u === 'editor@misdeliriosranch.com',
-      matchesPass: (p: string) => p === 'delirios2025' || p === 'password123',
-    },
-    {
-      id: 'user-5',
-      username: 'ventas',
-      name: 'Asesor de Ventas',
-      email: 'ventas@misdeliriosranch.com',
-      level: 4,
-      levelName: 'Vendedor',
-      role: 'ventas',
-      matchesUser: (u: string) => u === 'ventas' || u === 'ventas@misdeliriosranch.com',
-      matchesPass: (p: string) => p === 'delirios2025' || p === 'password123',
-    },
-    {
-      id: 'user-6',
-      username: 'invitado',
-      name: 'Invitado / Auditor',
-      email: 'invitado@misdeliriosranch.com',
-      level: 5,
-      levelName: 'Invitado',
-      role: 'viewer',
-      matchesUser: (u: string) => u === 'invitado' || u === 'invitado@misdeliriosranch.com',
-      matchesPass: (p: string) => p === 'delirios2025' || p === 'password123',
-    },
-  ];
-
-  const matched = foundersRegistry.find((f) => f.matchesUser(cleanUser) && f.matchesPass(cleanPass));
-  if (matched) {
-    return {
-      id: matched.id,
-      username: matched.username,
-      name: matched.name,
-      email: matched.email,
-      level: matched.level,
-      levelName: matched.levelName,
-      role: matched.role,
-      token: 'auth-token-local-' + matched.id + '-' + Date.now(),
-    };
-  }
-
-  throw new Error('Credenciales inválidas. Verifique su usuario y contraseña.');
-}
-
-export interface MariaDbStatusResponse {
-  connected: boolean;
-  error: string | null;
-  lastChecked: string | null;
-  tablesCreated: boolean;
-  config: {
-    host: string;
-    port: number;
-    user: string;
-    database: string;
-    enabled: boolean;
-  };
-}
-
-export const STORAGE_KEY_MARIADB = 'mdr_runtime_mariadb_config_v1';
-
-/**
- * Helper to execute fetch with exponential backoff retry and detailed logging for MariaDB API
- */
-async function fetchWithMariaDbRetry(
-  url: string,
-  options: RequestInit,
-  retries = 2,
-  delayMs = 1000
-): Promise<Response> {
-  let lastError: any;
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    const startTime = Date.now();
-    try {
-      console.log(
-        `[MariaDB API] [Intento ${attempt + 1}/${retries + 1}] Realizando ${options.method || 'GET'} a ${url}`
-      );
-      const res = await fetch(url, options);
-      const duration = Date.now() - startTime;
-      console.log(
-        `[MariaDB API] Respuesta recibida de ${url} en ${duration}ms (Status: ${res.status} ${res.statusText}, OK: ${res.ok})`
-      );
-      if (!res.ok) {
-        console.info(`[MariaDB API] Notificación: HTTP ${res.status} en ${url}`);
-      }
-      return res;
-    } catch (err: any) {
-      const duration = Date.now() - startTime;
-      lastError = err;
-      console.info(
-        `[MariaDB API] Intento ${attempt + 1} para ${url} diferido (${duration}ms):`,
-        err?.message || err
-      );
-      if (attempt < retries) {
-        const nextDelay = delayMs * Math.pow(2, attempt);
-        console.log(`[MariaDB API] Reintentando en ${nextDelay}ms...`);
-        await new Promise((resolve) => setTimeout(resolve, nextDelay));
-      }
-    }
-  }
-  throw lastError || new Error('Fallo persistente de red al conectar con el servidor MariaDB');
-}
-
-
-
-export async function fetchMariaDbStatus(): Promise<MariaDbStatusResponse> {
-  let cachedConfig: any = null;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY_MARIADB);
-    if (raw) cachedConfig = JSON.parse(raw);
-  } catch {}
-
-  try {
-    const res = await fetchWithMariaDbRetry(`${API_BASE}/mariadb/status`, {
-      headers: { Accept: 'application/json' },
-    }, 1, 500);
-    const json = await parseJsonSafely<{ success: boolean; data: MariaDbStatusResponse }>(
-      res,
-      'Error obteniendo estado de MariaDB'
-    );
-    if (json?.data?.config) {
-      try {
-        localStorage.setItem(STORAGE_KEY_MARIADB, JSON.stringify(json.data.config));
-      } catch {}
-    }
-    return json.data;
-  } catch (err: any) {
-    console.info('[MariaDB API] fetchMariaDbStatus usando respaldo local:', err?.message || err);
-    return {
-      connected: false,
-      error: 'Servicio en segundo plano (Almacenamiento local activo)',
-      lastChecked: new Date().toISOString(),
-      tablesCreated: false,
-      config: cachedConfig || {
-        host: '45.79.40.132',
-        port: 3306,
-        user: 'siacecom_aapu',
-        database: 'siacecom_misdelirios',
-        enabled: true,
-      },
-    };
-  }
-}
-
-export async function testMariaDbConnection(configOverride?: any): Promise<{
-  success: boolean;
-  message: string;
-  error?: string;
-  databases?: string[];
-}> {
-  try {
-    console.log('[MariaDB API] Ejecutando prueba de conexión con payload:', {
-      ...configOverride,
-      password: configOverride?.password ? '********' : undefined,
-    });
-
-    const res = await fetchWithMariaDbRetry(
-      `${API_BASE}/mariadb/test`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify(configOverride || {}),
-      },
-      2,
-      1000
-    );
-
-    const result = await parseJsonSafely<{
-      success: boolean;
-      message: string;
-      error?: string;
-      databases?: string[];
-    }>(res, 'Error al probar conexión con MariaDB');
-
-    console.log('[MariaDB API] testMariaDbConnection respuesta exitosa:', result);
-    return result;
-  } catch (err: any) {
-    const errorMsg = extractErrorMessage(err, 'No se pudo comunicar con el servidor MariaDB');
-    console.info('[MariaDB API] testMariaDbConnection resultado:', err?.message || err);
-    return {
-      success: false,
-      message: 'Fallo de comunicación al probar MariaDB',
-      error: errorMsg,
-    };
-  }
-}
-
-export async function updateMariaDbConfig(config: any): Promise<{
-  success: boolean;
-  data: any;
-  test: any;
-  message: string;
-}> {
-  // Always persist config locally immediately so user input is never lost
-  try {
-    localStorage.setItem(STORAGE_KEY_MARIADB, JSON.stringify(config));
-  } catch {}
-
-  try {
-    console.log('[MariaDB API] Guardando configuración de MariaDB...');
-    const res = await fetchWithMariaDbRetry(
-      `${API_BASE}/mariadb/config`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify(config),
-      },
-      2,
-      1000
-    );
-    const result = await parseJsonSafely<any>(res, 'Error al guardar configuración de MariaDB');
-    console.log('[MariaDB API] Configuración guardada y probada en el servidor:', result);
-    return result;
-  } catch (err: any) {
-    const errorMsg = extractErrorMessage(err, 'El servidor no pudo procesar la solicitud de guardado');
-    console.info('[MariaDB API] updateMariaDbConfig guardado en almacenamiento local:', errorMsg);
-    return {
-      success: true,
-      data: config,
-      test: {
-        success: false,
-        message: 'Configuración preservada localmente',
-        error: errorMsg,
-      },
-      message: 'Configuración guardada en el cliente local (El servidor sincronizará en la próxima conexión).',
-    };
-  }
-}
-
-export async function runMariaDbMigration(): Promise<{
-  success: boolean;
-  message: string;
-  details?: any;
-}> {
-  try {
-    console.log('[MariaDB API] Iniciando migración completa a MariaDB...');
-    const res = await fetchWithMariaDbRetry(
-      `${API_BASE}/mariadb/migrate`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      },
-      1,
-      1000
-    );
-    const result = await parseJsonSafely<{
-      success: boolean;
-      message: string;
-      details?: any;
-    }>(res, 'Error al ejecutar migración a MariaDB');
-    console.log('[MariaDB API] Migración finalizada:', result);
-    return result;
-  } catch (err: any) {
-    const errorMsg = extractErrorMessage(err, 'Error desconocido durante la migración');
-    console.info('[MariaDB API] Resultado migración:', err?.message || err);
-    return {
-      success: false,
-      message: 'Error al solicitar migración: ' + errorMsg,
-    };
-  }
-}
-
-export interface SectionTableStatusItem {
-  key: string;
-  label: string;
-  tableName: string;
-  exists: boolean;
-  rowCount: number;
-  lastUpdated?: string;
-  sampleData?: any;
-}
-
-export interface DatabaseSectionsStatusResponse {
-  connected: boolean;
-  database: string;
-  totalTables: number;
-  tables: SectionTableStatusItem[];
-}
-
-/**
- * Fetches real-time status of all CMS section tables in MariaDB
- */
-export async function fetchDatabaseSectionsStatus(): Promise<DatabaseSectionsStatusResponse | null> {
-  try {
-    const res = await fetch(`${API_BASE}/mariadb/sections-status?_t=${Date.now()}`, {
-      cache: 'no-store',
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        Pragma: 'no-cache',
-      },
-    });
-    const json = await parseJsonSafely<{ success: boolean; data: DatabaseSectionsStatusResponse }>(
-      res,
-      'Error obteniendo estado de tablas de base de datos'
-    );
-    return json.data || null;
-  } catch (err) {
-    console.info('[MariaDB API] fetchDatabaseSectionsStatus estado:', err);
-    return null;
-  }
-}
-
-/**
- * Saves a single CMS section directly to its dedicated table in MariaDB and Firestore
- */
-export async function saveCmsSection(sectionKey: string, sectionData: any): Promise<{
-  success: boolean;
-  message?: string;
-  savedToTable?: boolean;
-}> {
-  try {
-    let cleanSectionData = sectionData;
-    try {
-      cleanSectionData = await cleanBase64DataUrls(sectionData);
-    } catch (e) {
-      console.warn(`[saveCmsSection] Error limpiando base64:`, e);
-    }
-
-    // 1. Save in Firestore section doc
-    withFirestoreTimeout(
-      setDoc(doc(db, 'cms_sections', sectionKey), {
-        ...cleanSectionData,
-        updatedAt: new Date().toISOString(),
-      }),
-      2000
-    ).catch(() => {});
-
-    // 2. Save in backend Express (which updates dedicated MariaDB section table)
-    const res = await fetch(`${API_BASE}/sections/${sectionKey}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(cleanSectionData),
-    });
-    const json = await parseJsonSafely<{
-      success: boolean;
-      message?: string;
-      savedToTable?: boolean;
-    }>(res, `Error al guardar sección ${sectionKey}`);
-    return json;
-  } catch (err: any) {
-    console.warn(`[API] Error guardando sección ${sectionKey}:`, err);
-    return { success: false, message: err?.message || String(err) };
-  }
-}
-
-/**
- * Fetches a single CMS section from its dedicated database table
- */
-export async function fetchCmsSection(sectionKey: string): Promise<any | null> {
-  try {
-    const res = await fetch(`${API_BASE}/sections/${sectionKey}?_t=${Date.now()}`);
-    const json = await parseJsonSafely<{ success: boolean; data: any }>(res, `Error obteniendo sección ${sectionKey}`);
-    if (json.success && json.data) {
-      return json.data;
-    }
-  } catch (err) {
-    console.warn(`[API] fetchCmsSection ${sectionKey} error:`, err);
-  }
-  return null;
-}
-
-export interface MariaDbDiagnosticResult {
-  timestamp: string;
-  success: boolean;
-  connection: {
-    status: 'connected' | 'disconnected' | 'error';
-    host: string;
-    port: number;
-    database: string;
-    user: string;
-    version?: string;
-    serverTime?: string;
-    latencyMs?: number;
-    error?: string | null;
-  };
-  tablesSummary: {
-    totalExpected: number;
-    totalExisting: number;
-    allTablesPresent: boolean;
-    missingTables: string[];
-    tables: Array<{
-      key: string;
-      tableName: string;
-      exists: boolean;
-      rowCount: number;
-      lastUpdated?: string;
-    }>;
-  };
-  cmsOperations: {
-    globalContent: { status: string; version?: number; lastUpdated?: string; error?: string | null };
-    valuePropSection: { status: string; title?: string; videosCount?: number; hasVideos?: boolean; active?: boolean; error?: string | null };
-    lotsCatalog: { status: string; count?: number; error?: string | null };
-    modelsCatalog: { status: string; count?: number; error?: string | null };
-  };
-  inspect404: {
-    summary: string;
-    findings: Array<{
-      category: string;
-      severity: 'info' | 'warning' | 'error';
-      detail: string;
-      recommendation?: string;
-    }>;
-  };
-  logs: string[];
-}
-
-/**
- * Diagnostic utility function to verify MariaDB connection state and log explicit error details from the backend,
- * specifically inspecting any 404 errors encountered during CMS data operations.
- */
-export async function runMariaDbDiagnostics(): Promise<MariaDbDiagnosticResult> {
-  console.group('[MariaDB & CMS Diagnostics] Iniciando verificación exhaustiva...');
-  try {
-    console.log('[MariaDB Diagnostics] Enviando petición a /api/mariadb/diagnostics...');
-    const startTime = Date.now();
-    const res = await fetch(`${API_BASE}/mariadb/diagnostics?_t=${Date.now()}`, {
-      method: 'GET',
-      headers: { Accept: 'application/json' },
-    });
-    const duration = Date.now() - startTime;
-    console.log(`[MariaDB Diagnostics] Respuesta HTTP ${res.status} ${res.statusText} recibida en ${duration}ms`);
-
-    if (res.status === 404) {
-      console.info('[MariaDB Diagnostics] Notificación HTTP 404 detectada en endpoint de diagnóstico.');
-      const text = await res.text();
-      console.info('[MariaDB Diagnostics] Contenido recibido:', text.substring(0, 300));
-      console.groupEnd();
-      return {
-        timestamp: new Date().toISOString(),
-        success: false,
-        connection: {
-          status: 'error',
-          host: '45.79.40.132',
-          port: 3306,
-          database: 'siacecom_misdelirios',
-          user: 'siacecom_aapu',
-          error: 'Error HTTP 404: El endpoint /api/mariadb/diagnostics devolvió No Encontrado.',
-        },
-        tablesSummary: {
-          totalExpected: 17,
-          totalExisting: 0,
-          allTablesPresent: false,
-          missingTables: [],
-          tables: [],
-        },
-        cmsOperations: {
-          globalContent: { status: 'error', error: '404 endpoint not found' },
-          valuePropSection: { status: 'error', error: '404 endpoint not found' },
-          lotsCatalog: { status: 'error', error: '404 endpoint not found' },
-          modelsCatalog: { status: 'error', error: '404 endpoint not found' },
-        },
-        inspect404: {
-          summary: 'Error 404 detectado en endpoint del servidor Express.',
-          findings: [
-            {
-              category: 'Error 404 en Operación',
-              severity: 'error',
-              detail: 'La petición a la API devolvió código HTTP 404. Si la respuesta contiene HTML, el servidor de desarrollo Vite o el proxy no alcanzó el servidor Express.',
-              recommendation: 'Asegúrese de que el servidor Express esté activo en el puerto 3000.',
-            },
-          ],
-        },
-        logs: [`[${new Date().toISOString()}] Error HTTP 404 en /api/mariadb/diagnostics (${duration}ms)`],
-      };
-    }
-
-    const json = await parseJsonSafely<{ success: boolean; data: MariaDbDiagnosticResult }>(
-      res,
-      'Error procesando diagnóstico de MariaDB'
-    );
-
-    const report = json.data;
-    console.log('[MariaDB Diagnostics] Estado de conexión:', report.connection.status);
-    console.log('[MariaDB Diagnostics] Servidor:', report.connection.host, 'Versión:', report.connection.version);
-    console.log(`[MariaDB Diagnostics] Tablas verificadas: ${report.tablesSummary.totalExisting}/${report.tablesSummary.totalExpected}`);
-    console.log('[MariaDB Diagnostics] Operación CMS Propuesta (videos):', report.cmsOperations.valuePropSection);
-    console.log('[MariaDB Diagnostics] Inspección 404:', report.inspect404.summary);
-    if (report.logs && report.logs.length > 0) {
-      console.log('[MariaDB Diagnostics] Logs del backend:', report.logs);
-    }
-    console.groupEnd();
-    return report;
-  } catch (err: any) {
-    console.info('[MariaDB Diagnostics] Diagnóstico completado con aviso:', err?.message || err);
-    console.groupEnd();
-    return {
-      timestamp: new Date().toISOString(),
-      success: false,
-      connection: {
-        status: 'error',
-        host: '45.79.40.132',
-        port: 3306,
-        database: 'siacecom_misdelirios',
-        user: 'siacecom_aapu',
-        error: err.message || String(err),
-      },
-      tablesSummary: {
-        totalExpected: 17,
-        totalExisting: 0,
-        allTablesPresent: false,
-        missingTables: [],
-        tables: [],
-      },
-      cmsOperations: {
-        globalContent: { status: 'error', error: err.message },
-        valuePropSection: { status: 'error', error: err.message },
-        lotsCatalog: { status: 'error', error: err.message },
-        modelsCatalog: { status: 'error', error: err.message },
-      },
-      inspect404: {
-        summary: `Fallo de comunicación con backend: ${err.message}`,
-        findings: [
-          {
-            category: 'Fallo de Red o Conexión',
-            severity: 'error',
-            detail: err.message || String(err),
-            recommendation: 'Compruebe la conectividad de red y que el backend Express responda en /api/*',
-          },
-        ],
-      },
-      logs: [`[${new Date().toISOString()}] Excepción: ${err.message || err}`],
-    };
-  }
-}
-
-if (typeof window !== 'undefined') {
-  (window as any).runMariaDbDiagnostics = runMariaDbDiagnostics;
-}
-
-
+export const getUsers = fetchUsers;
+export const createUser = saveUser;
+export const runMariaDbMigration = migrateAllToMariaDb;

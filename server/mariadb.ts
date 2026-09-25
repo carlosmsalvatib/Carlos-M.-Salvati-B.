@@ -625,6 +625,46 @@ export async function ensureMariaDbTables(force = false): Promise<boolean> {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
+    // 18. Dedicated Section Table: Customer Profiles (Perfiles de Cliente)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS cms_section_customer_profiles (
+        id VARCHAR(64) PRIMARY KEY,
+        title VARCHAR(255),
+        subtitle TEXT,
+        profiles_count INT DEFAULT 0,
+        active BOOLEAN DEFAULT TRUE,
+        data_json LONGTEXT NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    // 19. Dedicated Section Table: Technical Attributes & Sustainability
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS cms_section_technical_attributes (
+        id VARCHAR(64) PRIMARY KEY,
+        title VARCHAR(255),
+        subtitle TEXT,
+        image_url TEXT,
+        image_alt VARCHAR(255),
+        active BOOLEAN DEFAULT TRUE,
+        data_json LONGTEXT NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    // Media & Video column enhancements (safe idempotent ALTER TABLE)
+    try {
+      await pool.query('ALTER TABLE cms_section_hero ADD COLUMN IF NOT EXISTS background_video_url TEXT AFTER background_image_url;');
+      await pool.query('ALTER TABLE cms_section_value_prop ADD COLUMN IF NOT EXISTS video_url TEXT AFTER image_alt;');
+      await pool.query('ALTER TABLE cms_section_value_prop ADD COLUMN IF NOT EXISTS videos_json LONGTEXT AFTER video_url;');
+      await pool.query('ALTER TABLE cms_section_master_plan ADD COLUMN IF NOT EXISTS video_url TEXT AFTER plan_pdf_url;');
+      await pool.query('ALTER TABLE cms_section_master_plan ADD COLUMN IF NOT EXISTS blueprints_json LONGTEXT AFTER video_url;');
+      await pool.query('ALTER TABLE cms_section_housing_models ADD COLUMN IF NOT EXISTS video_url TEXT AFTER price_notice;');
+      await pool.query('ALTER TABLE housing_models ADD COLUMN IF NOT EXISTS video_url TEXT AFTER price_usd;');
+    } catch (colErr: any) {
+      console.info('[MariaDB Column Check]', colErr.message);
+    }
+
     lastStatus.tablesCreated = true;
     lastStatus.connected = true;
     lastStatus.error = null;
@@ -678,6 +718,8 @@ export async function getAllMariaDbContentMerged(fallbackContent: any): Promise<
       { key: 'location', table: 'cms_section_location' },
       { key: 'masterPlan', table: 'cms_section_master_plan' },
       { key: 'housingModels', table: 'cms_section_housing_models' },
+      { key: 'customerProfiles', table: 'cms_section_customer_profiles' },
+      { key: 'technicalAttributes', table: 'cms_section_technical_attributes' },
       { key: 'salesFinancing', table: 'cms_section_sales_financing' },
       { key: 'socialImpact', table: 'cms_section_social_impact' },
       { key: 'contactForm', table: 'cms_section_contact' },
@@ -754,6 +796,8 @@ export async function saveMariaDbContent(content: any, version = 1, note = ''): 
       'location',
       'masterPlan',
       'housingModels',
+      'customerProfiles',
+      'technicalAttributes',
       'salesFinancing',
       'socialImpact',
       'contactForm',
@@ -875,7 +919,8 @@ export async function saveMariaDbSection(sectionKey: string, sectionData: any): 
         const primaryCtaLink = h.primaryCtaLink || '';
         const secondaryCtaText = h.secondaryCtaText || '';
         const secondaryCtaLink = h.secondaryCtaLink || '';
-        const backgroundImageUrl = h.backgroundImageUrl || '';
+        const backgroundImageUrl = h.backgroundImageUrl || h.backgroundImage || '';
+        const backgroundVideoUrl = h.backgroundVideoUrl || h.videoUrl || '';
         const showBadge = h.showBadge !== false;
         const active = h.active !== false;
 
@@ -883,8 +928,8 @@ export async function saveMariaDbSection(sectionKey: string, sectionData: any): 
           `INSERT INTO cms_section_hero (
             id, title, subtitle, badge_text, price_badge,
             primary_cta_text, primary_cta_link, secondary_cta_text, secondary_cta_link,
-            background_image_url, show_badge, active, data_json, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+            background_image_url, background_video_url, show_badge, active, data_json, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
           ON DUPLICATE KEY UPDATE
             title = VALUES(title),
             subtitle = VALUES(subtitle),
@@ -895,6 +940,7 @@ export async function saveMariaDbSection(sectionKey: string, sectionData: any): 
             secondary_cta_text = VALUES(secondary_cta_text),
             secondary_cta_link = VALUES(secondary_cta_link),
             background_image_url = VALUES(background_image_url),
+            background_video_url = VALUES(background_video_url),
             show_badge = VALUES(show_badge),
             active = VALUES(active),
             data_json = VALUES(data_json),
@@ -902,7 +948,7 @@ export async function saveMariaDbSection(sectionKey: string, sectionData: any): 
           [
             id, title, subtitle, badgeText, priceBadge,
             primaryCtaText, primaryCtaLink, secondaryCtaText, secondaryCtaLink,
-            backgroundImageUrl, showBadge, active, dataJson
+            backgroundImageUrl, backgroundVideoUrl, showBadge, active, dataJson
           ]
         );
         return true;
@@ -917,25 +963,29 @@ export async function saveMariaDbSection(sectionKey: string, sectionData: any): 
         const description = v.description || '';
         const imageUrl = v.imageUrl || '';
         const imageAlt = v.imageAlt || '';
+        const videoUrl = v.videoUrl || (v.videos && v.videos[0]?.videoUrl) || (v.videos && v.videos[0]?.url) || '';
+        const videosJson = JSON.stringify(v.videos || []);
         const columnsCount = Number(v.columnsCount) || 3;
         const active = v.active !== false;
 
         await pool.query(
           `INSERT INTO cms_section_value_prop (
             id, title, subtitle, description, image_url, image_alt,
-            columns_count, active, data_json, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+            video_url, videos_json, columns_count, active, data_json, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
           ON DUPLICATE KEY UPDATE
             title = VALUES(title),
             subtitle = VALUES(subtitle),
             description = VALUES(description),
             image_url = VALUES(image_url),
             image_alt = VALUES(image_alt),
+            video_url = VALUES(video_url),
+            videos_json = VALUES(videos_json),
             columns_count = VALUES(columns_count),
             active = VALUES(active),
             data_json = VALUES(data_json),
             updated_at = NOW();`,
-          [id, title, subtitle, description, imageUrl, imageAlt, columnsCount, active, dataJson]
+          [id, title, subtitle, description, imageUrl, imageAlt, videoUrl, videosJson, columnsCount, active, dataJson]
         );
         return true;
       }
@@ -993,6 +1043,8 @@ export async function saveMariaDbSection(sectionKey: string, sectionData: any): 
         const totalLots = Number(m.totalLots) || 0;
         const planImageUrl = m.planImageUrl || '';
         const planPdfUrl = m.planPdfUrl || '';
+        const videoUrl = m.videoUrl || m.virtualTourUrl || '';
+        const blueprintsJson = JSON.stringify(m.blueprints || []);
         const primaryCtaText = m.primaryCtaText || '';
         const secondaryCtaText = m.secondaryCtaText || '';
         const active = m.active !== false;
@@ -1000,9 +1052,9 @@ export async function saveMariaDbSection(sectionKey: string, sectionData: any): 
         await pool.query(
           `INSERT INTO cms_section_master_plan (
             id, title, subtitle, description, total_lots,
-            plan_image_url, plan_pdf_url, primary_cta_text, secondary_cta_text,
-            active, data_json, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+            plan_image_url, plan_pdf_url, video_url, blueprints_json,
+            primary_cta_text, secondary_cta_text, active, data_json, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
           ON DUPLICATE KEY UPDATE
             title = VALUES(title),
             subtitle = VALUES(subtitle),
@@ -1010,6 +1062,8 @@ export async function saveMariaDbSection(sectionKey: string, sectionData: any): 
             total_lots = VALUES(total_lots),
             plan_image_url = VALUES(plan_image_url),
             plan_pdf_url = VALUES(plan_pdf_url),
+            video_url = VALUES(video_url),
+            blueprints_json = VALUES(blueprints_json),
             primary_cta_text = VALUES(primary_cta_text),
             secondary_cta_text = VALUES(secondary_cta_text),
             active = VALUES(active),
@@ -1017,8 +1071,8 @@ export async function saveMariaDbSection(sectionKey: string, sectionData: any): 
             updated_at = NOW();`,
           [
             id, title, subtitle, description, totalLots,
-            planImageUrl, planPdfUrl, primaryCtaText, secondaryCtaText,
-            active, dataJson
+            planImageUrl, planPdfUrl, videoUrl, blueprintsJson,
+            primaryCtaText, secondaryCtaText, active, dataJson
           ]
         );
         return true;
@@ -1032,24 +1086,26 @@ export async function saveMariaDbSection(sectionKey: string, sectionData: any): 
         const subtitle = hm.subtitle || '';
         const description = hm.description || '';
         const priceNotice = hm.priceNotice || '';
+        const videoUrl = hm.videoUrl || '';
         const modelsCount = Array.isArray(hm.models) ? hm.models.length : 0;
         const active = hm.active !== false;
 
         await pool.query(
           `INSERT INTO cms_section_housing_models (
-            id, title, subtitle, description, price_notice, models_count,
+            id, title, subtitle, description, price_notice, video_url, models_count,
             active, data_json, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
           ON DUPLICATE KEY UPDATE
             title = VALUES(title),
             subtitle = VALUES(subtitle),
             description = VALUES(description),
             price_notice = VALUES(price_notice),
+            video_url = VALUES(video_url),
             models_count = VALUES(models_count),
             active = VALUES(active),
             data_json = VALUES(data_json),
             updated_at = NOW();`,
-          [id, title, subtitle, description, priceNotice, modelsCount, active, dataJson]
+          [id, title, subtitle, description, priceNotice, videoUrl, modelsCount, active, dataJson]
         );
 
         if (Array.isArray(hm.models) && hm.models.length > 0) {
@@ -1250,6 +1306,58 @@ export async function saveMariaDbSection(sectionKey: string, sectionData: any): 
         return true;
       }
 
+      case 'customerProfiles':
+      case 'perfiles': {
+        const cp = sectionData || {};
+        const id = 'customerProfiles';
+        const title = cp.title || '';
+        const subtitle = cp.subtitle || '';
+        const profilesCount = Array.isArray(cp.profiles) ? cp.profiles.length : 0;
+        const active = cp.active !== false;
+
+        await pool.query(
+          `INSERT INTO cms_section_customer_profiles (
+            id, title, subtitle, profiles_count, active, data_json, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, NOW())
+          ON DUPLICATE KEY UPDATE
+            title = VALUES(title),
+            subtitle = VALUES(subtitle),
+            profiles_count = VALUES(profiles_count),
+            active = VALUES(active),
+            data_json = VALUES(data_json),
+            updated_at = NOW();`,
+          [id, title, subtitle, profilesCount, active, dataJson]
+        );
+        return true;
+      }
+
+      case 'technicalAttributes':
+      case 'atributos': {
+        const ta = sectionData || {};
+        const id = 'technicalAttributes';
+        const title = ta.title || '';
+        const subtitle = ta.subtitle || '';
+        const imageUrl = ta.imageUrl || '';
+        const imageAlt = ta.imageAlt || '';
+        const active = ta.active !== false;
+
+        await pool.query(
+          `INSERT INTO cms_section_technical_attributes (
+            id, title, subtitle, image_url, image_alt, active, data_json, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+          ON DUPLICATE KEY UPDATE
+            title = VALUES(title),
+            subtitle = VALUES(subtitle),
+            image_url = VALUES(image_url),
+            image_alt = VALUES(image_alt),
+            active = VALUES(active),
+            data_json = VALUES(data_json),
+            updated_at = NOW();`,
+          [id, title, subtitle, imageUrl, imageAlt, active, dataJson]
+        );
+        return true;
+      }
+
       default:
         return false;
     }
@@ -1276,6 +1384,10 @@ export async function getMariaDbSection(sectionKey: string): Promise<any | null>
       planMaestro: 'cms_section_master_plan',
       housingModels: 'cms_section_housing_models',
       modelos: 'cms_section_housing_models',
+      customerProfiles: 'cms_section_customer_profiles',
+      perfiles: 'cms_section_customer_profiles',
+      technicalAttributes: 'cms_section_technical_attributes',
+      atributos: 'cms_section_technical_attributes',
       salesFinancing: 'cms_section_sales_financing',
       financiamiento: 'cms_section_sales_financing',
       socialImpact: 'cms_section_social_impact',
@@ -1400,6 +1512,8 @@ export async function getMariaDbSectionsStatus(): Promise<{
       { key: 'masterPlan', label: 'Plan Maestro & Amenidades', table: 'cms_section_master_plan', sampleQuery: 'SELECT title, total_lots, plan_image_url, active, updated_at FROM cms_section_master_plan LIMIT 1;' },
       { key: 'housingModels', label: 'Modelos de Vivienda (Sección)', table: 'cms_section_housing_models', sampleQuery: 'SELECT title, models_count, active, updated_at FROM cms_section_housing_models LIMIT 1;' },
       { key: 'housing_models_catalog', label: 'Catálogo de Modelos (Individuales)', table: 'housing_models', sampleQuery: 'SELECT id, name, area_m2, price_usd, active, updated_at FROM housing_models LIMIT 3;' },
+      { key: 'customerProfiles', label: 'Perfiles de Cliente', table: 'cms_section_customer_profiles', sampleQuery: 'SELECT title, subtitle, profiles_count, active, updated_at FROM cms_section_customer_profiles LIMIT 1;' },
+      { key: 'technicalAttributes', label: 'Atributos Técnicos & Sostenibilidad', table: 'cms_section_technical_attributes', sampleQuery: 'SELECT title, subtitle, image_url, active, updated_at FROM cms_section_technical_attributes LIMIT 1;' },
       { key: 'salesFinancing', label: 'Planes de Financiamiento', table: 'cms_section_sales_financing', sampleQuery: 'SELECT title, price_per_m2_usd, active, updated_at FROM cms_section_sales_financing LIMIT 1;' },
       { key: 'socialImpact', label: 'Sostenibilidad & Bambú', table: 'cms_section_social_impact', sampleQuery: 'SELECT title, ceded_area_m2, cost_covered_percentage, active, updated_at FROM cms_section_social_impact LIMIT 1;' },
       { key: 'contactForm', label: 'Contacto & Formulario de Cotización', table: 'cms_section_contact', sampleQuery: 'SELECT title, direct_phone, direct_whatsapp, direct_email, active, updated_at FROM cms_section_contact LIMIT 1;' },
@@ -1807,20 +1921,22 @@ export async function saveMariaDbModels(models: any[]): Promise<boolean> {
       const name = m.name || 'Modelo';
       const area = Number(m.areaM2 ?? m.constructionArea) || 0;
       const price = Number(m.priceUsd ?? m.price ?? m.estimatedPrice) || 0;
+      const videoUrl = m.videoUrl || '';
       const active = m.active !== false;
       const dataStr = JSON.stringify(m);
 
       await pool.query(
-        `INSERT INTO housing_models (id, name, area_m2, price_usd, active, data_json, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, NOW())
+        `INSERT INTO housing_models (id, name, area_m2, price_usd, video_url, active, data_json, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
          ON DUPLICATE KEY UPDATE
            name = VALUES(name),
            area_m2 = VALUES(area_m2),
            price_usd = VALUES(price_usd),
+           video_url = VALUES(video_url),
            active = VALUES(active),
            data_json = VALUES(data_json),
            updated_at = NOW();`,
-        [id, name, area, price, active, dataStr]
+        [id, name, area, price, videoUrl, active, dataStr]
       );
     }
     return true;

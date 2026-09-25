@@ -1671,6 +1671,26 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                     helperText="Render panorámico en alta definición o paisaje andino de Sabana Larga y Cordero."
                   />
                 </div>
+                <div className="pt-2">
+                  <MediaFieldWithSourceSelector
+                    id="hero-video-media-selector"
+                    label="Video de Fondo o Trailer de Presentación (Opcional)"
+                    value={formData.hero.backgroundVideoUrl || (formData.hero as any).videoUrl || ''}
+                    onChange={(newUrl) =>
+                      setFormData({
+                        ...formData,
+                        hero: {
+                          ...formData.hero,
+                          backgroundVideoUrl: newUrl,
+                          videoUrl: newUrl,
+                        },
+                      })
+                    }
+                    mediaType="video"
+                    placeholder="Suba un archivo MP4, seleccione de la biblioteca o pegue URL de video / YouTube..."
+                    helperText="Video en bucle de fondo o trailer que los visitantes podrán reproducir con sonido."
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -2134,6 +2154,26 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                         className="w-full px-3 py-2 rounded-lg bg-stone-900 border border-stone-700 text-white"
                       />
                     </div>
+                  </div>
+                  <div className="pt-2">
+                    <MediaFieldWithSourceSelector
+                      id="masterplan-video-selector"
+                      label="Video Recorrido Virtual / Vuelo Dron del Plan Maestro (Opcional)"
+                      value={formData.masterPlan.videoUrl || formData.masterPlan.virtualTourUrl || ''}
+                      onChange={(newUrl) =>
+                        setFormData({
+                          ...formData,
+                          masterPlan: {
+                            ...formData.masterPlan,
+                            videoUrl: newUrl,
+                            virtualTourUrl: newUrl,
+                          },
+                        })
+                      }
+                      mediaType="video"
+                      placeholder="Seleccione video MP4, biblioteca del ranch o enlace YouTube/Vimeo..."
+                      helperText="Video interactivo de recorrido sobre los lotes y el bulevar comunal."
+                    />
                   </div>
                 </div>
               </div>
@@ -3330,6 +3370,27 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                           <span>Agregar a la Galería de {currentSelectedModel.name}</span>
                         </button>
                       </div>
+                    </div>
+
+                    {/* VIDEO RECORRIDO 3D DEL MODELO */}
+                    <div className="pt-2 bg-stone-900/60 p-4 rounded-xl border border-stone-800">
+                      <MediaFieldWithSourceSelector
+                        id={`model-video-selector-${currentSelectedModel.id}`}
+                        label={`Video Recorrido 3D / Animación de ${currentSelectedModel.name} (Opcional)`}
+                        value={currentSelectedModel.videoUrl || ''}
+                        onChange={(newUrl) => {
+                          const updated = (formData.housingModels?.models || []).map((m) =>
+                            m.id === currentSelectedModel.id ? { ...m, videoUrl: newUrl } : m
+                          );
+                          setFormData({
+                            ...formData,
+                            housingModels: { ...formData.housingModels, models: updated },
+                          });
+                        }}
+                        mediaType="video"
+                        placeholder="Subir archivo MP4, elegir de la biblioteca o pegar enlace YouTube/Vimeo..."
+                        helperText="Video o render 3D animado que los usuarios podrán reproducir en el catálogo de casas."
+                      />
                     </div>
                   </div>
 

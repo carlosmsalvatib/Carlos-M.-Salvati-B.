@@ -25,11 +25,12 @@
     "priceBadge": "20,00 USD/m²",
     "backgroundImageUrl": "/api/images/hero-landscape",
     "showBadge": true,
-    "active": true
+    "active": true,
+    "backgroundVideoUrl": "/api/uploads/default_video.mp4"
   },
   "valueProp": {
     "title": "Un Modelo de Desarrollo Sostenible e Innovación Arquitectónica",
-    "subtitle": "Fusión de Tradición, Tecnología y Respeto por la Naturaleza",
+    "subtitle": "Innovación Arquitectónica y Sostenible",
     "description": "Mis Delirios Ranch fusiona la riqueza tradicional del campo andino con una vanguardista arquitectura ecológica basada en Bambú Guadua.",
     "imageUrl": "/api/images/real-terrain",
     "imageAlt": "Fotografía real del terreno en Sabana Larga y Cordero, Táchira",
@@ -168,7 +169,8 @@
     ],
     "primaryCtaText": "Ver disponibilidad de lotes",
     "secondaryCtaText": "Solicitar plano detallado",
-    "active": true
+    "active": true,
+    "videoUrl": "/api/uploads/default_video.mp4"
   },
   "housingModels": {
     "title": "Casas Ecológicas Sismorresistentes en Bambú Guadua",
@@ -243,7 +245,7 @@
   },
   "customerProfiles": {
     "title": "Una Oferta Diseñada para Cada Perfil",
-    "subtitle": "Tu Espacio Ideal según tus Metas de Vida e Inversión",
+    "subtitle": "Familias, Emprendedores e Inversionistas",
     "profiles": [
       {
         "id": "p1",
@@ -295,7 +297,7 @@
   },
   "technicalAttributes": {
     "title": "Ingeniería, Sostenibilidad y Compromiso Social",
-    "subtitle": "Rigor Constructivo, Preservación y Objetivos de la ONU",
+    "subtitle": "Bioconstrucción Sostenible & Tecnología Andina",
     "attributes": [
       {
         "id": "t1",
@@ -524,6 +526,6 @@
     "metaPixelId": "",
     "googleTagManagerId": ""
   },
-  "lastUpdated": "2026-09-25T01:03:01.748Z",
-  "version": 23
+  "lastUpdated": "2026-09-25T02:33:58.887Z",
+  "version": 29
 }

@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { CmsContent, LotItem, LotStatus, MasterPlanBlueprint } from '../types';
+import { normalizeVideoUrl } from '../lib/mediaProcessor';
 import {
   MasterPlanAdvancedSearch,
   LotFilterState,
@@ -24,6 +25,9 @@ import {
   FileText,
   Info,
   SlidersHorizontal,
+  Play,
+  Film,
+  Video,
 } from 'lucide-react';
 
 interface MasterPlanSectionProps {
@@ -84,6 +88,20 @@ export const MasterPlanSection: React.FC<MasterPlanSectionProps> = ({
   const [currentBlueprintIndex, setCurrentBlueprintIndex] = useState<number>(0);
   const [filterState, setFilterState] = useState<LotFilterState>(initialFilterState);
   const [selectedLotDetail, setSelectedLotDetail] = useState<LotItem | null>(null);
+  const [visualizerTab, setVisualizerTab] = useState<'planos' | 'video'>('planos');
+
+  const masterPlanVideoUrl =
+    masterPlan.videoUrl ||
+    masterPlan.virtualTourUrl ||
+    content.valueProp?.videos?.[0]?.videoUrl ||
+    '/api/uploads/default_video.mp4';
+  const normalizedMasterPlanVideoUrl = normalizeVideoUrl(masterPlanVideoUrl);
+  const isMasterPlanVideoEmbed =
+    normalizedMasterPlanVideoUrl.includes('youtube.com') ||
+    normalizedMasterPlanVideoUrl.includes('youtube-nocookie.com') ||
+    normalizedMasterPlanVideoUrl.includes('youtu.be') ||
+    normalizedMasterPlanVideoUrl.includes('vimeo.com') ||
+    normalizedMasterPlanVideoUrl.includes('player.vimeo.com');
 
   const activeBlueprint = blueprints[currentBlueprintIndex] || blueprints[0];
 
@@ -283,89 +301,147 @@ export const MasterPlanSection: React.FC<MasterPlanSectionProps> = ({
               </p>
             </div>
 
-            <div className="flex items-center gap-2 self-stretch sm:self-auto justify-end">
-              <button
-                onClick={handleOpenBlueprintZoom}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-stone-800 hover:bg-stone-700 text-amber-300 border border-stone-700 transition-all shadow-sm"
-                id="btn-open-blueprint-zoom"
-                title="Ver amplificado a pantalla completa"
-              >
-                <ZoomIn className="w-4 h-4" />
-                <span>Ampliar Plano</span>
-              </button>
+            <div className="flex flex-wrap items-center gap-2 self-stretch sm:self-auto justify-end">
+              <div className="inline-flex p-1 bg-stone-950 rounded-xl border border-stone-800">
+                <button
+                  onClick={() => setVisualizerTab('planos')}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    visualizerTab === 'planos'
+                      ? 'bg-amber-500 text-stone-950 shadow-md'
+                      : 'text-stone-400 hover:text-stone-200'
+                  }`}
+                  id="tab-planos-view"
+                >
+                  <Compass className="w-3.5 h-3.5" />
+                  <span>Planos ({blueprints.length})</span>
+                </button>
+                <button
+                  onClick={() => setVisualizerTab('video')}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    visualizerTab === 'video'
+                      ? 'bg-emerald-600 text-white shadow-md'
+                      : 'text-stone-400 hover:text-stone-200'
+                  }`}
+                  id="tab-video-view"
+                >
+                  <Video className="w-3.5 h-3.5" />
+                  <span>Video Recorrido</span>
+                </button>
+              </div>
+
+              {visualizerTab === 'planos' && (
+                <button
+                  onClick={handleOpenBlueprintZoom}
+                  className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-stone-800 hover:bg-stone-700 text-amber-300 border border-stone-700 transition-all shadow-sm"
+                  id="btn-open-blueprint-zoom"
+                  title="Ver amplificado a pantalla completa"
+                >
+                  <ZoomIn className="w-4 h-4" />
+                  <span>Ampliar</span>
+                </button>
+              )}
             </div>
           </div>
 
-          {/* Blueprint Selector Tabs */}
-          <div className="flex items-center gap-2 py-3 overflow-x-auto border-b border-stone-800/80 scrollbar-none">
-            {blueprints.map((bp, idx) => (
-              <button
-                key={bp.id || idx}
-                onClick={() => setCurrentBlueprintIndex(idx)}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all flex items-center gap-2 ${
-                  idx === currentBlueprintIndex
-                    ? 'bg-amber-500 text-stone-950 font-bold shadow-md'
-                    : 'bg-stone-800/60 text-stone-300 hover:bg-stone-800 hover:text-white border border-stone-700/50'
-                }`}
-              >
-                <Compass className="w-3.5 h-3.5" />
-                <span>{bp.title.split('(')[0].trim()}</span>
-              </button>
-            ))}
-          </div>
-
-          {/* Blueprint Image Stage with Directional Arrows */}
-          <div className="relative mt-4 rounded-xl overflow-hidden group bg-stone-950 flex items-center justify-center min-h-[320px] sm:min-h-[460px]">
-            {/* Directional Arrow: Previous */}
-            {blueprints.length > 1 && (
-              <button
-                onClick={handlePrevBlueprint}
-                className="absolute left-3 sm:left-5 z-20 p-3 rounded-full bg-stone-900/80 hover:bg-amber-500 hover:text-stone-950 text-white border border-stone-700 transition-all shadow-xl hover:scale-110 focus:outline-none"
-                title="Plano anterior"
-                id="btn-blueprint-prev"
-              >
-                <ChevronLeft className="w-6 h-6" />
-              </button>
-            )}
-
-            {/* Clickable Image to Amplified Mode */}
-            <div
-              className="relative w-full h-full flex items-center justify-center cursor-pointer"
-              onClick={handleOpenBlueprintZoom}
-            >
-              <img
-                src={activeBlueprint.imageUrl}
-                alt={activeBlueprint.title}
-                className="w-full max-h-[500px] object-contain transition-transform duration-300 group-hover:scale-101"
-                referrerPolicy="no-referrer"
-              />
-
-              {/* Hover Badge */}
-              <div className="absolute top-4 right-4 p-2 rounded-lg bg-black/70 text-white group-hover:bg-amber-500 group-hover:text-stone-950 transition-colors shadow-lg flex items-center gap-1.5 text-xs font-bold">
-                <Maximize2 className="w-4 h-4" />
-                <span className="hidden sm:inline">Click para Ampliar</span>
-              </div>
+          {visualizerTab === 'video' ? (
+            /* Video Stage */
+            <div className="mt-4 rounded-xl overflow-hidden bg-stone-950 border border-stone-800 aspect-video w-full flex items-center justify-center">
+              {isMasterPlanVideoEmbed ? (
+                <iframe
+                  src={`${normalizedMasterPlanVideoUrl}${normalizedMasterPlanVideoUrl.includes('?') ? '&' : '?'}autoplay=1&rel=0`}
+                  title="Video Recorrido Plan Maestro Mis Delirios Ranch"
+                  className="w-full h-full border-0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              ) : (
+                <video
+                  src={normalizedMasterPlanVideoUrl}
+                  controls
+                  autoPlay
+                  playsInline
+                  className="w-full h-full object-contain"
+                  poster={activeBlueprint.imageUrl}
+                >
+                  Tu navegador no soporta la reproducción de video.
+                </video>
+              )}
             </div>
-
-            {/* Directional Arrow: Next */}
-            {blueprints.length > 1 && (
-              <button
-                onClick={handleNextBlueprint}
-                className="absolute right-3 sm:right-5 z-20 p-3 rounded-full bg-stone-900/80 hover:bg-amber-500 hover:text-stone-950 text-white border border-stone-700 transition-all shadow-xl hover:scale-110 focus:outline-none"
-                title="Plano siguiente"
-                id="btn-blueprint-next"
-              >
-                <ChevronRight className="w-6 h-6" />
-              </button>
-            )}
-
-            {/* Counter Overlay */}
-            {blueprints.length > 1 && (
-              <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 px-3 py-1 rounded-full bg-black/70 text-stone-300 text-xs font-mono border border-stone-700">
-                Plano {currentBlueprintIndex + 1} de {blueprints.length}
+          ) : (
+            /* Blueprint Images Stage */
+            <>
+              {/* Blueprint Selector Tabs */}
+              <div className="flex items-center gap-2 py-3 overflow-x-auto border-b border-stone-800/80 scrollbar-none">
+                {blueprints.map((bp, idx) => (
+                  <button
+                    key={bp.id || idx}
+                    onClick={() => setCurrentBlueprintIndex(idx)}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all flex items-center gap-2 ${
+                      idx === currentBlueprintIndex
+                        ? 'bg-amber-500 text-stone-950 font-bold shadow-md'
+                        : 'bg-stone-800/60 text-stone-300 hover:bg-stone-800 hover:text-white border border-stone-700/50'
+                    }`}
+                  >
+                    <Compass className="w-3.5 h-3.5" />
+                    <span>{bp.title.split('(')[0].trim()}</span>
+                  </button>
+                ))}
               </div>
-            )}
-          </div>
+
+              {/* Blueprint Image Stage with Directional Arrows */}
+              <div className="relative mt-4 rounded-xl overflow-hidden group bg-stone-950 flex items-center justify-center min-h-[320px] sm:min-h-[460px]">
+                {/* Directional Arrow: Previous */}
+                {blueprints.length > 1 && (
+                  <button
+                    onClick={handlePrevBlueprint}
+                    className="absolute left-3 sm:left-5 z-20 p-3 rounded-full bg-stone-900/80 hover:bg-amber-500 hover:text-stone-950 text-white border border-stone-700 transition-all shadow-xl hover:scale-110 focus:outline-none"
+                    title="Plano anterior"
+                    id="btn-blueprint-prev"
+                  >
+                    <ChevronLeft className="w-6 h-6" />
+                  </button>
+                )}
+
+                {/* Clickable Image to Amplified Mode */}
+                <div
+                  className="relative w-full h-full flex items-center justify-center cursor-pointer"
+                  onClick={handleOpenBlueprintZoom}
+                >
+                  <img
+                    src={activeBlueprint.imageUrl}
+                    alt={activeBlueprint.title}
+                    className="w-full max-h-[500px] object-contain transition-transform duration-300 group-hover:scale-101"
+                    referrerPolicy="no-referrer"
+                  />
+
+                  {/* Hover Badge */}
+                  <div className="absolute top-4 right-4 p-2 rounded-lg bg-black/70 text-white group-hover:bg-amber-500 group-hover:text-stone-950 transition-colors shadow-lg flex items-center gap-1.5 text-xs font-bold">
+                    <Maximize2 className="w-4 h-4" />
+                    <span className="hidden sm:inline">Click para Ampliar</span>
+                  </div>
+                </div>
+
+                {/* Directional Arrow: Next */}
+                {blueprints.length > 1 && (
+                  <button
+                    onClick={handleNextBlueprint}
+                    className="absolute right-3 sm:right-5 z-20 p-3 rounded-full bg-stone-900/80 hover:bg-amber-500 hover:text-stone-950 text-white border border-stone-700 transition-all shadow-xl hover:scale-110 focus:outline-none"
+                    title="Plano siguiente"
+                    id="btn-blueprint-next"
+                  >
+                    <ChevronRight className="w-6 h-6" />
+                  </button>
+                )}
+
+                {/* Counter Overlay */}
+                {blueprints.length > 1 && (
+                  <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 px-3 py-1 rounded-full bg-black/70 text-stone-300 text-xs font-mono border border-stone-700">
+                    Plano {currentBlueprintIndex + 1} de {blueprints.length}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
 
           <div className="mt-4 flex flex-col sm:flex-row items-center justify-between text-xs text-stone-400 gap-2">
             <span>

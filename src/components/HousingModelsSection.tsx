@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { CmsContent, HousingModel } from '../types';
 import { fetchHousingModels } from '../lib/api';
+import { normalizeVideoUrl } from '../lib/mediaProcessor';
 import {
   Home,
   ShieldCheck,
@@ -18,6 +19,10 @@ import {
   Sparkles,
   Info,
   RefreshCw,
+  Play,
+  Film,
+  Video,
+  X,
 } from 'lucide-react';
 
 interface HousingModelsSectionProps {
@@ -134,6 +139,7 @@ export const HousingModelsSection: React.FC<HousingModelsSectionProps> = ({
 
   // Track active image index for each model: modelId -> number
   const [modelImageIndexes, setModelImageIndexes] = useState<Record<string, number>>({});
+  const [activeModelVideo, setActiveModelVideo] = useState<{ url: string; title: string } | null>(null);
 
   const activeSection = liveSection || defaultHousingModels;
   if (!activeSection || activeSection.active === false) return null;
@@ -323,10 +329,24 @@ export const HousingModelsSection: React.FC<HousingModelsSectionProps> = ({
                       />
 
                       {/* Top Overlay Badges */}
-                      <div className="absolute top-3 left-3 flex items-center gap-2">
+                      <div className="absolute top-3 left-3 flex flex-wrap items-center gap-2">
                         <span className="px-2.5 py-1 rounded-md bg-stone-950/80 backdrop-blur-md text-amber-300 text-xs font-bold border border-amber-500/40">
                           {currentIndex === 0 ? 'Render 3D Exterior' : currentIndex === 1 ? 'Plano de Distribución' : `Vista Detallada ${currentIndex + 1}`}
                         </span>
+                        {model.videoUrl && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveModelVideo({ url: model.videoUrl!, title: `Recorrido 3D · ${model.name}` });
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-600/90 hover:bg-emerald-500 text-white text-xs font-bold shadow-md transition-all backdrop-blur-sm"
+                            title="Ver video recorrido 3D"
+                          >
+                            <Play className="w-3.5 h-3.5 fill-white" />
+                            <span>Video 3D</span>
+                          </button>
+                        )}
                       </div>
 
                       <div className="absolute top-3 right-3 p-2 rounded-lg bg-black/70 text-white hover:bg-amber-500 hover:text-stone-950 transition-colors shadow-lg flex items-center gap-1.5 text-xs font-semibold">
@@ -459,6 +479,49 @@ export const HousingModelsSection: React.FC<HousingModelsSectionProps> = ({
           </div>
         )}
       </div>
+
+      {/* Video Modal Player for Housing Model */}
+      {activeModelVideo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
+          <div className="relative w-full max-w-4xl bg-stone-900 border border-stone-700 rounded-2xl overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between p-4 bg-stone-950 border-b border-stone-800">
+              <div className="flex items-center gap-2 text-stone-200">
+                <Film className="w-5 h-5 text-amber-400" />
+                <span className="font-semibold text-sm">{activeModelVideo.title}</span>
+              </div>
+              <button
+                onClick={() => setActiveModelVideo(null)}
+                className="p-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-300 hover:text-white transition-colors"
+                title="Cerrar video"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="relative aspect-video w-full bg-black flex items-center justify-center">
+              {normalizeVideoUrl(activeModelVideo.url).includes('youtube') ||
+              normalizeVideoUrl(activeModelVideo.url).includes('vimeo') ? (
+                <iframe
+                  src={`${normalizeVideoUrl(activeModelVideo.url)}${normalizeVideoUrl(activeModelVideo.url).includes('?') ? '&' : '?'}autoplay=1&rel=0`}
+                  title={activeModelVideo.title}
+                  className="w-full h-full border-0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              ) : (
+                <video
+                  src={normalizeVideoUrl(activeModelVideo.url)}
+                  controls
+                  autoPlay
+                  playsInline
+                  className="w-full h-full object-contain"
+                >
+                  Tu navegador no soporta reproducción de video.
+                </video>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 };

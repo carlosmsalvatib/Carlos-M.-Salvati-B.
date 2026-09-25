@@ -77,6 +77,7 @@ export interface HousingModel {
     structure: string;
   };
   images: string[];
+  videoUrl?: string;
   brochurePdfUrl?: string;
   showPrice: boolean;
   active: boolean;
@@ -164,6 +165,8 @@ export interface CmsContent {
     badgeText: string;
     priceBadge: string;
     backgroundImageUrl: string;
+    backgroundVideoUrl?: string;
+    videoUrl?: string;
     showBadge: boolean;
     active: boolean;
   };
@@ -237,6 +240,8 @@ export interface CmsContent {
     totalLots: number;
     planImageUrl: string;
     planPdfUrl: string;
+    videoUrl?: string;
+    virtualTourUrl?: string;
     blueprints?: MasterPlanBlueprint[];
     primaryCtaText: string;
     secondaryCtaText: string;
@@ -249,6 +254,7 @@ export interface CmsContent {
     subtitle: string;
     description: string;
     priceNotice: string;
+    videoUrl?: string;
     models: HousingModel[];
     active: boolean;
   };

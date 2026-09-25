@@ -607,17 +607,20 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
       setFormData(updatedFormData);
 
       // 1. Direct fast update to backend Express & MariaDB dedicated table (cms_section_value_prop)
-      const res = await fetch('/api/sections/valueProp', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(cleanValueProp),
-      });
-      if (!res.ok) {
-        const errorJson = await res.json().catch(() => ({}));
-        throw new Error(errorJson.error || `Error del servidor HTTP ${res.status}`);
+      try {
+        const res = await fetch('/api/sections/valueProp', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(cleanValueProp),
+        });
+        if (!res.ok) {
+          console.warn('[handleSavePropuestaSection] /api/sections/valueProp respondió:', res.status);
+        }
+      } catch (sectionErr) {
+        console.warn('[handleSavePropuestaSection] Fallback a guardado global:', sectionErr);
       }
 
-      // 2. Full synchronization with MariaDB all 17 tables and Firebase Cloud
+      // 2. Full synchronization with MariaDB all 19 tables and Firebase Cloud
       const result = await saveAllCmsAndLots(
         updatedFormData,
         localLots,

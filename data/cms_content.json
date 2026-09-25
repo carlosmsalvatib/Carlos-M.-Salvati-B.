@@ -29,42 +29,9 @@
     "backgroundVideoUrl": "/api/uploads/default_video.mp4"
   },
   "valueProp": {
-    "title": "Un Modelo de Desarrollo Sostenible e Innovación Arquitectónica",
+    "title": "Arquitectura Bioclimática Andina y Sostenibilidad Integral",
     "subtitle": "Innovación Arquitectónica y Sostenible",
-    "description": "Mis Delirios Ranch fusiona la riqueza tradicional del campo andino con una vanguardista arquitectura ecológica basada en Bambú Guadua.",
-    "imageUrl": "/api/images/real-terrain",
-    "imageAlt": "Fotografía real del terreno en Sabana Larga y Cordero, Táchira",
-    "active": true,
-    "columnsCount": 4,
-    "videos": [
-      {
-        "id": "vid-1",
-        "title": "Recorrido Arquitectónico 3D & Vuelo Aéreo - Mis Delirios Ranch",
-        "description": "Vuelo aéreo simulado y perspectivas del valle andino en Sabana Larga y Cordero.",
-        "url": "/api/uploads/video-2026-09-20-17-32-17-3-mp4-1790278686374-sp7v0.mp4",
-        "videoUrl": "/api/uploads/video-2026-09-20-17-32-17-3-mp4-1790278686374-sp7v0.mp4",
-        "duration": "2:30",
-        "videoType": "render_3d"
-      },
-      {
-        "id": "vid-2",
-        "title": "Bioconstrucción Sismorresistente en Bambú Guadua",
-        "description": "Estructuras arquitectónicas en bambú certificado, losas flotantes y diseño bioclimático.",
-        "url": "/api/uploads/video-2026-09-20-17-32-17-4-mp4-1790278871253-wri0d.mp4",
-        "videoUrl": "/api/uploads/video-2026-09-20-17-32-17-4-mp4-1790278871253-wri0d.mp4",
-        "duration": "3:15",
-        "videoType": "bioconstruccion"
-      },
-      {
-        "id": "vid-3",
-        "title": "Entorno Campestre, Neblina y Mini-granjas Productivas",
-        "description": "Microclima templado de 18°C-22°C, vegetación exhuberante y conexión con la naturaleza.",
-        "url": "https://www.youtube.com/embed/LXb3EKWsInQ",
-        "videoUrl": "https://www.youtube.com/embed/LXb3EKWsInQ",
-        "duration": "1:50",
-        "videoType": "dron_aereo"
-      }
-    ]
+    "active": true
   },
   "location": {
     "title": "La Ruta de la Montaña y la Neblina",
@@ -526,6 +493,6 @@
     "metaPixelId": "",
     "googleTagManagerId": ""
   },
-  "lastUpdated": "2026-09-25T02:33:58.887Z",
-  "version": 29
+  "lastUpdated": "2026-09-25T02:47:42.950Z",
+  "version": 34
 }

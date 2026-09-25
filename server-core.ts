@@ -722,24 +722,68 @@ async function startServer() {
     }
   });
 
-  app.get('/api/sections/:sectionKey', async (req, res) => {
-    const { sectionKey } = req.params;
+  function resolveCanonicalSectionKey(key: string): string {
+    const map: Record<string, string> = {
+      propuesta: 'valueProp',
+      valueprop: 'valueProp',
+      valuepropuesta: 'valueProp',
+      valueProp: 'valueProp',
+      hero: 'hero',
+      portada: 'hero',
+      inicio: 'hero',
+      site: 'site',
+      sitio: 'site',
+      location: 'location',
+      ubicacion: 'location',
+      masterplan: 'masterPlan',
+      masterPlan: 'masterPlan',
+      planmaestro: 'masterPlan',
+      planMaestro: 'masterPlan',
+      housingmodels: 'housingModels',
+      housingModels: 'housingModels',
+      modelos: 'housingModels',
+      customerprofiles: 'customerProfiles',
+      customerProfiles: 'customerProfiles',
+      perfiles: 'customerProfiles',
+      technicalattributes: 'technicalAttributes',
+      technicalAttributes: 'technicalAttributes',
+      atributos: 'technicalAttributes',
+      salesfinancing: 'salesFinancing',
+      salesFinancing: 'salesFinancing',
+      financiamiento: 'salesFinancing',
+      socialimpact: 'socialImpact',
+      socialImpact: 'socialImpact',
+      impacto: 'socialImpact',
+      contactform: 'contactForm',
+      contactForm: 'contactForm',
+      contacto: 'contactForm',
+      footer: 'footer',
+      pie: 'footer',
+      seo: 'seo',
+    };
+    return map[key] || map[key.toLowerCase()] || key;
+  }
+
+  app.get(['/api/sections/:sectionKey', '/api/sections/:sectionKey/'], async (req, res) => {
+    const rawKey = req.params.sectionKey;
+    const sectionKey = resolveCanonicalSectionKey(rawKey);
     try {
       const sectionData = await getMariaDbSection(sectionKey);
       if (sectionData) {
-        return res.json({ success: true, source: 'mariadb_table', data: sectionData });
+        return res.json({ success: true, source: 'mariadb_table', sectionKey, data: sectionData });
       }
       if ((cmsContent as any)[sectionKey]) {
-        return res.json({ success: true, source: 'cms_content_memory', data: (cmsContent as any)[sectionKey] });
+        return res.json({ success: true, source: 'cms_content_memory', sectionKey, data: (cmsContent as any)[sectionKey] });
       }
-      return res.status(404).json({ success: false, error: `Sección '${sectionKey}' no encontrada.` });
+      return res.status(404).json({ success: false, error: `Sección '${sectionKey}' (o alias '${rawKey}') no encontrada.` });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
   });
 
-  app.put('/api/sections/:sectionKey', async (req, res) => {
-    const { sectionKey } = req.params;
+  const handleSaveSectionEndpoint = async (req: express.Request, res: express.Response) => {
+    const rawKey = req.params.sectionKey;
+    const sectionKey = resolveCanonicalSectionKey(rawKey);
     let sectionData = req.body;
     try {
       if (!sectionData || typeof sectionData !== 'object') {
@@ -765,6 +809,7 @@ async function startServer() {
       res.json({
         success: true,
         message: `Sección '${sectionKey}' guardada exitosamente en su tabla correspondiente en la Base de Datos.`,
+        sectionKey,
         savedToTable,
         data: sectionData,
         version: nextVersion,
@@ -772,7 +817,11 @@ async function startServer() {
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
-  });
+  };
+
+  app.put(['/api/sections/:sectionKey', '/api/sections/:sectionKey/'], handleSaveSectionEndpoint);
+  app.post(['/api/sections/:sectionKey', '/api/sections/:sectionKey/'], handleSaveSectionEndpoint);
+  app.patch(['/api/sections/:sectionKey', '/api/sections/:sectionKey/'], handleSaveSectionEndpoint);
 
   app.get('/api/db-status', (req, res) => {
     res.json({

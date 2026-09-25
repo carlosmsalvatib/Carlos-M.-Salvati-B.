@@ -115,7 +115,7 @@ export function saveLocalCache(
   }
 }
 
-export function extractErrorMessage(parsed: any, fallback: string): string {
+export function extractErrorMessage(parsed: any, fallback: string = 'Error en la solicitud'): string {
   if (!parsed) return fallback;
   if (typeof parsed === 'string') return parsed;
   if (parsed.error) return String(parsed.error);
@@ -165,9 +165,11 @@ async function parseJsonSafely<T>(res: Response, fallbackErrorMsg?: string): Pro
   return parsed;
 }
 
-export async function uploadMediaToServer(file: File): Promise<{ url: string }> {
+export async function uploadMediaToServer(file: File | string, folder?: string): Promise<string> {
+  if (typeof file === 'string') return file;
   const formData = new FormData();
   formData.append('file', file);
+  if (folder) formData.append('folder', folder);
   const res = await fetch(`${API_BASE}/upload`, {
     method: 'POST',
     body: formData,
@@ -176,7 +178,7 @@ export async function uploadMediaToServer(file: File): Promise<{ url: string }> 
     res,
     'Error al subir archivo'
   );
-  return { url: json.url || json.fileUrl || '' };
+  return json.url || json.fileUrl || '';
 }
 
 export async function fetchCmsContent(): Promise<CmsContent> {
@@ -356,16 +358,16 @@ export async function deleteLot(id: string): Promise<void> {
   saveLocalCache(undefined, nextLots);
 }
 
-export async function fetchHousingModels(): Promise<{ models: HousingModel[] }> {
+export async function fetchHousingModels(): Promise<{ models: HousingModel[]; section?: any }> {
   try {
     const res = await fetch(`${API_BASE}/models?_t=${Date.now()}`);
-    const json = await parseJsonSafely<{ success: boolean; data: HousingModel[] }>(
+    const json = await parseJsonSafely<{ success: boolean; data: HousingModel[]; section?: any }>(
       res,
       'Error al cargar modelos'
     );
     if (json.data && Array.isArray(json.data)) {
       saveLocalCache(undefined, undefined, json.data);
-      return { models: json.data };
+      return { models: json.data, section: json.section };
     }
   } catch (err) {
     console.warn('Aviso cargando modelos de vivienda:', err);
@@ -378,8 +380,11 @@ export async function fetchHousingModels(): Promise<{ models: HousingModel[] }> 
   return { models: initialCmsContent.housingModels?.models || [] };
 }
 
-export async function saveHousingModelsBulk(models: HousingModel[]): Promise<HousingModel[]> {
+export async function saveHousingModelsBulk(models: HousingModel[], sectionData?: any): Promise<HousingModel[]> {
   try {
+    if (sectionData) {
+      await saveCmsSection('housingModels', { ...sectionData, models });
+    }
     const res = await fetch(`${API_BASE}/models/bulk-save`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -537,14 +542,17 @@ export async function deleteUser(id: string): Promise<void> {
 }
 
 export async function loginAdmin(username: string, pass: string): Promise<AppUser | null> {
-  const users = await fetchUsers();
-  const found = users.find(
-    (u) =>
-      (u.username === username || u.email === username) &&
-      u.password === pass &&
-      u.active !== false
-  );
-  if (found) return found;
+  try {
+    const res = await fetch(`${API_BASE}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password: pass }),
+    });
+    const json = await parseJsonSafely<{ success: boolean; user: AppUser }>(res, 'Credenciales inválidas');
+    if (json.success && json.user) return json.user;
+  } catch (err: any) {
+    throw new Error(err.message || 'Error al iniciar sesión');
+  }
   throw new Error('Credenciales inválidas o usuario inactivo');
 }
 

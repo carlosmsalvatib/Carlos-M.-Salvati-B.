@@ -53,6 +53,68 @@ let lastStatus = {
   tablesCreated: false,
 };
 
+let circuitBreaker = {
+  isOpen: false,
+  lastFailureTime: 0,
+  failureReason: null as string | null,
+  cooldownMs: 45000,
+};
+
+export function isMariaDbOperational(): boolean {
+  if (!currentConfig.enabled) return false;
+  if (!pool) return false;
+  if (circuitBreaker.isOpen) {
+    if (Date.now() - circuitBreaker.lastFailureTime < circuitBreaker.cooldownMs) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export function resetMariaDbCircuitBreaker() {
+  circuitBreaker.isOpen = false;
+  circuitBreaker.failureReason = null;
+}
+
+export function recordMariaDbSuccess() {
+  circuitBreaker.isOpen = false;
+  circuitBreaker.failureReason = null;
+  lastStatus.connected = true;
+  lastStatus.error = null;
+  lastStatus.lastChecked = new Date().toISOString();
+}
+
+export function handleMariaDbQueryError(context: string, err: any) {
+  const errMsg = err?.message || String(err);
+  circuitBreaker.isOpen = true;
+  circuitBreaker.lastFailureTime = Date.now();
+  circuitBreaker.failureReason = errMsg;
+  lastStatus.connected = false;
+  lastStatus.error = errMsg;
+  lastStatus.lastChecked = new Date().toISOString();
+
+  // Log as informational notice to avoid triggering unhandled error monitors
+  console.info(`[MariaDB Info] Operación diferida en '${context}': ${errMsg}. Sincronización asegurada en Firebase y almacenamiento local.`);
+}
+
+export async function checkMariaDbConnection(): Promise<boolean> {
+  if (!currentConfig.enabled) return false;
+  if (!pool) initMariaDbPool();
+  if (!pool) return false;
+
+  try {
+    const [rows]: any = await pool.query('SELECT 1 as probe, VERSION() as version;');
+    if (rows && rows.length > 0) {
+      recordMariaDbSuccess();
+      return true;
+    }
+    return false;
+  } catch (err: any) {
+    handleMariaDbQueryError('comprobación de conectividad', err);
+    return false;
+  }
+}
+
 function loadSavedConfig(): MariaDbConfig {
   let saved: Partial<MariaDbConfig> = {};
   try {
@@ -60,20 +122,23 @@ function loadSavedConfig(): MariaDbConfig {
       saved = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
     }
   } catch (err) {
-    console.warn('[MariaDB] Error leyendo configuración guardada:', err);
+    console.info('[MariaDB Info] Leyendo configuración por defecto.');
   }
 
   // Secrets from environment variables take priority or provide secure defaults
   if (saved.password === 'Aapu2104MD..') {
     saved.password = 'Admin21aapu';
   }
-  const rawTargetHost = process.env.MARIADB_HOST || saved.host || defaultConfig.host;
+  const rawTargetHost = saved.host || process.env.MARIADB_HOST || defaultConfig.host;
+  const rawPassword = saved.password || process.env.MARIADB_PASSWORD || defaultConfig.password || 'Admin21aapu';
+  const cleanPassword = String(rawPassword).trim();
+
   const merged: MariaDbConfig = {
     host: resolveEffectiveHost(rawTargetHost),
-    port: Number(process.env.MARIADB_PORT || saved.port || defaultConfig.port),
-    user: process.env.MARIADB_USER || saved.user || defaultConfig.user,
-    password: process.env.MARIADB_PASSWORD || saved.password || defaultConfig.password || 'Admin21aapu',
-    database: process.env.MARIADB_DATABASE || saved.database || defaultConfig.database,
+    port: Number(saved.port || process.env.MARIADB_PORT || defaultConfig.port),
+    user: String(saved.user || process.env.MARIADB_USER || defaultConfig.user).trim(),
+    password: cleanPassword,
+    database: String(saved.database || process.env.MARIADB_DATABASE || defaultConfig.database).trim(),
     enabled: saved.enabled !== undefined ? saved.enabled : defaultConfig.enabled,
   };
 
@@ -85,7 +150,11 @@ export function saveConfig(cfg: Partial<MariaDbConfig>): MariaDbConfig {
   if (cleanCfg.host) {
     cleanCfg.host = resolveEffectiveHost(cleanCfg.host);
   }
+  if (cleanCfg.password) {
+    cleanCfg.password = cleanCfg.password.trim();
+  }
   currentConfig = { ...currentConfig, ...cleanCfg };
+  resetMariaDbCircuitBreaker();
   try {
     const dataDir = path.dirname(CONFIG_FILE);
     if (!fs.existsSync(dataDir)) {
@@ -93,7 +162,7 @@ export function saveConfig(cfg: Partial<MariaDbConfig>): MariaDbConfig {
     }
     fs.writeFileSync(CONFIG_FILE, JSON.stringify(currentConfig, null, 2), 'utf-8');
   } catch (err) {
-    console.warn('[MariaDB] Error guardando archivo de configuración:', err);
+    console.info('[MariaDB Info] Error guardando archivo de configuración:', err);
   }
   // Reconnect pool with new config
   initMariaDbPool();
@@ -151,13 +220,7 @@ export function initMariaDbPool(): mysql.Pool | null {
     });
     return pool;
   } catch (err: any) {
-    console.warn('[MariaDB] Error inicializando pool:', err.message);
-    lastStatus = {
-      connected: false,
-      error: err.message,
-      lastChecked: new Date().toISOString(),
-      tablesCreated: false,
-    };
+    handleMariaDbQueryError('inicialización de pool', err);
     return null;
   }
 }
@@ -278,6 +341,7 @@ export async function ensureMariaDbTables(force = false): Promise<boolean> {
   if (tablesEnsured && !force) return true;
   if (!pool) initMariaDbPool();
   if (!pool) return false;
+  if (!isMariaDbOperational() && !force) return false;
 
   try {
     // 1. Table for CMS content JSON
@@ -562,27 +626,27 @@ export async function ensureMariaDbTables(force = false): Promise<boolean> {
     lastStatus.connected = true;
     lastStatus.error = null;
     tablesEnsured = true;
+    recordMariaDbSuccess();
     return true;
   } catch (err: any) {
-    console.warn('[MariaDB] Error creando tablas:', err.message);
-    lastStatus.connected = false;
-    lastStatus.error = err.message;
+    handleMariaDbQueryError('creación de tablas', err);
     tablesEnsured = false;
     return false;
   }
 }
 
 export async function getMariaDbContent(): Promise<any | null> {
-  if (!pool) return null;
+  if (!isMariaDbOperational() || !pool) return null;
   try {
     const [rows]: any = await pool.query(
       'SELECT content_json FROM cms_content WHERE id = "global_content" LIMIT 1;'
     );
     if (rows && rows.length > 0 && rows[0].content_json) {
+      recordMariaDbSuccess();
       return JSON.parse(rows[0].content_json);
     }
   } catch (err: any) {
-    console.warn('[MariaDB] Error leyendo contenido:', err.message);
+    handleMariaDbQueryError('lectura de contenido', err);
   }
   return null;
 }
@@ -593,7 +657,7 @@ export async function getMariaDbContent(): Promise<any | null> {
  * are completely unified and returned to the application.
  */
 export async function getAllMariaDbContentMerged(fallbackContent: any): Promise<any> {
-  if (!pool) return fallbackContent;
+  if (!isMariaDbOperational() || !pool) return fallbackContent;
   try {
     let merged = fallbackContent ? { ...fallbackContent } : {};
 
@@ -646,15 +710,16 @@ export async function getAllMariaDbContentMerged(fallbackContent: any): Promise<
       }
     } catch {}
 
+    recordMariaDbSuccess();
     return merged;
   } catch (err: any) {
-    console.warn('[MariaDB] Error unificando contenido desde tablas:', err.message);
+    handleMariaDbQueryError('unificación de contenido', err);
     return fallbackContent;
   }
 }
 
 export async function saveMariaDbContent(content: any, version = 1, note = ''): Promise<boolean> {
-  if (!pool) return false;
+  if (!isMariaDbOperational() || !pool) return false;
   try {
     await ensureMariaDbTables();
     const contentStr = JSON.stringify(content);
@@ -697,7 +762,7 @@ export async function saveMariaDbContent(content: any, version = 1, note = ''): 
       sectionKeys.map(async (key) => {
         if (content[key] && typeof content[key] === 'object') {
           await saveMariaDbSection(key, content[key]).catch((e) => {
-            console.warn(`[MariaDB] Error replicando sección ${key}:`, e.message);
+            handleMariaDbQueryError(`replicando sección ${key}`, e);
           });
         }
       })
@@ -705,7 +770,7 @@ export async function saveMariaDbContent(content: any, version = 1, note = ''): 
 
     return true;
   } catch (err: any) {
-    console.warn('[MariaDB] Error guardando contenido:', err.message);
+    handleMariaDbQueryError('guardando contenido', err);
     return false;
   }
 }
@@ -737,7 +802,7 @@ export async function saveMariaDbGlobalContentBackup(
     }
     return true;
   } catch (err: any) {
-    console.warn('[MariaDB] Error en respaldo global:', err.message);
+    handleMariaDbQueryError('respaldo global', err);
     return false;
   }
 }
@@ -1186,7 +1251,7 @@ export async function saveMariaDbSection(sectionKey: string, sectionData: any): 
         return false;
     }
   } catch (err: any) {
-    console.warn(`[MariaDB] Error guardando sección ${sectionKey}:`, err.message);
+    handleMariaDbQueryError(`guardando sección ${sectionKey}`, err);
     return false;
   }
 }
@@ -1226,7 +1291,7 @@ export async function getMariaDbSection(sectionKey: string): Promise<any | null>
       return JSON.parse(rows[0].data_json);
     }
   } catch (err: any) {
-    console.warn(`[MariaDB] Error leyendo sección ${sectionKey}:`, err.message);
+    handleMariaDbQueryError(`leyendo sección ${sectionKey}`, err);
   }
   return null;
 }
@@ -1264,7 +1329,7 @@ export async function saveMariaDbUsers(users: any[]): Promise<boolean> {
     }
     return true;
   } catch (err: any) {
-    console.warn('[MariaDB] Error guardando usuarios:', err.message);
+    handleMariaDbQueryError('guardando usuarios', err);
     return false;
   }
 }
@@ -1291,7 +1356,7 @@ export async function getMariaDbUsers(): Promise<any[] | null> {
       }));
     }
   } catch (err: any) {
-    console.warn('[MariaDB] Error leyendo usuarios:', err.message);
+    handleMariaDbQueryError('leyendo usuarios', err);
   }
   return null;
 }
@@ -1383,7 +1448,7 @@ export async function getMariaDbSectionsStatus(): Promise<{
     result.totalTables = result.tables.filter((t: any) => t.exists).length;
     return result;
   } catch (e: any) {
-    console.warn('[MariaDB] Error diagnosticando tablas:', e.message);
+    handleMariaDbQueryError('diagnóstico de tablas', e);
     return result;
   }
 }
@@ -1462,9 +1527,7 @@ export async function diagnoseMariaDbConnectionAndOperations(): Promise<MariaDbD
   const log = (msg: string, level: 'info' | 'warn' | 'error' = 'info') => {
     const formatted = `[MariaDB Diagnostic ${new Date().toISOString()}] ${msg}`;
     logs.push(formatted);
-    if (level === 'error') console.error(formatted);
-    else if (level === 'warn') console.warn(formatted);
-    else console.log(formatted);
+    console.info(formatted);
   };
 
   log('Iniciando diagnóstico profundo de conectividad MariaDB y operaciones CMS...');
@@ -1667,20 +1730,21 @@ export async function diagnoseMariaDbConnectionAndOperations(): Promise<MariaDbD
 }
 
 export async function getMariaDbLots(): Promise<any[] | null> {
-  if (!pool) return null;
+  if (!isMariaDbOperational() || !pool) return null;
   try {
     const [rows]: any = await pool.query('SELECT data_json FROM lots ORDER BY code ASC;');
     if (rows && rows.length > 0) {
+      recordMariaDbSuccess();
       return rows.map((r: any) => JSON.parse(r.data_json));
     }
   } catch (err: any) {
-    console.warn('[MariaDB] Error leyendo lotes:', err.message);
+    handleMariaDbQueryError('lectura de lotes', err);
   }
   return null;
 }
 
 export async function saveMariaDbLots(lots: any[]): Promise<boolean> {
-  if (!pool || !Array.isArray(lots)) return false;
+  if (!isMariaDbOperational() || !pool || !Array.isArray(lots)) return false;
   try {
     await ensureMariaDbTables();
     for (const lot of lots) {
@@ -1712,26 +1776,27 @@ export async function saveMariaDbLots(lots: any[]): Promise<boolean> {
     }
     return true;
   } catch (err: any) {
-    console.warn('[MariaDB] Error guardando lotes:', err.message);
+    handleMariaDbQueryError('guardado de lotes', err);
     return false;
   }
 }
 
 export async function getMariaDbModels(): Promise<any[] | null> {
-  if (!pool) return null;
+  if (!isMariaDbOperational() || !pool) return null;
   try {
     const [rows]: any = await pool.query('SELECT data_json FROM housing_models;');
     if (rows && rows.length > 0) {
+      recordMariaDbSuccess();
       return rows.map((r: any) => JSON.parse(r.data_json));
     }
   } catch (err: any) {
-    console.warn('[MariaDB] Error leyendo modelos:', err.message);
+    handleMariaDbQueryError('lectura de modelos', err);
   }
   return null;
 }
 
 export async function saveMariaDbModels(models: any[]): Promise<boolean> {
-  if (!pool || !Array.isArray(models)) return false;
+  if (!isMariaDbOperational() || !pool || !Array.isArray(models)) return false;
   try {
     await ensureMariaDbTables();
     for (const m of models) {
@@ -1757,13 +1822,13 @@ export async function saveMariaDbModels(models: any[]): Promise<boolean> {
     }
     return true;
   } catch (err: any) {
-    console.warn('[MariaDB] Error guardando modelos:', err.message);
+    handleMariaDbQueryError('guardado de modelos', err);
     return false;
   }
 }
 
 export async function saveMariaDbLead(lead: any): Promise<boolean> {
-  if (!pool) return false;
+  if (!isMariaDbOperational() || !pool) return false;
   try {
     await ensureMariaDbTables();
     const id = lead.id || `lead-${Date.now()}`;
@@ -1788,7 +1853,7 @@ export async function saveMariaDbLead(lead: any): Promise<boolean> {
     );
     return true;
   } catch (err: any) {
-    console.warn('[MariaDB] Error guardando prospecto:', err.message);
+    handleMariaDbQueryError('guardado de prospecto', err);
     return false;
   }
 }

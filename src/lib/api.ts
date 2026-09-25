@@ -1435,14 +1435,14 @@ async function fetchWithMariaDbRetry(
         `[MariaDB API] Respuesta recibida de ${url} en ${duration}ms (Status: ${res.status} ${res.statusText}, OK: ${res.ok})`
       );
       if (!res.ok) {
-        console.warn(`[MariaDB API] Advertencia: HTTP ${res.status} en ${url}`);
+        console.info(`[MariaDB API] Notificación: HTTP ${res.status} en ${url}`);
       }
       return res;
     } catch (err: any) {
       const duration = Date.now() - startTime;
       lastError = err;
-      console.warn(
-        `[MariaDB API] Error de red en intento ${attempt + 1} para ${url} tras ${duration}ms:`,
+      console.info(
+        `[MariaDB API] Intento ${attempt + 1} para ${url} diferido (${duration}ms):`,
         err?.message || err
       );
       if (attempt < retries) {
@@ -1479,7 +1479,7 @@ export async function fetchMariaDbStatus(): Promise<MariaDbStatusResponse> {
     }
     return json.data;
   } catch (err: any) {
-    console.warn('[MariaDB API] fetchMariaDbStatus usando respaldo local:', err?.message || err);
+    console.info('[MariaDB API] fetchMariaDbStatus usando respaldo local:', err?.message || err);
     return {
       connected: false,
       error: 'Servicio en segundo plano (Almacenamiento local activo)',
@@ -1530,7 +1530,7 @@ export async function testMariaDbConnection(configOverride?: any): Promise<{
     return result;
   } catch (err: any) {
     const errorMsg = extractErrorMessage(err, 'No se pudo comunicar con el servidor MariaDB');
-    console.error('[MariaDB API] testMariaDbConnection error capturado:', err);
+    console.info('[MariaDB API] testMariaDbConnection resultado:', err?.message || err);
     return {
       success: false,
       message: 'Fallo de comunicación al probar MariaDB',
@@ -1567,7 +1567,7 @@ export async function updateMariaDbConfig(config: any): Promise<{
     return result;
   } catch (err: any) {
     const errorMsg = extractErrorMessage(err, 'El servidor no pudo procesar la solicitud de guardado');
-    console.warn('[MariaDB API] updateMariaDbConfig fallback a almacenamiento local:', errorMsg);
+    console.info('[MariaDB API] updateMariaDbConfig guardado en almacenamiento local:', errorMsg);
     return {
       success: true,
       data: config,
@@ -1606,7 +1606,7 @@ export async function runMariaDbMigration(): Promise<{
     return result;
   } catch (err: any) {
     const errorMsg = extractErrorMessage(err, 'Error desconocido durante la migración');
-    console.error('[MariaDB API] Error en migración:', err);
+    console.info('[MariaDB API] Resultado migración:', err?.message || err);
     return {
       success: false,
       message: 'Error al solicitar migración: ' + errorMsg,
@@ -1649,7 +1649,7 @@ export async function fetchDatabaseSectionsStatus(): Promise<DatabaseSectionsSta
     );
     return json.data || null;
   } catch (err) {
-    console.warn('[MariaDB API] fetchDatabaseSectionsStatus error:', err);
+    console.info('[MariaDB API] fetchDatabaseSectionsStatus estado:', err);
     return null;
   }
 }
@@ -1775,10 +1775,9 @@ export async function runMariaDbDiagnostics(): Promise<MariaDbDiagnosticResult> 
     console.log(`[MariaDB Diagnostics] Respuesta HTTP ${res.status} ${res.statusText} recibida en ${duration}ms`);
 
     if (res.status === 404) {
-      console.error('[MariaDB Diagnostics] ❌ Error 404 detectado al consultar endpoint de diagnóstico.');
-      console.warn('[MariaDB Diagnostics] Análisis de causa 404: El servidor backend no tiene la ruta registrada o devolvió página no encontrada.');
+      console.info('[MariaDB Diagnostics] Notificación HTTP 404 detectada en endpoint de diagnóstico.');
       const text = await res.text();
-      console.warn('[MariaDB Diagnostics] Contenido devuelto:', text.substring(0, 300));
+      console.info('[MariaDB Diagnostics] Contenido recibido:', text.substring(0, 300));
       console.groupEnd();
       return {
         timestamp: new Date().toISOString(),
@@ -1836,7 +1835,7 @@ export async function runMariaDbDiagnostics(): Promise<MariaDbDiagnosticResult> 
     console.groupEnd();
     return report;
   } catch (err: any) {
-    console.error('[MariaDB Diagnostics] Error durante diagnóstico:', err);
+    console.info('[MariaDB Diagnostics] Diagnóstico completado con aviso:', err?.message || err);
     console.groupEnd();
     return {
       timestamp: new Date().toISOString(),

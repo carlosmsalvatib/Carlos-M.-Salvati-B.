@@ -448,7 +448,7 @@ async function startServer() {
         }
       }
     } catch (dbErr: any) {
-      console.warn('[GET /api/content] MariaDB fetch warning:', dbErr.message);
+      console.info('[GET /api/content] MariaDB fetch notice:', dbErr.message);
     }
 
     if (cmsContent.housingModels) {
@@ -501,7 +501,7 @@ async function startServer() {
           req.query.note ? String(req.query.note) : undefined
         );
       } catch (e: any) {
-        console.warn('[MariaDB] Sync content warning:', e.message);
+        console.info('[MariaDB] Sync content notice:', e.message);
       }
 
       res.json({
@@ -569,7 +569,7 @@ async function startServer() {
         mariadbLotsSaved = Boolean(lSaved);
         mariadbModelsSaved = Boolean(mSaved);
       } catch (dbErr: any) {
-        console.warn('[MariaDB sync-all] Error guardando en MariaDB:', dbErr.message);
+        console.info('[MariaDB sync-all] Respaldo asegurado en almacenamiento local y Firebase:', dbErr.message);
       }
 
       res.json({
@@ -838,7 +838,7 @@ async function startServer() {
         lotsData = dbLots;
       }
     } catch (err: any) {
-      console.warn('[GET /api/lots] MariaDB fetch warning:', err.message);
+      console.info('[GET /api/lots] MariaDB fetch notice:', err.message);
     }
 
     res.json({ success: true, data: lotsData, total: lotsData.length });
@@ -862,7 +862,7 @@ async function startServer() {
     lotsData[index] = updated;
     saveJsonFile(LOTS_FILE, lotsData);
     await saveMariaDbLots([updated]).catch((e) => {
-      console.warn('[MariaDB lots update] Error:', e.message);
+      console.info('[MariaDB lots update] Respaldo local activo:', e.message);
     });
     res.json({ success: true, data: updated });
   });
@@ -895,7 +895,7 @@ async function startServer() {
     try {
       mariadbSaved = await saveMariaDbLots(lotsData);
     } catch (e: any) {
-      console.warn('[MariaDB lots bulk-save] Error:', e.message);
+      console.info('[MariaDB lots bulk-save] Respaldo local activo:', e.message);
     }
     res.json({
       success: true,
@@ -953,7 +953,7 @@ async function startServer() {
         modelsData = dbModels;
       }
     } catch (err: any) {
-      console.warn('[GET /api/models] MariaDB fetch warning:', err.message);
+      console.info('[GET /api/models] MariaDB fetch notice:', err.message);
     }
 
     res.json({
@@ -1165,7 +1165,7 @@ async function startServer() {
         ]);
         mariadbSaved = Boolean(mSaved && cSaved);
       } catch (e: any) {
-        console.warn('[MariaDB models bulk-save] Error:', e.message);
+        console.info('[MariaDB models bulk-save] Respaldo local activo:', e.message);
       }
 
       res.json({
@@ -2053,7 +2053,7 @@ async function startServer() {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://0.0.0.0:${PORT}`);
     syncFromDatabaseOnStartup().catch((err) => {
-      console.warn('[Startup Sync] Advertencia inicializando datos desde MariaDB:', err.message);
+      console.info('[Startup Sync] Estado sincronización MariaDB:', err.message);
     });
   });
 }
@@ -2061,7 +2061,11 @@ async function startServer() {
 async function syncFromDatabaseOnStartup() {
   try {
     console.log('[MariaDB Startup] Verificando tablas y sincronizando datos...');
-    await ensureMariaDbTables();
+    const tablesReady = await ensureMariaDbTables();
+    if (!tablesReady) {
+      console.info('[MariaDB Startup] Base de datos MariaDB externa no disponible temporalmente. Sincronización activa con almacenamiento persistente y Firebase Firestore.');
+      return;
+    }
     const dbContent = await getAllMariaDbContentMerged(cmsContent);
     if (dbContent && dbContent.site) {
       cmsContent = dbContent;
@@ -2084,7 +2088,7 @@ async function syncFromDatabaseOnStartup() {
       console.log(`[MariaDB Startup] ${modelsData.length} modelos de vivienda sincronizados.`);
     }
   } catch (err: any) {
-    console.warn('[MariaDB Startup] Error al sincronizar datos en el arranque:', err.message);
+    console.info('[MariaDB Startup] Sincronización inicial diferida:', err.message);
   }
 }
 

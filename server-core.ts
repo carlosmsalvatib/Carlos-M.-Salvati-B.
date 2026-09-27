@@ -240,9 +240,11 @@ export const app = express();
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Prepend /api if missing (e.g. when called or rewritten by Vercel serverless function)
+// Prepend /api if missing or restore from originalUrl (e.g. when called or rewritten by Vercel serverless function)
 app.use((req, res, next) => {
-  if (!req.url.startsWith('/api')) {
+  if (req.originalUrl && req.originalUrl.startsWith('/api') && req.url === '/api') {
+    req.url = req.originalUrl;
+  } else if (!req.url.startsWith('/api')) {
     req.url = '/api' + (req.url.startsWith('/') ? req.url : '/' + req.url);
   }
   next();

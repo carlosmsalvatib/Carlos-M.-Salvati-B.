@@ -165,20 +165,41 @@ async function parseJsonSafely<T>(res: Response, fallbackErrorMsg?: string): Pro
   return parsed;
 }
 
-export async function uploadMediaToServer(file: File | string, folder?: string): Promise<string> {
-  if (typeof file === 'string') return file;
-  const formData = new FormData();
-  formData.append('file', file);
-  if (folder) formData.append('folder', folder);
-  const res = await fetch(`${API_BASE}/upload`, {
-    method: 'POST',
-    body: formData,
-  });
-  const json = await parseJsonSafely<{ success: boolean; url: string; fileUrl?: string }>(
-    res,
-    'Error al subir archivo'
-  );
-  return json.url || json.fileUrl || '';
+export async function uploadMediaToServer(file: File | string, filenameOrFolder?: string): Promise<string> {
+  try {
+    let dataUrl = '';
+    let filename = filenameOrFolder || 'media';
+
+    if (typeof file === 'string') {
+      if (!file.startsWith('data:')) return file;
+      dataUrl = file;
+    } else if (file instanceof File) {
+      filename = file.name;
+      dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    if (!dataUrl) return typeof file === 'string' ? file : '';
+
+    const res = await fetch(`${API_BASE}/upload`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dataUrl, filename }),
+    });
+
+    const json = await parseJsonSafely<{ success: boolean; url?: string; fileUrl?: string }>(
+      res,
+      'Error al subir archivo'
+    );
+    return json.url || json.fileUrl || dataUrl;
+  } catch (err) {
+    console.warn('[uploadMediaToServer] Error subiendo archivo al servidor, usando dataUrl local:', err);
+    return typeof file === 'string' ? file : '';
+  }
 }
 
 export async function fetchCmsContent(): Promise<CmsContent> {

@@ -26,6 +26,8 @@ import {
   getMariaDbUsers,
   getMariaDbSectionsStatus,
   diagnoseMariaDbConnectionAndOperations,
+  saveMariaDbMedia,
+  getMariaDbMedia,
 } from './server/mariadb';
 
 const PORT = 3000;
@@ -318,11 +320,22 @@ app.use((req, res, next) => {
   });
 
   // Auto-heal middleware: if any requested upload file (like video or image) does not exist on disk,
-  // automatically copy or generate a valid fallback asset so database references execute successfully without errors.
+  // restore it from MariaDB cms_media or generate a valid fallback asset so references always work.
   app.use('/api/uploads/:filename', async (req, res, next) => {
     const filename = req.params.filename;
     const filePath = path.join(UPLOADS_DIR, filename);
     if (!fs.existsSync(filePath)) {
+      try {
+        const media = await getMariaDbMedia(filename);
+        if (media && media.buffer) {
+          fs.writeFileSync(filePath, media.buffer);
+          console.log(`[Uploads Restored from MariaDB] Successfully restored ${filename} (${media.buffer.length} bytes)`);
+          return next();
+        }
+      } catch (dbErr: any) {
+        console.warn(`[Uploads DB Restore] Error restoring ${filename} from MariaDB:`, dbErr?.message);
+      }
+
       console.log(`[Uploads Auto-Heal] Missing file requested: ${filename}. Generating valid asset...`);
       try {
         if (filename.match(/\.(mp4|webm|mov|avi|mkv)$/i)) {
@@ -331,16 +344,23 @@ app.use((req, res, next) => {
             fs.copyFileSync(defaultVideoPath, filePath);
             console.log(`[Uploads Auto-Heal] Successfully duplicated default valid MP4 for ${filename}`);
           } else {
-            // Generate a real 100% standard H.264 MP4 via local ffmpeg
-            try {
-              const { execSync } = await import('child_process');
-              execSync(
-                `ffmpeg -y -f lavfi -i color=c=0x15803d:s=1280x720:d=5 -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -c:v libx264 -tune stillimage -pix_fmt yuv420p -c:a aac -shortest "${filePath}"`,
-                { stdio: 'ignore' }
-              );
-              console.log(`[Uploads Auto-Heal] Generated valid H.264 MP4 for ${filename}`);
-            } catch (ffmpegErr: any) {
-              console.warn('[Uploads Auto-Heal] ffmpeg error:', ffmpegErr?.message);
+            // Check default_video.mp4 in MariaDB
+            const defMedia = await getMariaDbMedia('default_video.mp4');
+            if (defMedia && defMedia.buffer) {
+              fs.writeFileSync(filePath, defMedia.buffer);
+              console.log(`[Uploads Auto-Heal] Restored default valid MP4 from MariaDB for ${filename}`);
+            } else {
+              // Generate a real 100% standard H.264 MP4 via local ffmpeg
+              try {
+                const { execSync } = await import('child_process');
+                execSync(
+                  `ffmpeg -y -f lavfi -i color=c=0x15803d:s=1280x720:d=5 -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -c:v libx264 -tune stillimage -pix_fmt yuv420p -c:a aac -shortest "${filePath}"`,
+                  { stdio: 'ignore' }
+                );
+                console.log(`[Uploads Auto-Heal] Generated valid H.264 MP4 for ${filename}`);
+              } catch (ffmpegErr: any) {
+                console.warn('[Uploads Auto-Heal] ffmpeg error:', ffmpegErr?.message);
+              }
             }
           }
         } else if (filename.match(/\.(jpg|jpeg|png|webp|gif)$/i)) {
@@ -442,6 +462,12 @@ app.use((req, res, next) => {
             const safeFileName = `media-${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
             const destPath = path.join(UPLOADS_DIR, safeFileName);
             fs.writeFileSync(destPath, Buffer.from(rawBase64, 'base64'));
+            saveMariaDbMedia(
+              safeFileName,
+              ext === 'mp4' ? 'video/mp4' : ext === 'jpg' ? 'image/jpeg' : `image/${ext}`,
+              rawBase64,
+              'propuesta'
+            ).catch(() => {});
             return `/api/uploads/${safeFileName}` as unknown as T;
           }
         } catch (e) {
@@ -502,8 +528,16 @@ app.use((req, res, next) => {
       const destPath = path.join(UPLOADS_DIR, safeFileName);
       fs.writeFileSync(destPath, Buffer.from(rawBase64, 'base64'));
 
+      // Also persist directly into MariaDB cms_media
+      saveMariaDbMedia(
+        safeFileName,
+        ext === 'mp4' ? 'video/mp4' : ext === 'jpg' ? 'image/jpeg' : `image/${ext}`,
+        rawBase64,
+        'propuesta'
+      ).catch((e) => console.warn('[Upload] Error guardando en MariaDB cms_media:', e?.message || e));
+
       const publicUrl = `/api/uploads/${safeFileName}`;
-      console.log(`[Upload] Archivo guardado con éxito en disco: ${publicUrl}`);
+      console.log(`[Upload] Archivo guardado con éxito en disco y MariaDB: ${publicUrl}`);
       res.json({
         success: true,
         url: publicUrl,

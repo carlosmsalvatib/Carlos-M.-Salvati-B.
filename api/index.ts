@@ -166,6 +166,137 @@ export default async function handler(req: any, res: any) {
       return res.status(200).send(getSvgImage(imgId));
     }
 
+    // 3.1 Uploads handler (Serves videos & images persisted in MariaDB cms_media)
+    if (rawPath.startsWith('uploads/')) {
+      const filename = rawPath.replace('uploads/', '').trim();
+      try {
+        const [rows]: any = await p.query(
+          'SELECT mime_type, data_base64, size FROM cms_media WHERE filename = ? LIMIT 1;',
+          [filename]
+        );
+
+        let mimeType = 'video/mp4';
+        let buffer: Buffer | null = null;
+
+        if (rows && rows.length > 0 && rows[0].data_base64) {
+          mimeType = rows[0].mime_type || (filename.endsWith('.png') ? 'image/png' : filename.endsWith('.jpg') || filename.endsWith('.jpeg') ? 'image/jpeg' : 'video/mp4');
+          buffer = Buffer.from(rows[0].data_base64, 'base64');
+        } else {
+          // If not found by exact filename, check default video fallback if mp4 requested
+          if (filename.match(/\.(mp4|webm|mov|avi|mkv)$/i)) {
+            const [defRows]: any = await p.query(
+              'SELECT mime_type, data_base64, size FROM cms_media WHERE filename = "default_video.mp4" LIMIT 1;'
+            );
+            if (defRows && defRows.length > 0 && defRows[0].data_base64) {
+              mimeType = 'video/mp4';
+              buffer = Buffer.from(defRows[0].data_base64, 'base64');
+            }
+          }
+        }
+
+        if (!buffer) {
+          return res.status(404).json({ success: false, error: 'Archivo no encontrado' });
+        }
+
+        const totalSize = buffer.length;
+        const range = req.headers.range;
+
+        res.setHeader('Accept-Ranges', 'bytes');
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        res.setHeader('Content-Type', mimeType);
+
+        if (range && mimeType.startsWith('video/')) {
+          const parts = range.replace(/bytes=/, '').split('-');
+          const start = parseInt(parts[0], 10);
+          const end = parts[1] ? parseInt(parts[1], 10) : totalSize - 1;
+          const chunksize = end - start + 1;
+          const chunk = buffer.subarray(start, end + 1);
+
+          res.writeHead(206, {
+            'Content-Range': `bytes ${start}-${end}/${totalSize}`,
+            'Accept-Ranges': 'bytes',
+            'Content-Length': chunksize,
+            'Content-Type': mimeType,
+          });
+          return res.end(chunk);
+        } else {
+          res.setHeader('Content-Length', totalSize);
+          return res.status(200).send(buffer);
+        }
+      } catch (uploadErr: any) {
+        console.error('Error sirviendo archivo multimedia:', uploadErr);
+        return res.status(500).json({ success: false, error: uploadErr.message });
+      }
+    }
+
+    // 3.2 Upload endpoint (Persists base64 images & videos to MariaDB cms_media)
+    if (rawPath === 'upload' && method === 'POST') {
+      const { dataUrl, filename, title } = body;
+      if (!dataUrl || typeof dataUrl !== 'string') {
+        return res.status(400).json({ success: false, error: 'dataUrl es requerido' });
+      }
+
+      if (!dataUrl.startsWith('data:')) {
+        return res.status(200).json({ success: true, url: dataUrl, filename: filename || 'file' });
+      }
+
+      const commaIdx = dataUrl.indexOf(',');
+      if (commaIdx === -1) {
+        return res.status(400).json({ success: false, error: 'Formato base64 no válido' });
+      }
+
+      const metaPart = dataUrl.slice(0, commaIdx).toLowerCase();
+      const rawBase64 = dataUrl.slice(commaIdx + 1).replace(/\s+/g, '');
+
+      let ext = 'mp4';
+      let mimeType = 'video/mp4';
+      if (metaPart.includes('jpeg') || metaPart.includes('jpg')) {
+        ext = 'jpg';
+        mimeType = 'image/jpeg';
+      } else if (metaPart.includes('png')) {
+        ext = 'png';
+        mimeType = 'image/png';
+      } else if (metaPart.includes('webp')) {
+        ext = 'webp';
+        mimeType = 'image/webp';
+      } else if (metaPart.includes('svg')) {
+        ext = 'svg';
+        mimeType = 'image/svg+xml';
+      } else if (metaPart.includes('gif')) {
+        ext = 'gif';
+        mimeType = 'image/gif';
+      } else if (metaPart.includes('webm')) {
+        ext = 'webm';
+        mimeType = 'video/webm';
+      } else if (metaPart.includes('pdf')) {
+        ext = 'pdf';
+        mimeType = 'application/pdf';
+      }
+
+      const baseName = (filename || title || 'media')
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '-')
+        .slice(0, 35)
+        .replace(/-+/g, '-');
+
+      const safeFileName = `${baseName || 'media'}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${ext}`;
+      const buf = Buffer.from(rawBase64, 'base64');
+
+      await p.query(
+        `INSERT INTO cms_media (id, filename, mime_type, size, data_base64, section, updated_at)
+         VALUES (?, ?, ?, ?, ?, 'propuesta', NOW())
+         ON DUPLICATE KEY UPDATE data_base64 = VALUES(data_base64), size = VALUES(size), updated_at = NOW();`,
+        [`media-${Date.now()}`, safeFileName, mimeType, buf.length, rawBase64]
+      );
+
+      const publicUrl = `/api/uploads/${safeFileName}`;
+      return res.status(200).json({
+        success: true,
+        url: publicUrl,
+        filename: safeFileName,
+      });
+    }
+
     // 4. Content (GET, POST, RESET)
     if (rawPath === 'content') {
       if (method === 'GET') {
@@ -216,6 +347,135 @@ export default async function handler(req: any, res: any) {
     // 5. Sections (PUT, GET)
     if (rawPath.startsWith('sections/')) {
       const sectionKey = rawPath.replace('sections/', '').trim();
+
+      // DEDICATED HANDLER FOR VALUE PROP / PROPUESTA
+      if (sectionKey === 'valueProp' || sectionKey === 'propuesta') {
+        if (method === 'GET') {
+          const [rows]: any = await p.query('SELECT data_json FROM cms_section_value_prop LIMIT 1;');
+          if (rows && rows.length > 0 && rows[0].data_json) {
+            try {
+              return res.status(200).json({ success: true, data: JSON.parse(rows[0].data_json) });
+            } catch {}
+          }
+          return res.status(200).json({ success: true, data: null });
+        }
+
+        if (method === 'PUT' || method === 'POST') {
+          const v = body || {};
+          const id = 'valueProp';
+          const title = v.title || '';
+          const subtitle = v.subtitle || '';
+          const description = v.description || '';
+          const imageAlt = v.imageAlt || '';
+          let imageUrl = v.imageUrl || '';
+          let videoUrl = v.videoUrl || (v.videos && v.videos[0]?.videoUrl) || (v.videos && v.videos[0]?.url) || '';
+          let videos = Array.isArray(v.videos) ? [...v.videos] : [];
+          const columnsCount = Number(v.columnsCount) || 3;
+          const active = v.active !== false ? 1 : 0;
+
+          // Auto-persist any base64 data URLs in videos or imageUrl to cms_media
+          if (imageUrl.startsWith('data:')) {
+            try {
+              const commaIdx = imageUrl.indexOf(',');
+              const raw = imageUrl.slice(commaIdx + 1).replace(/\s+/g, '');
+              const safeName = `propuesta-img-${Date.now()}-${Math.random().toString(36).substring(2, 6)}.png`;
+              await p.query(
+                `INSERT INTO cms_media (id, filename, mime_type, size, data_base64, section, updated_at)
+                 VALUES (?, ?, 'image/png', ?, ?, 'propuesta', NOW())
+                 ON DUPLICATE KEY UPDATE data_base64 = VALUES(data_base64), size = VALUES(size), updated_at = NOW();`,
+                [`media-${Date.now()}`, safeName, Buffer.from(raw, 'base64').length, raw]
+              );
+              imageUrl = `/api/uploads/${safeName}`;
+              v.imageUrl = imageUrl;
+            } catch (e) {
+              console.warn('Error auto-persisting imageUrl:', e);
+            }
+          }
+
+          videos = await Promise.all(
+            videos.map(async (vid: any, idx: number) => {
+              const nextVid = { ...vid };
+              const vUrl = nextVid.videoUrl || nextVid.url || '';
+              if (vUrl.startsWith('data:')) {
+                try {
+                  const commaIdx = vUrl.indexOf(',');
+                  const raw = vUrl.slice(commaIdx + 1).replace(/\s+/g, '');
+                  const safeName = `propuesta-vid-${idx + 1}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}.mp4`;
+                  await p.query(
+                    `INSERT INTO cms_media (id, filename, mime_type, size, data_base64, section, updated_at)
+                     VALUES (?, ?, 'video/mp4', ?, ?, 'propuesta', NOW())
+                     ON DUPLICATE KEY UPDATE data_base64 = VALUES(data_base64), size = VALUES(size), updated_at = NOW();`,
+                    [`media-${Date.now()}-${idx}`, safeName, Buffer.from(raw, 'base64').length, raw]
+                  );
+                  nextVid.videoUrl = `/api/uploads/${safeName}`;
+                  nextVid.url = `/api/uploads/${safeName}`;
+                } catch (e) {
+                  console.warn('Error auto-persisting video:', e);
+                }
+              }
+              if (nextVid.posterUrl && nextVid.posterUrl.startsWith('data:')) {
+                try {
+                  const commaIdx = nextVid.posterUrl.indexOf(',');
+                  const raw = nextVid.posterUrl.slice(commaIdx + 1).replace(/\s+/g, '');
+                  const safeName = `propuesta-poster-${idx + 1}-${Date.now()}.png`;
+                  await p.query(
+                    `INSERT INTO cms_media (id, filename, mime_type, size, data_base64, section, updated_at)
+                     VALUES (?, ?, 'image/png', ?, ?, 'propuesta', NOW())
+                     ON DUPLICATE KEY UPDATE data_base64 = VALUES(data_base64), size = VALUES(size), updated_at = NOW();`,
+                    [`media-p-${Date.now()}-${idx}`, safeName, Buffer.from(raw, 'base64').length, raw]
+                  );
+                  nextVid.posterUrl = `/api/uploads/${safeName}`;
+                  nextVid.thumbnailUrl = `/api/uploads/${safeName}`;
+                } catch {}
+              }
+              return nextVid;
+            })
+          );
+          v.videos = videos;
+          if (!videoUrl && videos.length > 0) {
+            videoUrl = videos[0].videoUrl || videos[0].url || '';
+          }
+
+          const videosJson = JSON.stringify(videos);
+          const dataJson = JSON.stringify(v);
+
+          await p.query(
+            `INSERT INTO cms_section_value_prop (
+              id, title, subtitle, description, image_url, image_alt,
+              video_url, videos_json, columns_count, active, data_json, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+            ON DUPLICATE KEY UPDATE
+              title = VALUES(title),
+              subtitle = VALUES(subtitle),
+              description = VALUES(description),
+              image_url = VALUES(image_url),
+              image_alt = VALUES(image_alt),
+              video_url = VALUES(video_url),
+              videos_json = VALUES(videos_json),
+              columns_count = VALUES(columns_count),
+              active = VALUES(active),
+              data_json = VALUES(data_json),
+              updated_at = NOW();`,
+            [id, title, subtitle, description, imageUrl, imageAlt, videoUrl, videosJson, columnsCount, active, dataJson]
+          );
+
+          // Also update in global_content
+          try {
+            const [cRows]: any = await p.query('SELECT content_json, version FROM cms_content WHERE id = "global_content" LIMIT 1;');
+            if (cRows && cRows.length > 0 && cRows[0].content_json) {
+              const current = JSON.parse(cRows[0].content_json);
+              current.valueProp = v;
+              current.lastUpdated = new Date().toISOString();
+              const nextV = (current.version || 1) + 1;
+              current.version = nextV;
+              await p.query('UPDATE cms_content SET content_json = ?, version = ?, updated_at = NOW() WHERE id = "global_content"', [JSON.stringify(current), nextV]);
+            }
+          } catch {}
+
+          return res.status(200).json({ success: true, data: v });
+        }
+      }
+
       const tableName = SECTION_TABLE_MAP[sectionKey];
 
       if (!tableName) {
@@ -233,7 +493,7 @@ export default async function handler(req: any, res: any) {
       if (method === 'PUT' || method === 'POST') {
         const dataStr = JSON.stringify(body);
         await p.query(
-          `INSERT INTO ${tableName} (section_key, data_json, updated_at)
+          `INSERT INTO ${tableName} (id, data_json, updated_at)
            VALUES (?, ?, NOW())
            ON DUPLICATE KEY UPDATE data_json = VALUES(data_json), updated_at = NOW();`,
           [sectionKey, dataStr]
@@ -494,13 +754,56 @@ export default async function handler(req: any, res: any) {
     if (rawPath === 'sync-all' && method === 'POST') {
       const { content, lots } = body;
       if (content) {
-        const contentStr = JSON.stringify(content);
+        const nextV = (content.version || 1) + 1;
+        const updatedContent = { ...content, version: nextV, lastUpdated: new Date().toISOString() };
+        const contentStr = JSON.stringify(updatedContent);
         await p.query(
           `INSERT INTO cms_content (id, content_json, version, updated_at)
            VALUES ("global_content", ?, ?, NOW())
            ON DUPLICATE KEY UPDATE content_json = VALUES(content_json), version = VALUES(version), updated_at = NOW();`,
-          [contentStr, (content.version || 1) + 1]
+          [contentStr, nextV]
         );
+
+        // Also persist valueProp into cms_section_value_prop
+        if (content.valueProp && typeof content.valueProp === 'object') {
+          try {
+            const v = content.valueProp;
+            const id = 'valueProp';
+            const title = v.title || '';
+            const subtitle = v.subtitle || '';
+            const description = v.description || '';
+            const imageAlt = v.imageAlt || '';
+            const imageUrl = v.imageUrl || '';
+            const videoUrl = v.videoUrl || (v.videos && v.videos[0]?.videoUrl) || (v.videos && v.videos[0]?.url) || '';
+            const videos = Array.isArray(v.videos) ? v.videos : [];
+            const columnsCount = Number(v.columnsCount) || 3;
+            const active = v.active !== false ? 1 : 0;
+            const videosJson = JSON.stringify(videos);
+            const dataJson = JSON.stringify(v);
+
+            await p.query(
+              `INSERT INTO cms_section_value_prop (
+                id, title, subtitle, description, image_url, image_alt,
+                video_url, videos_json, columns_count, active, data_json, updated_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+              ON DUPLICATE KEY UPDATE
+                title = VALUES(title),
+                subtitle = VALUES(subtitle),
+                description = VALUES(description),
+                image_url = VALUES(image_url),
+                image_alt = VALUES(image_alt),
+                video_url = VALUES(video_url),
+                videos_json = VALUES(videos_json),
+                columns_count = VALUES(columns_count),
+                active = VALUES(active),
+                data_json = VALUES(data_json),
+                updated_at = NOW();`,
+              [id, title, subtitle, description, imageUrl, imageAlt, videoUrl, videosJson, columnsCount, active, dataJson]
+            );
+          } catch (vpErr) {
+            console.warn('[sync-all] Error persisting valueProp table:', vpErr);
+          }
+        }
       }
       return res.status(200).json({ success: true, data: { content, lots } });
     }

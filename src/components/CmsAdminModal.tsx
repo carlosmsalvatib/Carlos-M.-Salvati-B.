@@ -595,16 +595,13 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
         active: formData.valueProp.active !== false,
         videos: (formData.valueProp.videos || []).map((v) => ({
           ...v,
+          title: v.title || 'Render de Video 3D',
           url: v.url || v.videoUrl || '',
           videoUrl: v.videoUrl || v.url || '',
         })),
       };
 
-      const updatedFormData = {
-        ...formData,
-        valueProp: cleanValueProp,
-      };
-      setFormData(updatedFormData);
+      let savedValueProp = cleanValueProp;
 
       // 1. Direct fast update to backend Express & MariaDB dedicated table (cms_section_value_prop)
       try {
@@ -613,12 +610,23 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(cleanValueProp),
         });
-        if (!res.ok) {
+        if (res.ok) {
+          const resJson = await res.json();
+          if (resJson && resJson.data) {
+            savedValueProp = { ...cleanValueProp, ...resJson.data };
+          }
+        } else {
           console.warn('[handleSavePropuestaSection] /api/sections/valueProp respondió:', res.status);
         }
       } catch (sectionErr) {
         console.warn('[handleSavePropuestaSection] Fallback a guardado global:', sectionErr);
       }
+
+      const updatedFormData = {
+        ...formData,
+        valueProp: savedValueProp,
+      };
+      setFormData(updatedFormData);
 
       // 2. Full synchronization with MariaDB all 19 tables and Firebase Cloud
       const result = await saveAllCmsAndLots(
@@ -626,9 +634,16 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
         localLots,
         'Actualización Propuesta de Valor & Renders'
       );
-      if (result && result.content) {
-        setFormData(result.content);
-        onContentUpdated(result.content);
+      if (result && result.content && result.content.valueProp) {
+        const mergedContent = {
+          ...result.content,
+          valueProp: savedValueProp,
+        };
+        setFormData(mergedContent);
+        onContentUpdated(mergedContent);
+      } else {
+        setFormData(updatedFormData);
+        onContentUpdated(updatedFormData);
       }
 
       // 3. Update local state & parent immediately
@@ -1968,8 +1983,17 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                         value={newVideoUrl}
                         onChange={setNewVideoUrl}
                         onMetadataSelected={(meta) => {
-                          if (meta.title && !newVideoTitle) {
-                            setNewVideoTitle(meta.title);
+                          if (!newVideoTitle.trim()) {
+                            const clean = (meta.title || '')
+                              .replace(/\.(mp4|webm|mov|avi|mkv|png|jpg|jpeg|webp)$/i, '')
+                              .replace(/[_\-]+/g, ' ')
+                              .replace(/\s+/g, ' ')
+                              .trim();
+                            if (clean && !clean.match(/^(video|media|file|dron|\d+)\b/i)) {
+                              setNewVideoTitle(clean.charAt(0).toUpperCase() + clean.slice(1));
+                            } else {
+                              setNewVideoTitle(`Render 3D · Mis Delirios ${(formData.valueProp?.videos || []).length + 1}`);
+                            }
                           }
                         }}
                         mediaType="video"

@@ -655,8 +655,28 @@ export async function ensureMariaDbTables(force = false): Promise<boolean> {
       await pool.query('ALTER TABLE cms_section_master_plan ADD COLUMN IF NOT EXISTS blueprints_json LONGTEXT AFTER video_url;');
       await pool.query('ALTER TABLE cms_section_housing_models ADD COLUMN IF NOT EXISTS video_url TEXT AFTER price_notice;');
       await pool.query('ALTER TABLE housing_models ADD COLUMN IF NOT EXISTS video_url TEXT AFTER price_usd;');
+      await pool.query('ALTER TABLE cms_section_value_prop MODIFY COLUMN image_url LONGTEXT;');
+      await pool.query('ALTER TABLE cms_section_value_prop MODIFY COLUMN video_url LONGTEXT;');
     } catch (colErr: any) {
       console.info('[MariaDB Column Check]', colErr.message);
+    }
+
+    // Dedicated Table for permanent media storage (videos and images)
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS cms_media (
+          id VARCHAR(128) PRIMARY KEY,
+          filename VARCHAR(255) NOT NULL UNIQUE,
+          mime_type VARCHAR(128) NOT NULL,
+          size INT NOT NULL,
+          data_base64 LONGTEXT NOT NULL,
+          section VARCHAR(64) DEFAULT 'propuesta',
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+      `);
+    } catch (mediaErr: any) {
+      console.info('[MariaDB cms_media Check]', mediaErr.message);
     }
 
     lastStatus.tablesCreated = true;
@@ -955,10 +975,60 @@ export async function saveMariaDbSection(sectionKey: string, sectionData: any): 
         const title = v.title || '';
         const subtitle = v.subtitle || '';
         const description = v.description || '';
-        const imageUrl = v.imageUrl || '';
+        let imageUrl = v.imageUrl || '';
         const imageAlt = v.imageAlt || '';
-        const videoUrl = v.videoUrl || (v.videos && v.videos[0]?.videoUrl) || (v.videos && v.videos[0]?.url) || '';
-        const videosJson = JSON.stringify(v.videos || []);
+        let videos = Array.isArray(v.videos) ? [...v.videos] : [];
+        let videoUrl = v.videoUrl || (videos[0]?.videoUrl) || (videos[0]?.url) || '';
+
+        // Auto-persist base64 data URLs to cms_media
+        if (imageUrl.startsWith('data:')) {
+          try {
+            const commaIdx = imageUrl.indexOf(',');
+            const raw = imageUrl.slice(commaIdx + 1).replace(/\s+/g, '');
+            const safeName = `propuesta-img-${Date.now()}-${Math.random().toString(36).substring(2, 6)}.png`;
+            await pool.query(
+              `INSERT INTO cms_media (id, filename, mime_type, size, data_base64, section, updated_at)
+               VALUES (?, ?, 'image/png', ?, ?, 'propuesta', NOW())
+               ON DUPLICATE KEY UPDATE data_base64 = VALUES(data_base64), size = VALUES(size), updated_at = NOW();`,
+              [`media-${Date.now()}`, safeName, Buffer.from(raw, 'base64').length, raw]
+            );
+            imageUrl = `/api/uploads/${safeName}`;
+            v.imageUrl = imageUrl;
+          } catch (e) {
+            console.warn('[MariaDB] Error guardando imageUrl en cms_media:', e);
+          }
+        }
+
+        for (let idx = 0; idx < videos.length; idx++) {
+          const nextVid = { ...videos[idx] };
+          const vUrl = nextVid.videoUrl || nextVid.url || '';
+          if (vUrl.startsWith('data:')) {
+            try {
+              const commaIdx = vUrl.indexOf(',');
+              const raw = vUrl.slice(commaIdx + 1).replace(/\s+/g, '');
+              const safeName = `propuesta-vid-${idx + 1}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}.mp4`;
+              await pool.query(
+                `INSERT INTO cms_media (id, filename, mime_type, size, data_base64, section, updated_at)
+                 VALUES (?, ?, 'video/mp4', ?, ?, 'propuesta', NOW())
+                 ON DUPLICATE KEY UPDATE data_base64 = VALUES(data_base64), size = VALUES(size), updated_at = NOW();`,
+                [`media-${Date.now()}-${idx}`, safeName, Buffer.from(raw, 'base64').length, raw]
+              );
+              nextVid.videoUrl = `/api/uploads/${safeName}`;
+              nextVid.url = `/api/uploads/${safeName}`;
+            } catch (e) {
+              console.warn('[MariaDB] Error guardando video en cms_media:', e);
+            }
+          }
+          videos[idx] = nextVid;
+        }
+
+        if (!videoUrl && videos.length > 0) {
+          videoUrl = videos[0].videoUrl || videos[0].url || '';
+        }
+        v.videos = videos;
+
+        const videosJson = JSON.stringify(videos);
+        const dataJsonUpdated = JSON.stringify(v);
         const columnsCount = Number(v.columnsCount) || 3;
         const active = v.active !== false;
 
@@ -979,7 +1049,7 @@ export async function saveMariaDbSection(sectionKey: string, sectionData: any): 
             active = VALUES(active),
             data_json = VALUES(data_json),
             updated_at = NOW();`,
-          [id, title, subtitle, description, imageUrl, imageAlt, videoUrl, videosJson, columnsCount, active, dataJson]
+          [id, title, subtitle, description, imageUrl, imageAlt, videoUrl, videosJson, columnsCount, active, dataJsonUpdated]
         );
         return true;
       }
@@ -2044,6 +2114,57 @@ export async function migrateAllToMariaDb(data: {
     message: `¡Migración completada con éxito en MariaDB! (${results.lotsCount || 0} lotes, ${results.modelsCount || 0} modelos, ${results.usersCount || 0} usuarios y todas las 11 secciones guardadas en sus tablas correspondientes)`,
     details: results,
   };
+}
+
+/**
+ * Saves a media file (base64 string) directly into MariaDB cms_media table
+ */
+export async function saveMariaDbMedia(
+  filename: string,
+  mimeType: string,
+  dataBase64: string,
+  section = 'propuesta'
+): Promise<boolean> {
+  const p = initMariaDbPool();
+  if (!p) return false;
+  try {
+    const buf = Buffer.from(dataBase64, 'base64');
+    await p.query(
+      `INSERT INTO cms_media (id, filename, mime_type, size, data_base64, section, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, NOW())
+       ON DUPLICATE KEY UPDATE data_base64 = VALUES(data_base64), size = VALUES(size), updated_at = NOW();`,
+      [`media-${Date.now()}`, filename, mimeType, buf.length, dataBase64, section]
+    );
+    return true;
+  } catch (e: any) {
+    console.warn('[saveMariaDbMedia] Error:', e?.message || e);
+    return false;
+  }
+}
+
+/**
+ * Reads a media file from MariaDB cms_media table
+ */
+export async function getMariaDbMedia(
+  filename: string
+): Promise<{ mimeType: string; buffer: Buffer } | null> {
+  const p = initMariaDbPool();
+  if (!p) return null;
+  try {
+    const [rows]: any = await p.query(
+      'SELECT mime_type, data_base64 FROM cms_media WHERE filename = ? LIMIT 1;',
+      [filename]
+    );
+    if (rows && rows.length > 0 && rows[0].data_base64) {
+      return {
+        mimeType: rows[0].mime_type,
+        buffer: Buffer.from(rows[0].data_base64, 'base64'),
+      };
+    }
+  } catch (e: any) {
+    console.warn('[getMariaDbMedia] Error:', e?.message || e);
+  }
+  return null;
 }
 
 // Initial pool creation on module load

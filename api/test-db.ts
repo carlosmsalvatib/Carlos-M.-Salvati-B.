@@ -1,20 +1,28 @@
+import mysql from 'mysql2/promise';
+
 export default async function handler(req: any, res: any) {
   try {
-    const db = await import('./db.js');
-    const conn = await db.checkConnection();
-    const lots = await db.getLots();
+    const pool = mysql.createPool({
+      host: '45.79.40.132',
+      port: 3306,
+      user: 'siacecom_aapu',
+      password: 'Admin2104aapu*',
+      database: 'siacecom_misdelirios',
+      connectTimeout: 8000,
+    });
+    const [rows]: any = await pool.query('SELECT count(*) as count FROM lots');
+    await pool.end();
+
     res.status(200).json({
       success: true,
-      dbConnected: conn.ok,
-      mariadbVersion: conn.version,
-      lotsCount: lots ? lots.length : 0,
+      serverless: 'vercel',
+      database: 'MariaDB 45.79.40.132:3306',
+      lotsCount: rows[0]?.count,
     });
   } catch (err: any) {
-    res.status(200).json({
+    res.status(500).json({
       success: false,
-      errorMessage: err.message,
-      errorCode: err.code,
-      stack: err.stack,
+      error: err.message,
     });
   }
 }

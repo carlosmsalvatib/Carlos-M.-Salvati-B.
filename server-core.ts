@@ -99,8 +99,10 @@ if (!cmsContent.housingModels) {
 } else {
   cmsContent.housingModels.models = modelsData;
 }
-saveJsonFile(MODELS_FILE, modelsData);
-saveJsonFile(CONTENT_FILE, cmsContent);
+if (!process.env.VERCEL) {
+  saveJsonFile(MODELS_FILE, modelsData);
+  saveJsonFile(CONTENT_FILE, cmsContent);
+}
 
 let lotsData: LotItem[] = loadJsonFile<LotItem[]>(LOTS_FILE, initialLots);
 let leadsData: LeadSubmission[] = loadJsonFile<LeadSubmission[]>(LEADS_FILE, [
@@ -2244,10 +2246,12 @@ async function syncFromDatabaseOnStartup() {
   }
 }
 
-// Background startup sync with MariaDB
-syncFromDatabaseOnStartup().catch((err) => {
-  console.info('[Startup Sync] Estado sincronización MariaDB:', err?.message);
-});
+// Background startup sync with MariaDB (standalone mode only)
+if (!process.env.VERCEL) {
+  syncFromDatabaseOnStartup().catch((err) => {
+    console.info('[Startup Sync] Estado sincronización MariaDB:', err?.message);
+  });
+}
 
 // Auto-start server in standalone Node/tsx mode
 if (!process.env.VERCEL) {

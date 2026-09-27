@@ -1,6 +1,4 @@
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-const express = require('express');
+import express, { type Request, type Response } from 'express';
 import path from 'path';
 import fs from 'fs';
 import { initialCmsContent } from './src/data/initialContent';
@@ -214,7 +212,7 @@ let versionsHistory: { timestamp: string; version: number; note: string; content
   ]);
 
 // --- Multi-Browser Real-Time Synchronization Engine ---
-type RealtimeClient = express.Response;
+type RealtimeClient = Response;
 const realtimeClients = new Set<RealtimeClient>();
 let currentServerVersion = Date.now();
 
@@ -877,7 +875,7 @@ app.use((req, res, next) => {
     }
   });
 
-  const handleSaveSectionEndpoint = async (req: express.Request, res: express.Response) => {
+  const handleSaveSectionEndpoint = async (req: Request, res: Response) => {
     const rawKey = req.params.sectionKey;
     const sectionKey = resolveCanonicalSectionKey(rawKey);
     let sectionData = req.body;
@@ -1548,7 +1546,7 @@ app.use((req, res, next) => {
   });
 
   // --- Auth Endpoint for CMS ---
-  const handleLogin = (req: express.Request, res: express.Response) => {
+  const handleLogin = (req: Request, res: Response) => {
     try {
       if (req.method !== 'POST') {
         return res.status(405).json({ success: false, error: 'Método no permitido. Utilice POST para iniciar sesión.' });

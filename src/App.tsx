@@ -246,7 +246,65 @@ export function App() {
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    // Real-time Firestore continuous synchronization
+    // Multi-browser real-time synchronization from server (SSE + Fallback Polling)
+    let evtSource: EventSource | null = null;
+    let reconnectTimeout: any = null;
+    let lastKnownVersion = 0;
+
+    const connectSSE = () => {
+      try {
+        evtSource = new EventSource('/api/sync/stream');
+
+        evtSource.addEventListener('connected', (e: MessageEvent) => {
+          try {
+            const data = JSON.parse(e.data);
+            if (data?.version) {
+              lastKnownVersion = data.version;
+            }
+          } catch {}
+        });
+
+        evtSource.addEventListener('update', (e: MessageEvent) => {
+          try {
+            const data = JSON.parse(e.data);
+            if (data?.version) {
+              lastKnownVersion = data.version;
+            }
+          } catch {}
+          // Immediately reload authoritative state from MariaDB
+          loadData();
+        });
+
+        evtSource.onerror = () => {
+          if (evtSource) {
+            evtSource.close();
+            evtSource = null;
+          }
+          clearTimeout(reconnectTimeout);
+          reconnectTimeout = setTimeout(connectSSE, 6000);
+        };
+      } catch (err) {
+        console.info('[LiveSync] EventSource not available, polling active');
+      }
+    };
+
+    connectSSE();
+
+    // Heartbeat version check every 10 seconds (backup for mobile / sleep wake)
+    const pollInterval = setInterval(async () => {
+      try {
+        const res = await fetch('/api/sync/version', { cache: 'no-store' });
+        if (res.ok) {
+          const json = await res.json();
+          if (json?.version && json.version > lastKnownVersion) {
+            lastKnownVersion = json.version;
+            loadData();
+          }
+        }
+      } catch {}
+    }, 10000);
+
+    // Local listeners
     const unsubContent = subscribeToLiveContent((remoteContent) => {
       if (remoteContent && remoteContent.site) {
         setContent((prev) => ({
@@ -279,6 +337,11 @@ export function App() {
     });
 
     return () => {
+      clearInterval(pollInterval);
+      clearTimeout(reconnectTimeout);
+      if (evtSource) {
+        evtSource.close();
+      }
       unsubContent();
       unsubModels();
       unsubLots();

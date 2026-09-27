@@ -204,6 +204,31 @@ let versionsHistory: { timestamp: string; version: number; note: string; content
     },
   ]);
 
+// --- Multi-Browser Real-Time Synchronization Engine ---
+type RealtimeClient = express.Response;
+const realtimeClients = new Set<RealtimeClient>();
+let currentServerVersion = Date.now();
+
+function broadcastDataUpdate(type: 'content' | 'lots' | 'models' | 'section' | 'all', detail?: any) {
+  currentServerVersion = Date.now();
+  const payload = JSON.stringify({
+    type,
+    version: currentServerVersion,
+    contentVersion: cmsContent.version || 1,
+    lastUpdated: cmsContent.lastUpdated,
+    timestamp: new Date().toISOString(),
+    detail,
+  });
+
+  for (const client of realtimeClients) {
+    try {
+      client.write(`event: update\ndata: ${payload}\n\n`);
+    } catch {
+      realtimeClients.delete(client);
+    }
+  }
+}
+
 async function startServer() {
   const app = express();
   app.use(express.json({ limit: '50mb' }));
@@ -218,6 +243,55 @@ async function startServer() {
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
     next();
+  });
+
+  // Real-time Event Stream (SSE) for instant cross-browser synchronization
+  app.get(['/api/sync/stream', '/api/sync/stream/'], (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    if (typeof res.flushHeaders === 'function') {
+      res.flushHeaders();
+    }
+
+    const initialPayload = JSON.stringify({
+      version: currentServerVersion,
+      contentVersion: cmsContent.version || 1,
+      lastUpdated: cmsContent.lastUpdated,
+      lotsCount: lotsData.length,
+      modelsCount: modelsData.length,
+    });
+    res.write(`event: connected\ndata: ${initialPayload}\n\n`);
+
+    realtimeClients.add(res);
+
+    const keepAlive = setInterval(() => {
+      try {
+        res.write(': keepalive\n\n');
+      } catch {
+        clearInterval(keepAlive);
+        realtimeClients.delete(res);
+      }
+    }, 20000);
+
+    req.on('close', () => {
+      clearInterval(keepAlive);
+      realtimeClients.delete(res);
+    });
+  });
+
+  // Fast lightweight version polling check for fallback and mobile browsers
+  app.get(['/api/sync/version', '/api/sync/version/'], (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.json({
+      success: true,
+      version: currentServerVersion,
+      contentVersion: cmsContent.version || 1,
+      lastUpdated: cmsContent.lastUpdated,
+      lotsCount: lotsData.length,
+      modelsCount: modelsData.length,
+    });
   });
 
   // API Routes
@@ -504,6 +578,8 @@ async function startServer() {
         console.info('[MariaDB] Sync content notice:', e.message);
       }
 
+      broadcastDataUpdate('content', { version: nextVersion });
+
       res.json({
         success: true,
         data: cmsContent,
@@ -571,6 +647,8 @@ async function startServer() {
       } catch (dbErr: any) {
         console.info('[MariaDB sync-all] Respaldo asegurado en almacenamiento local y Firebase:', dbErr.message);
       }
+
+      broadcastDataUpdate('all', { version: nextVersion });
 
       res.json({
         success: true,
@@ -806,6 +884,8 @@ async function startServer() {
       // 3. Fast backup to MariaDB global content JSON
       await saveMariaDbGlobalContentBackup(cmsContent, nextVersion, `Actualización rápida de sección ${sectionKey}`);
 
+      broadcastDataUpdate('section', { sectionKey, version: nextVersion });
+
       res.json({
         success: true,
         message: `Sección '${sectionKey}' guardada exitosamente en su tabla correspondiente en la Base de Datos.`,
@@ -847,6 +927,7 @@ async function startServer() {
     saveJsonFile(CONTENT_FILE, cmsContent);
     lotsData = JSON.parse(JSON.stringify(initialLots));
     saveJsonFile(LOTS_FILE, lotsData);
+    broadcastDataUpdate('all');
     res.json({ success: true, data: cmsContent, message: 'Datos restaurados a valores iniciales de fábrica' });
   });
 
@@ -867,6 +948,7 @@ async function startServer() {
       version: (cmsContent.version || 1) + 1,
     };
     saveJsonFile(CONTENT_FILE, cmsContent);
+    broadcastDataUpdate('all', { version: cmsContent.version });
     res.json({ success: true, data: cmsContent, message: `Versión ${versionNum} restaurada exitosamente` });
   });
 
@@ -913,6 +995,7 @@ async function startServer() {
     await saveMariaDbLots([updated]).catch((e) => {
       console.info('[MariaDB lots update] Respaldo local activo:', e.message);
     });
+    broadcastDataUpdate('lots');
     res.json({ success: true, data: updated });
   });
 
@@ -930,6 +1013,7 @@ async function startServer() {
     }
     saveJsonFile(LOTS_FILE, lotsData);
     await saveMariaDbLots(lotsData).catch(() => {});
+    broadcastDataUpdate('lots');
     res.json({ success: true, message: `${updates.length} lotes actualizados exitosamente`, data: lotsData });
   });
 
@@ -946,6 +1030,7 @@ async function startServer() {
     } catch (e: any) {
       console.info('[MariaDB lots bulk-save] Respaldo local activo:', e.message);
     }
+    broadcastDataUpdate('lots');
     res.json({
       success: true,
       message: 'Inventario de disponibilidad grabado y actualizado exitosamente en la base de datos MariaDB',
@@ -972,6 +1057,7 @@ async function startServer() {
       lotsData.push(newLot);
       saveJsonFile(LOTS_FILE, lotsData);
       await saveMariaDbLots([newLot]).catch(() => {});
+      broadcastDataUpdate('lots');
       res.status(201).json({ success: true, data: newLot, message: 'Lote añadido con éxito' });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
@@ -982,6 +1068,7 @@ async function startServer() {
     const { id } = req.params;
     lotsData = lotsData.filter((l) => l.id !== id && l.code !== id);
     saveJsonFile(LOTS_FILE, lotsData);
+    broadcastDataUpdate('lots');
     res.json({ success: true, message: 'Lote eliminado' });
   });
 
@@ -1087,6 +1174,8 @@ async function startServer() {
         saveMariaDbContent(cmsContent),
       ]).catch(() => {});
 
+      broadcastDataUpdate('models');
+
       res.status(201).json({
         success: true,
         data: newModel,
@@ -1137,6 +1226,8 @@ async function startServer() {
         saveMariaDbContent(cmsContent),
       ]).catch(() => {});
 
+      broadcastDataUpdate('models');
+
       res.json({
         success: true,
         data: updated,
@@ -1169,6 +1260,8 @@ async function startServer() {
         saveMariaDbModels(modelsData),
         saveMariaDbContent(cmsContent),
       ]).catch(() => {});
+
+      broadcastDataUpdate('models');
 
       res.json({
         success: true,
@@ -1216,6 +1309,8 @@ async function startServer() {
       } catch (e: any) {
         console.info('[MariaDB models bulk-save] Respaldo local activo:', e.message);
       }
+
+      broadcastDataUpdate('models');
 
       res.json({
         success: true,

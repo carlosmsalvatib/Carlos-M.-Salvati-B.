@@ -1,8 +1,9 @@
 export default function handler(req: any, res: any) {
   res.status(200).json({
-    status: 'api-index-active',
+    success: true,
     url: req.url,
-    originalUrl: req.originalUrl,
+    path: req.query?.path,
+    query: req.query,
     method: req.method,
   });
 }

@@ -31,7 +31,21 @@
   "valueProp": {
     "title": "Arquitectura Bioclimática Andina y Sostenibilidad Integral",
     "subtitle": "Innovación Arquitectónica y Sostenible",
-    "active": true
+    "active": true,
+    "videos": [
+      {
+        "id": "vid-1790315412382",
+        "title": "video_2026-09-20_17-32-17 (2).mp4",
+        "description": "Render arquitectónico del proyecto",
+        "videoUrl": "/api/uploads/media-1790315565272-s3a3u0.mp4",
+        "url": "/api/uploads/media-1790315565304-gm4o3d.mp4",
+        "posterUrl": "/api/images/hero-landscape",
+        "thumbnailUrl": "/api/images/hero-landscape",
+        "duration": "02:00",
+        "videoType": "render_3d"
+      }
+    ],
+    "imageUrl": "/api/uploads/media-1790315565320-4ik6bz.png"
   },
   "location": {
     "title": "La Ruta de la Montaña y la Neblina",
@@ -493,6 +507,6 @@
     "metaPixelId": "",
     "googleTagManagerId": ""
   },
-  "lastUpdated": "2026-09-25T02:47:42.950Z",
-  "version": 34
+  "lastUpdated": "2026-09-25T05:52:45.321Z",
+  "version": 39
 }

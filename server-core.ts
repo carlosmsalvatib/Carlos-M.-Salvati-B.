@@ -1,7 +1,6 @@
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
-import { createServer as createViteServer } from 'vite';
 import { initialCmsContent } from './src/data/initialContent';
 import { initialLots } from './src/data/initialLots';
 import { CmsContent, LotItem, LeadSubmission, AppUser, HousingModel } from './src/types';
@@ -40,12 +39,16 @@ const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const VERSIONS_FILE = path.join(DATA_DIR, 'versions.json');
 
 // Ensure data and uploads directories exist
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-}
-if (!fs.existsSync(UPLOADS_DIR)) {
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-}
+try {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+} catch {}
+try {
+  if (!fs.existsSync(UPLOADS_DIR)) {
+    fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+  }
+} catch {}
 
 // In-memory or file-backed state
 function loadJsonFile<T>(filePath: string, fallback: T): T {
@@ -57,7 +60,9 @@ function loadJsonFile<T>(filePath: string, fallback: T): T {
   } catch (err) {
     console.error(`Error reading ${filePath}:`, err);
   }
-  fs.writeFileSync(filePath, JSON.stringify(fallback, null, 2), 'utf-8');
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(fallback, null, 2), 'utf-8');
+  } catch {}
   return fallback;
 }
 
@@ -67,12 +72,14 @@ function saveJsonFile<T>(filePath: string, data: T): void {
     fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2), 'utf-8');
     fs.renameSync(tmpPath, filePath);
   } catch (err) {
-    console.error(`Error atomic saving ${filePath}:`, err);
     try {
-      fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
-    } catch (e2) {
-      console.error(`Critical error saving ${filePath}:`, e2);
-    }
+      if (process.env.VERCEL) {
+        const tmpPath = path.join('/tmp', path.basename(filePath));
+        fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2), 'utf-8');
+      } else {
+        fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+      }
+    } catch {}
   }
 }
 
@@ -229,10 +236,17 @@ function broadcastDataUpdate(type: 'content' | 'lots' | 'models' | 'section' | '
   }
 }
 
-async function startServer() {
-  const app = express();
-  app.use(express.json({ limit: '50mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+export const app = express();
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Prepend /api if missing (e.g. when called or rewritten by Vercel serverless function)
+app.use((req, res, next) => {
+  if (!req.url.startsWith('/api')) {
+    req.url = '/api' + (req.url.startsWith('/') ? req.url : '/' + req.url);
+  }
+  next();
+});
 
   // Ensure all API data endpoints avoid intermediate cache, while allowing media streaming for uploads
   app.use('/api', (req, res, next) => {
@@ -2179,14 +2193,16 @@ async function startServer() {
     });
   });
 
-  // Serve static files in production or hook Vite in development
-  if (process.env.NODE_ENV !== 'production') {
+  // Serve static files in production or hook Vite in development when running standalone
+export async function startServer() {
+  if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
     app.use(vite.middlewares);
-  } else {
+  } else if (!process.env.VERCEL) {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
@@ -2194,12 +2210,11 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://0.0.0.0:${PORT}`);
-    syncFromDatabaseOnStartup().catch((err) => {
-      console.info('[Startup Sync] Estado sincronización MariaDB:', err.message);
+  if (!process.env.VERCEL) {
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server running on http://0.0.0.0:${PORT}`);
     });
-  });
+  }
 }
 
 async function syncFromDatabaseOnStartup() {
@@ -2207,7 +2222,7 @@ async function syncFromDatabaseOnStartup() {
     console.log('[MariaDB Startup] Verificando tablas y sincronizando datos...');
     const tablesReady = await ensureMariaDbTables();
     if (!tablesReady) {
-      console.info('[MariaDB Startup] Base de datos MariaDB externa no disponible temporalmente. Sincronización activa con almacenamiento persistente y Firebase Firestore.');
+      console.info('[MariaDB Startup] Base de datos MariaDB externa no disponible temporalmente. Sincronización activa con almacenamiento persistente.');
       return;
     }
     const dbContent = await getAllMariaDbContentMerged(cmsContent);
@@ -2236,6 +2251,16 @@ async function syncFromDatabaseOnStartup() {
   }
 }
 
-startServer().catch((err) => {
-  console.error('Server failed to start:', err);
+// Background startup sync with MariaDB
+syncFromDatabaseOnStartup().catch((err) => {
+  console.info('[Startup Sync] Estado sincronización MariaDB:', err?.message);
 });
+
+// Auto-start server in standalone Node/tsx mode
+if (!process.env.VERCEL) {
+  startServer().catch((err) => {
+    console.error('Server failed to start:', err);
+  });
+}
+
+export default app;

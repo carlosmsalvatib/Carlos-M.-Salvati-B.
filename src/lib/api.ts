@@ -4,10 +4,13 @@ import { initialLots } from '../data/initialLots';
 
 export const API_BASE = '/api';
 
-const STORAGE_KEY_CONTENT = 'mdr_runtime_cms_content_v3';
-const STORAGE_KEY_LOTS = 'mdr_runtime_lots_v3';
-const STORAGE_KEY_MODELS = 'mdr_runtime_models_v3';
-const STORAGE_KEY_LAST_SAVED = 'mdr_runtime_last_saved_v3';
+export const STORAGE_KEY_CONTENT = 'mdr_runtime_cms_content_v3';
+export const STORAGE_KEY_CONTENT_V2 = 'mdr_runtime_cms_content_v2';
+export const STORAGE_KEY_LOTS = 'mdr_runtime_lots_v3';
+export const STORAGE_KEY_LOTS_V2 = 'mdr_runtime_lots_v2';
+export const STORAGE_KEY_MODELS = 'mdr_runtime_models_v3';
+export const STORAGE_KEY_MODELS_V2 = 'mdr_runtime_models_v2';
+export const STORAGE_KEY_LAST_SAVED = 'mdr_runtime_last_saved_v3';
 
 export interface MariaDbStatusResponse {
   success: boolean;
@@ -44,7 +47,7 @@ export interface MariaDbDiagnosticResult {
 
 export function getLocalCachedContent(): CmsContent | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY_CONTENT) || localStorage.getItem('mdr_runtime_cms_content_v2');
+    const raw = localStorage.getItem(STORAGE_KEY_CONTENT) || localStorage.getItem(STORAGE_KEY_CONTENT_V2);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === 'object' && parsed.site) {
@@ -57,7 +60,7 @@ export function getLocalCachedContent(): CmsContent | null {
 
 export function getLocalCachedLots(): LotItem[] | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY_LOTS);
+    const raw = localStorage.getItem(STORAGE_KEY_LOTS) || localStorage.getItem(STORAGE_KEY_LOTS_V2);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
@@ -70,7 +73,7 @@ export function getLocalCachedLots(): LotItem[] | null {
 
 export function getLocalCachedModels(): HousingModel[] | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY_MODELS);
+    const raw = localStorage.getItem(STORAGE_KEY_MODELS) || localStorage.getItem(STORAGE_KEY_MODELS_V2);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
@@ -88,14 +91,20 @@ export function saveLocalCache(
 ): void {
   try {
     if (content) {
-      localStorage.setItem(STORAGE_KEY_CONTENT, JSON.stringify(content));
+      const cStr = JSON.stringify(content);
+      localStorage.setItem(STORAGE_KEY_CONTENT, cStr);
+      localStorage.setItem(STORAGE_KEY_CONTENT_V2, cStr);
     }
     if (lots && Array.isArray(lots)) {
-      localStorage.setItem(STORAGE_KEY_LOTS, JSON.stringify(lots));
+      const lStr = JSON.stringify(lots);
+      localStorage.setItem(STORAGE_KEY_LOTS, lStr);
+      localStorage.setItem(STORAGE_KEY_LOTS_V2, lStr);
     }
     const resolvedModels = models || content?.housingModels?.models;
     if (resolvedModels && Array.isArray(resolvedModels)) {
-      localStorage.setItem(STORAGE_KEY_MODELS, JSON.stringify(resolvedModels));
+      const mStr = JSON.stringify(resolvedModels);
+      localStorage.setItem(STORAGE_KEY_MODELS, mStr);
+      localStorage.setItem(STORAGE_KEY_MODELS_V2, mStr);
     }
     localStorage.setItem(STORAGE_KEY_LAST_SAVED, new Date().toISOString());
 
@@ -109,6 +118,19 @@ export function saveLocalCache(
           },
         })
       );
+      try {
+        if ('BroadcastChannel' in window) {
+          const channel = new BroadcastChannel('mdr_cms_sync');
+          channel.postMessage({
+            type: 'content_updated',
+            content,
+            lots,
+            models: resolvedModels,
+            timestamp: Date.now(),
+          });
+          channel.close();
+        }
+      } catch {}
     }
   } catch (err) {
     console.warn('Error guardando cache local:', err);

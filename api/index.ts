@@ -360,119 +360,139 @@ export default async function handler(req: any, res: any) {
           return res.status(200).json({ success: true, data: null });
         }
 
-        if (method === 'PUT' || method === 'POST') {
-          const v = body || {};
-          const id = 'valueProp';
-          const title = v.title || '';
-          const subtitle = v.subtitle || '';
-          const description = v.description || '';
-          const imageAlt = v.imageAlt || '';
-          let imageUrl = v.imageUrl || '';
-          let videoUrl = v.videoUrl || (v.videos && v.videos[0]?.videoUrl) || (v.videos && v.videos[0]?.url) || '';
-          let videos = Array.isArray(v.videos) ? [...v.videos] : [];
-          const columnsCount = Number(v.columnsCount) || 3;
-          const active = v.active !== false ? 1 : 0;
-
-          // Auto-persist any base64 data URLs in videos or imageUrl to cms_media
-          if (imageUrl.startsWith('data:')) {
+        if (method === 'PUT' || method === 'POST' || method === 'PATCH') {
+          try {
+            let existingData: any = {};
             try {
-              const commaIdx = imageUrl.indexOf(',');
-              const raw = imageUrl.slice(commaIdx + 1).replace(/\s+/g, '');
-              const safeName = `propuesta-img-${Date.now()}-${Math.random().toString(36).substring(2, 6)}.png`;
-              await p.query(
-                `INSERT INTO cms_media (id, filename, mime_type, size, data_base64, section, updated_at)
-                 VALUES (?, ?, 'image/png', ?, ?, 'propuesta', NOW())
-                 ON DUPLICATE KEY UPDATE data_base64 = VALUES(data_base64), size = VALUES(size), updated_at = NOW();`,
-                [`media-${Date.now()}`, safeName, Buffer.from(raw, 'base64').length, raw]
-              );
-              imageUrl = `/api/uploads/${safeName}`;
-              v.imageUrl = imageUrl;
-            } catch (e) {
-              console.warn('Error auto-persisting imageUrl:', e);
-            }
-          }
-
-          videos = await Promise.all(
-            videos.map(async (vid: any, idx: number) => {
-              const nextVid = { ...vid };
-              const vUrl = nextVid.videoUrl || nextVid.url || '';
-              if (vUrl.startsWith('data:')) {
-                try {
-                  const commaIdx = vUrl.indexOf(',');
-                  const raw = vUrl.slice(commaIdx + 1).replace(/\s+/g, '');
-                  const safeName = `propuesta-vid-${idx + 1}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}.mp4`;
-                  await p.query(
-                    `INSERT INTO cms_media (id, filename, mime_type, size, data_base64, section, updated_at)
-                     VALUES (?, ?, 'video/mp4', ?, ?, 'propuesta', NOW())
-                     ON DUPLICATE KEY UPDATE data_base64 = VALUES(data_base64), size = VALUES(size), updated_at = NOW();`,
-                    [`media-${Date.now()}-${idx}`, safeName, Buffer.from(raw, 'base64').length, raw]
-                  );
-                  nextVid.videoUrl = `/api/uploads/${safeName}`;
-                  nextVid.url = `/api/uploads/${safeName}`;
-                } catch (e) {
-                  console.warn('Error auto-persisting video:', e);
+              const [existRows]: any = await p.query('SELECT data_json, title, subtitle, description, image_url, image_alt, video_url, videos_json, columns_count, active FROM cms_section_value_prop LIMIT 1;');
+              if (existRows && existRows.length > 0) {
+                if (existRows[0].data_json) {
+                  existingData = JSON.parse(existRows[0].data_json);
+                } else {
+                  existingData = existRows[0];
                 }
               }
-              if (nextVid.posterUrl && nextVid.posterUrl.startsWith('data:')) {
-                try {
-                  const commaIdx = nextVid.posterUrl.indexOf(',');
-                  const raw = nextVid.posterUrl.slice(commaIdx + 1).replace(/\s+/g, '');
-                  const safeName = `propuesta-poster-${idx + 1}-${Date.now()}.png`;
-                  await p.query(
-                    `INSERT INTO cms_media (id, filename, mime_type, size, data_base64, section, updated_at)
-                     VALUES (?, ?, 'image/png', ?, ?, 'propuesta', NOW())
-                     ON DUPLICATE KEY UPDATE data_base64 = VALUES(data_base64), size = VALUES(size), updated_at = NOW();`,
-                    [`media-p-${Date.now()}-${idx}`, safeName, Buffer.from(raw, 'base64').length, raw]
-                  );
-                  nextVid.posterUrl = `/api/uploads/${safeName}`;
-                  nextVid.thumbnailUrl = `/api/uploads/${safeName}`;
-                } catch {}
-              }
-              return nextVid;
-            })
-          );
-          v.videos = videos;
-          if (!videoUrl && videos.length > 0) {
-            videoUrl = videos[0].videoUrl || videos[0].url || '';
-          }
-
-          const videosJson = JSON.stringify(videos);
-          const dataJson = JSON.stringify(v);
-
-          await p.query(
-            `INSERT INTO cms_section_value_prop (
-              id, title, subtitle, description, image_url, image_alt,
-              video_url, videos_json, columns_count, active, data_json, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-            ON DUPLICATE KEY UPDATE
-              title = VALUES(title),
-              subtitle = VALUES(subtitle),
-              description = VALUES(description),
-              image_url = VALUES(image_url),
-              image_alt = VALUES(image_alt),
-              video_url = VALUES(video_url),
-              videos_json = VALUES(videos_json),
-              columns_count = VALUES(columns_count),
-              active = VALUES(active),
-              data_json = VALUES(data_json),
-              updated_at = NOW();`,
-            [id, title, subtitle, description, imageUrl, imageAlt, videoUrl, videosJson, columnsCount, active, dataJson]
-          );
-
-          // Also update in global_content
-          try {
-            const [cRows]: any = await p.query('SELECT content_json, version FROM cms_content WHERE id = "global_content" LIMIT 1;');
-            if (cRows && cRows.length > 0 && cRows[0].content_json) {
-              const current = JSON.parse(cRows[0].content_json);
-              current.valueProp = v;
-              current.lastUpdated = new Date().toISOString();
-              const nextV = (current.version || 1) + 1;
-              current.version = nextV;
-              await p.query('UPDATE cms_content SET content_json = ?, version = ?, updated_at = NOW() WHERE id = "global_content"', [JSON.stringify(current), nextV]);
+            } catch (existErr) {
+              console.warn('[valueProp] No se pudo leer fila existente para merge:', existErr);
             }
-          } catch {}
 
-          return res.status(200).json({ success: true, data: v });
+            const rawBody = body || {};
+            const v = { ...existingData, ...rawBody };
+            const id = 'valueProp';
+            const title = v.title || '';
+            const subtitle = v.subtitle || '';
+            const description = v.description || '';
+            const imageAlt = v.imageAlt || '';
+            let imageUrl = v.imageUrl || '';
+            let videoUrl = v.videoUrl || (v.videos && v.videos[0]?.videoUrl) || (v.videos && v.videos[0]?.url) || '';
+            let videos = Array.isArray(v.videos) ? [...v.videos] : (Array.isArray(existingData.videos) ? existingData.videos : []);
+            const columnsCount = Number(v.columnsCount) || 3;
+            const active = v.active !== false ? 1 : 0;
+
+            // Auto-persist any base64 data URLs in videos or imageUrl to cms_media
+            if (imageUrl.startsWith('data:')) {
+              try {
+                const commaIdx = imageUrl.indexOf(',');
+                const raw = imageUrl.slice(commaIdx + 1).replace(/\s+/g, '');
+                const safeName = `propuesta-img-${Date.now()}-${Math.random().toString(36).substring(2, 6)}.png`;
+                await p.query(
+                  `INSERT INTO cms_media (id, filename, mime_type, size, data_base64, section, updated_at)
+                   VALUES (?, ?, 'image/png', ?, ?, 'propuesta', NOW())
+                   ON DUPLICATE KEY UPDATE data_base64 = VALUES(data_base64), size = VALUES(size), updated_at = NOW();`,
+                  [`media-${Date.now()}`, safeName, Buffer.from(raw, 'base64').length, raw]
+                );
+                imageUrl = `/api/uploads/${safeName}`;
+                v.imageUrl = imageUrl;
+              } catch (e: any) {
+                console.warn('Error auto-persisting imageUrl:', e);
+              }
+            }
+
+            videos = await Promise.all(
+              videos.map(async (vid: any, idx: number) => {
+                const nextVid = { ...vid };
+                const vUrl = nextVid.videoUrl || nextVid.url || '';
+                if (vUrl.startsWith('data:')) {
+                  try {
+                    const commaIdx = vUrl.indexOf(',');
+                    const raw = vUrl.slice(commaIdx + 1).replace(/\s+/g, '');
+                    const safeName = `propuesta-vid-${idx + 1}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}.mp4`;
+                    await p.query(
+                      `INSERT INTO cms_media (id, filename, mime_type, size, data_base64, section, updated_at)
+                       VALUES (?, ?, 'video/mp4', ?, ?, 'propuesta', NOW())
+                       ON DUPLICATE KEY UPDATE data_base64 = VALUES(data_base64), size = VALUES(size), updated_at = NOW();`,
+                      [`media-${Date.now()}-${idx}`, safeName, Buffer.from(raw, 'base64').length, raw]
+                    );
+                    nextVid.videoUrl = `/api/uploads/${safeName}`;
+                    nextVid.url = `/api/uploads/${safeName}`;
+                  } catch (e: any) {
+                    console.warn('Error auto-persisting video:', e);
+                  }
+                }
+                if (nextVid.posterUrl && nextVid.posterUrl.startsWith('data:')) {
+                  try {
+                    const commaIdx = nextVid.posterUrl.indexOf(',');
+                    const raw = nextVid.posterUrl.slice(commaIdx + 1).replace(/\s+/g, '');
+                    const safeName = `propuesta-poster-${idx + 1}-${Date.now()}.png`;
+                    await p.query(
+                      `INSERT INTO cms_media (id, filename, mime_type, size, data_base64, section, updated_at)
+                       VALUES (?, ?, 'image/png', ?, ?, 'propuesta', NOW())
+                       ON DUPLICATE KEY UPDATE data_base64 = VALUES(data_base64), size = VALUES(size), updated_at = NOW();`,
+                      [`media-p-${Date.now()}-${idx}`, safeName, Buffer.from(raw, 'base64').length, raw]
+                    );
+                    nextVid.posterUrl = `/api/uploads/${safeName}`;
+                    nextVid.thumbnailUrl = `/api/uploads/${safeName}`;
+                  } catch {}
+                }
+                return nextVid;
+              })
+            );
+            v.videos = videos;
+            if (!videoUrl && videos.length > 0) {
+              videoUrl = videos[0].videoUrl || videos[0].url || '';
+            }
+
+            const videosJson = JSON.stringify(videos);
+            const dataJson = JSON.stringify(v);
+
+            await p.query(
+              `INSERT INTO cms_section_value_prop (
+                id, title, subtitle, description, image_url, image_alt,
+                video_url, videos_json, columns_count, active, data_json, updated_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+              ON DUPLICATE KEY UPDATE
+                title = VALUES(title),
+                subtitle = VALUES(subtitle),
+                description = VALUES(description),
+                image_url = VALUES(image_url),
+                image_alt = VALUES(image_alt),
+                video_url = VALUES(video_url),
+                videos_json = VALUES(videos_json),
+                columns_count = VALUES(columns_count),
+                active = VALUES(active),
+                data_json = VALUES(data_json),
+                updated_at = NOW();`,
+              [id, title, subtitle, description, imageUrl, imageAlt, videoUrl, videosJson, columnsCount, active, dataJson]
+            );
+
+            // Also update in global_content
+            try {
+              const [cRows]: any = await p.query('SELECT content_json, version FROM cms_content WHERE id = "global_content" LIMIT 1;');
+              if (cRows && cRows.length > 0 && cRows[0].content_json) {
+                const current = JSON.parse(cRows[0].content_json);
+                current.valueProp = v;
+                current.lastUpdated = new Date().toISOString();
+                const nextV = (current.version || 1) + 1;
+                current.version = nextV;
+                await p.query('UPDATE cms_content SET content_json = ?, version = ?, updated_at = NOW() WHERE id = "global_content"', [JSON.stringify(current), nextV]);
+              }
+            } catch {}
+
+            return res.status(200).json({ success: true, message: 'Propuesta de valor guardada en MariaDB', data: v });
+          } catch (valPropErr: any) {
+            console.error('Error guardando sección valueProp en MariaDB:', valPropErr);
+            return res.status(500).json({ success: false, error: valPropErr.message || 'Error guardando en MariaDB' });
+          }
         }
       }
 

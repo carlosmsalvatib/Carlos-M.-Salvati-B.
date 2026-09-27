@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { CmsContent, HousingModel } from '../types';
-import { fetchHousingModels } from '../lib/api';
+import { fetchHousingModels, STORAGE_KEY_CONTENT, STORAGE_KEY_CONTENT_V2, STORAGE_KEY_MODELS, STORAGE_KEY_MODELS_V2 } from '../lib/api';
 import { normalizeVideoUrl } from '../lib/mediaProcessor';
 import {
   Home,
@@ -105,7 +105,7 @@ export const HousingModelsSection: React.FC<HousingModelsSectionProps> = ({
 
     // Cross-tab storage synchronization
     const handleStorage = (e: StorageEvent) => {
-      if (e.key === 'mdr_runtime_models_v2' && e.newValue) {
+      if ((e.key === STORAGE_KEY_MODELS || e.key === STORAGE_KEY_MODELS_V2) && e.newValue) {
         try {
           const parsed = JSON.parse(e.newValue);
           if (Array.isArray(parsed)) {
@@ -114,7 +114,7 @@ export const HousingModelsSection: React.FC<HousingModelsSectionProps> = ({
           }
         } catch {}
       }
-      if (e.key === 'mdr_runtime_cms_content_v2' && e.newValue) {
+      if ((e.key === STORAGE_KEY_CONTENT || e.key === STORAGE_KEY_CONTENT_V2) && e.newValue) {
         try {
           const parsed = JSON.parse(e.newValue);
           if (parsed?.housingModels?.models) {

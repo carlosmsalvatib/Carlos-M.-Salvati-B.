@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { CmsContent, LotItem, HousingModel, AppUser } from './types';
 import {
   getContent,
@@ -10,6 +10,12 @@ import {
   subscribeToLiveContent,
   subscribeToLiveModels,
   subscribeToLiveLots,
+  STORAGE_KEY_CONTENT,
+  STORAGE_KEY_CONTENT_V2,
+  STORAGE_KEY_LOTS,
+  STORAGE_KEY_LOTS_V2,
+  STORAGE_KEY_MODELS,
+  STORAGE_KEY_MODELS_V2,
 } from './lib/api';
 import { initialCmsContent } from './data/initialContent';
 import { initialLots } from './data/initialLots';
@@ -112,6 +118,11 @@ export function App() {
   });
   const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(false);
   const [isCmsAdminOpen, setIsCmsAdminOpen] = useState<boolean>(false);
+  const isCmsAdminOpenRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    isCmsAdminOpenRef.current = isCmsAdminOpen;
+  }, [isCmsAdminOpen]);
 
   // Directional Image Amplification Modal State
   const [imageViewerState, setImageViewerState] = useState<{
@@ -209,14 +220,39 @@ export function App() {
     window.addEventListener('mdr_data_updated', handleDataUpdated);
     window.addEventListener('mdr_models_updated', handleModelsUpdated);
 
-    // Cross-tab synchronization via storage event
+    // Cross-tab synchronization via BroadcastChannel & storage event
+    let syncChannel: BroadcastChannel | null = null;
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        syncChannel = new BroadcastChannel('mdr_cms_sync');
+        syncChannel.onmessage = (event) => {
+          if (isCmsAdminOpenRef.current) {
+            console.info('[LiveSync] Ignorando mensaje de BroadcastChannel porque el CMS está abierto editando');
+            return;
+          }
+          if (event.data?.type === 'content_updated') {
+            if (event.data.content) {
+              setContent((prev) => ({ ...prev, ...event.data.content }));
+            }
+            if (event.data.lots) {
+              setLots([...event.data.lots]);
+            }
+          }
+        };
+      }
+    } catch {}
+
     const handleStorage = (e: StorageEvent) => {
-      if (e.key === 'mdr_runtime_cms_content_v2' && e.newValue) {
+      if (isCmsAdminOpenRef.current) {
+        console.info('[LiveSync] Ignorando evento storage porque el CMS está abierto editando');
+        return;
+      }
+      if ((e.key === STORAGE_KEY_CONTENT || e.key === STORAGE_KEY_CONTENT_V2) && e.newValue) {
         try {
           setContent(JSON.parse(e.newValue));
         } catch {}
       }
-      if (e.key === 'mdr_runtime_models_v2' && e.newValue) {
+      if ((e.key === STORAGE_KEY_MODELS || e.key === STORAGE_KEY_MODELS_V2) && e.newValue) {
         try {
           const parsed = JSON.parse(e.newValue);
           if (Array.isArray(parsed)) {
@@ -230,7 +266,7 @@ export function App() {
           }
         } catch {}
       }
-      if (e.key === 'mdr_runtime_lots_v2' && e.newValue) {
+      if ((e.key === STORAGE_KEY_LOTS || e.key === STORAGE_KEY_LOTS_V2) && e.newValue) {
         try {
           setLots(JSON.parse(e.newValue));
         } catch {}
@@ -238,8 +274,12 @@ export function App() {
     };
     window.addEventListener('storage', handleStorage);
 
-    // Visibility / focus refresh: re-sync when tab becomes active
+    // Visibility / focus refresh: re-sync when tab becomes active (FROZEN if CMS is open)
     const handleVisibilityChange = () => {
+      if (isCmsAdminOpenRef.current) {
+        console.info('[LiveSync] Ignorando visibilitychange porque el CMS está abierto en edición (evita pérdida de archivos)');
+        return;
+      }
       if (document.visibilityState === 'visible') {
         loadData();
       }
@@ -271,7 +311,11 @@ export function App() {
               lastKnownVersion = data.version;
             }
           } catch {}
-          // Immediately reload authoritative state from MariaDB
+          // Immediately reload authoritative state from MariaDB UNLESS CMS is open
+          if (isCmsAdminOpenRef.current) {
+            console.info('[LiveSync] Evento SSE update recibido pero congelado porque el CMS está editando');
+            return;
+          }
           loadData();
         });
 
@@ -290,8 +334,12 @@ export function App() {
 
     connectSSE();
 
-    // Heartbeat version check every 10 seconds (backup for mobile / sleep wake)
+    // Heartbeat version check every 10 seconds (backup for mobile / sleep wake) - FROZEN while CMS is open
     const pollInterval = setInterval(async () => {
+      if (isCmsAdminOpenRef.current) {
+        // Freeze heartbeat polling while admin has CMS open
+        return;
+      }
       try {
         const res = await fetch('/api/sync/version', { cache: 'no-store' });
         if (res.ok) {
@@ -306,6 +354,9 @@ export function App() {
 
     // Local listeners
     const unsubContent = subscribeToLiveContent((remoteContent) => {
+      if (isCmsAdminOpenRef.current) {
+        return;
+      }
       if (remoteContent && remoteContent.site) {
         setContent((prev) => ({
           ...prev,
@@ -319,6 +370,9 @@ export function App() {
     });
 
     const unsubModels = subscribeToLiveModels((remoteModels) => {
+      if (isCmsAdminOpenRef.current) {
+        return;
+      }
       if (Array.isArray(remoteModels) && remoteModels.length > 0) {
         setContent((prev) => ({
           ...prev,
@@ -331,6 +385,9 @@ export function App() {
     });
 
     const unsubLots = subscribeToLiveLots((remoteLots) => {
+      if (isCmsAdminOpenRef.current) {
+        return;
+      }
       if (Array.isArray(remoteLots) && remoteLots.length > 0) {
         setLots([...remoteLots]);
       }
@@ -341,6 +398,11 @@ export function App() {
       clearTimeout(reconnectTimeout);
       if (evtSource) {
         evtSource.close();
+      }
+      if (syncChannel) {
+        try {
+          syncChannel.close();
+        } catch {}
       }
       unsubContent();
       unsubModels();
@@ -640,24 +702,22 @@ export function App() {
         onLoginSuccess={handleLoginSuccess}
       />
 
-      {/* Full CMS Administration Modal (Accessible only after login) */}
-      {isCmsAdminOpen && (
-        <CmsAdminModal
-          isOpen={isCmsAdminOpen}
-          onClose={() => {
-            setIsCmsAdminOpen(false);
-          }}
-          content={content}
-          lots={lots}
-          currentUser={currentUser}
-          onContentUpdated={(newContent) => {
-            setContent({ ...newContent });
-          }}
-          onLotsUpdated={(newLots) => {
-            setLots([...newLots]);
-          }}
-        />
-      )}
+      {/* Full CMS Administration Modal (Always mounted to preserve local form state & prevent unmounting) */}
+      <CmsAdminModal
+        isOpen={isCmsAdminOpen}
+        onClose={() => {
+          setIsCmsAdminOpen(false);
+        }}
+        content={content}
+        lots={lots}
+        currentUser={currentUser}
+        onContentUpdated={(newContent) => {
+          setContent({ ...newContent });
+        }}
+        onLotsUpdated={(newLots) => {
+          setLots([...newLots]);
+        }}
+      />
     </div>
   );
 }

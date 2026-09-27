@@ -206,6 +206,7 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
   }, [activeTab]);
 
   const [formData, setFormData] = useState<CmsContent>(content);
+  const [isDirty, setIsDirty] = useState<boolean>(false);
   const [localLots, setLocalLots] = useState<LotItem[]>(lots);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -329,12 +330,18 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
   const [newLotLocation, setNewLotLocation] = useState<'alta' | 'baja'>('baja');
 
   useEffect(() => {
-    setFormData(content);
-  }, [content]);
+    if (!isDirty) {
+      setFormData(content);
+    } else {
+      console.warn('[CmsAdminModal] Sincronización externa pausada: hay cambios sin guardar en el formulario CMS.');
+    }
+  }, [content, isDirty]);
 
   useEffect(() => {
-    setLocalLots(lots);
-  }, [lots]);
+    if (!isDirty) {
+      setLocalLots(lots);
+    }
+  }, [lots, isDirty]);
 
   const refreshModelsFromDb = async () => {
     try {
@@ -355,12 +362,10 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
   };
 
   useEffect(() => {
-    if (activeTab === 'leads') {
+    if (activeTab === 'leads' && isOpen) {
       fetchLeads();
     }
-  }, [activeTab]);
-
-  if (!isOpen) return null;
+  }, [activeTab, isOpen]);
 
   const fetchLeads = async () => {
     setLoadingLeads(true);
@@ -411,6 +416,7 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
       }
       setSaveSuccess(true);
       setLotsSaveSuccess(true);
+      setIsDirty(false);
       setTimeout(() => {
         setSaveSuccess(false);
         setLotsSaveSuccess(false);
@@ -512,6 +518,44 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
     }
   };
 
+  // IMMEDIATE PERSISTENCE (AUTO-SAVE) FOR PROPUESTA MULTIMEDIA
+  const autoSavePropuestaPartial = async (partialUpdates: any) => {
+    try {
+      const mergedValueProp = {
+        ...formData.valueProp,
+        ...partialUpdates,
+      };
+      const cleanValueProp = {
+        ...mergedValueProp,
+        active: mergedValueProp.active !== false,
+        videos: (mergedValueProp.videos || []).map((v: any) => ({
+          ...v,
+          title: v.title || 'Render de Video 3D',
+          url: v.url || v.videoUrl || '',
+          videoUrl: v.videoUrl || v.url || '',
+        })),
+      };
+
+      const res = await fetch('/api/sections/valueProp', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cleanValueProp),
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        const savedData = json?.data || cleanValueProp;
+        const newFormData = { ...formData, valueProp: savedData };
+        setFormData(newFormData);
+        saveLocalCache(newFormData);
+        onContentUpdated(newFormData);
+        console.info('[autoSavePropuestaPartial] Guardado inmediato en MariaDB completado exitosamente.');
+      }
+    } catch (err) {
+      console.warn('[autoSavePropuestaPartial] Error al auto-guardar propuesta:', err);
+    }
+  };
+
   // VIDEO RENDERS MANAGEMENT IN PROPUESTA
   const handleAddVideo = () => {
     if (!newVideoTitle.trim() || !newVideoUrl.trim()) return;
@@ -529,61 +573,76 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
       videoType: 'render_3d',
     };
     const currentVideos = formData.valueProp.videos || [];
+    const updatedVideos = [...currentVideos, newVideo];
+    const updatedValueProp = {
+      ...formData.valueProp,
+      videos: updatedVideos,
+    };
     setFormData({
       ...formData,
-      valueProp: {
-        ...formData.valueProp,
-        videos: [...currentVideos, newVideo],
-      },
+      valueProp: updatedValueProp,
     });
+    setIsDirty(true);
     setNewVideoTitle('');
     setNewVideoUrl('');
     setNewVideoDesc('');
+    autoSavePropuestaPartial({ videos: updatedVideos });
   };
 
   const handleDeleteVideo = (videoId: string) => {
+    if (!confirm('¿Desea eliminar este video render de la sección Propuesta?')) return;
     const currentVideos = formData.valueProp.videos || [];
+    const updatedVideos = currentVideos.filter((v) => v.id !== videoId);
+    const updatedValueProp = {
+      ...formData.valueProp,
+      videos: updatedVideos,
+    };
     setFormData({
       ...formData,
-      valueProp: {
-        ...formData.valueProp,
-        videos: currentVideos.filter((v) => v.id !== videoId),
-      },
+      valueProp: updatedValueProp,
     });
+    setIsDirty(true);
     if (editingVideoId === videoId) setEditingVideoId(null);
+    autoSavePropuestaPartial({ videos: updatedVideos });
   };
 
   const handleUpdateVideo = (videoId: string, updates: Partial<PropuestaVideo>) => {
+    setIsDirty(true);
     const currentVideos = formData.valueProp.videos || [];
+    const updatedVideos = currentVideos.map((v) => {
+      if (v.id === videoId) {
+        const next = { ...v, ...updates };
+        if (updates.videoUrl) {
+          const norm = normalizeVideoUrl(updates.videoUrl);
+          next.videoUrl = norm;
+          next.url = norm;
+        } else if (updates.url) {
+          const norm = normalizeVideoUrl(updates.url);
+          next.videoUrl = norm;
+          next.url = norm;
+        }
+        if (updates.posterUrl) {
+          next.posterUrl = updates.posterUrl;
+          next.thumbnailUrl = updates.posterUrl;
+        } else if (updates.thumbnailUrl) {
+          next.posterUrl = updates.thumbnailUrl;
+          next.thumbnailUrl = updates.thumbnailUrl;
+        }
+        return next;
+      }
+      return v;
+    });
+    const updatedValueProp = {
+      ...formData.valueProp,
+      videos: updatedVideos,
+    };
     setFormData({
       ...formData,
-      valueProp: {
-        ...formData.valueProp,
-        videos: currentVideos.map((v) => {
-          if (v.id === videoId) {
-            const next = { ...v, ...updates };
-            if (updates.videoUrl) {
-              const norm = normalizeVideoUrl(updates.videoUrl);
-              next.videoUrl = norm;
-              next.url = norm;
-            } else if (updates.url) {
-              const norm = normalizeVideoUrl(updates.url);
-              next.videoUrl = norm;
-              next.url = norm;
-            }
-            if (updates.posterUrl) {
-              next.posterUrl = updates.posterUrl;
-              next.thumbnailUrl = updates.posterUrl;
-            } else if (updates.thumbnailUrl) {
-              next.posterUrl = updates.thumbnailUrl;
-              next.thumbnailUrl = updates.thumbnailUrl;
-            }
-            return next;
-          }
-          return v;
-        }),
-      },
+      valueProp: updatedValueProp,
     });
+    if (updates.videoUrl || updates.url || updates.posterUrl || updates.thumbnailUrl) {
+      autoSavePropuestaPartial({ videos: updatedVideos });
+    }
   };
 
   // DEDICATED REAL-TIME SAVE FOR PROPUESTA SECTION
@@ -657,6 +716,7 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
         })
       );
 
+      setIsDirty(false);
       alert(
         '✅ ¡Cambios de la Propuesta de Valor guardados exitosamente!\n\n' +
         `Los títulos, videos render (${cleanValueProp.videos?.length || 0}), fotografías y pilares se han grabado y sincronizado permanentemente en la Base de Datos MariaDB y Firebase Cloud.`
@@ -1064,7 +1124,13 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-hidden">
+    <div
+      id="cms-admin-modal-root"
+      style={{ display: isOpen ? undefined : 'none' }}
+      className={`fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-hidden transition-all duration-200 ${
+        isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+      }`}
+    >
       <div className="bg-stone-900 border border-stone-700 text-stone-100 rounded-2xl w-full max-w-6xl h-[92vh] flex flex-col shadow-2xl overflow-hidden">
         {/* MODAL HEADER */}
         <div className="p-4 sm:p-5 border-b border-stone-800 flex items-center justify-between bg-stone-950">
@@ -1104,10 +1170,17 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2.5">
-            <span className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-950/70 border border-emerald-500/40 text-[11px] font-semibold text-emerald-300">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>DB Conectada en Tiempo Real</span>
-            </span>
+            {isDirty ? (
+              <span className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-950/70 border border-amber-500/40 text-[11px] font-semibold text-amber-300">
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                <span>Edición Activa (Sincronización Congelada)</span>
+              </span>
+            ) : (
+              <span className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-950/70 border border-emerald-500/40 text-[11px] font-semibold text-emerald-300">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span>DB Conectada en Tiempo Real</span>
+              </span>
+            )}
 
             {(saveSuccess || lotsSaveSuccess) && (
               <span className="inline-flex items-center gap-1 text-xs text-emerald-400 font-semibold px-2.5 py-1 bg-emerald-950/60 border border-emerald-500/40 rounded-lg animate-fadeIn">
@@ -1743,12 +1816,13 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                     <input
                       type="checkbox"
                       checked={formData.valueProp?.active !== false}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setFormData({
                           ...formData,
                           valueProp: { ...formData.valueProp, active: e.target.checked },
-                        })
-                      }
+                        });
+                        setIsDirty(true);
+                      }}
                       className="sr-only peer"
                     />
                     <div className="w-11 h-6 bg-stone-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
@@ -1760,9 +1834,10 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                   <input
                     type="text"
                     value={formData.valueProp.title}
-                    onChange={(e) =>
-                      setFormData({ ...formData, valueProp: { ...formData.valueProp, title: e.target.value } })
-                    }
+                    onChange={(e) => {
+                      setFormData({ ...formData, valueProp: { ...formData.valueProp, title: e.target.value } });
+                      setIsDirty(true);
+                    }}
                     className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white"
                   />
                 </div>
@@ -1772,9 +1847,10 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                     type="text"
                     value={formData.valueProp.subtitle || ''}
                     placeholder="Ej. Fusión de Tradición, Tecnología y Respeto por la Naturaleza"
-                    onChange={(e) =>
-                      setFormData({ ...formData, valueProp: { ...formData.valueProp, subtitle: e.target.value } })
-                    }
+                    onChange={(e) => {
+                      setFormData({ ...formData, valueProp: { ...formData.valueProp, subtitle: e.target.value } });
+                      setIsDirty(true);
+                    }}
                     className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white"
                   />
                 </div>
@@ -1783,9 +1859,10 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                   <textarea
                     rows={2}
                     value={formData.valueProp.description}
-                    onChange={(e) =>
-                      setFormData({ ...formData, valueProp: { ...formData.valueProp, description: e.target.value } })
-                    }
+                    onChange={(e) => {
+                      setFormData({ ...formData, valueProp: { ...formData.valueProp, description: e.target.value } });
+                      setIsDirty(true);
+                    }}
                     className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white"
                   />
                 </div>
@@ -1794,15 +1871,17 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                     id="valueprop-terrain-media"
                     label="Fotografía / Render del Terreno Real (Sabana Larga)"
                     value={formData.valueProp.imageUrl || ''}
-                    onChange={(newUrl) =>
+                    onChange={(newUrl) => {
                       setFormData({
                         ...formData,
                         valueProp: {
                           ...formData.valueProp,
                           imageUrl: newUrl,
                         },
-                      })
-                    }
+                      });
+                      setIsDirty(true);
+                      autoSavePropuestaPartial({ imageUrl: newUrl });
+                    }}
                     mediaType="image"
                     placeholder="Seleccione origen: Subir archivo, Biblioteca del Ranch o Enlace Web..."
                     helperText="Imagen del terreno y paisaje montañoso mostrada en la vista previa del proyecto."

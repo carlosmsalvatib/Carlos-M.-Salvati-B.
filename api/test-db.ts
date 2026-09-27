@@ -1,9 +1,8 @@
-import { checkConnection, getLots } from './db';
-
 export default async function handler(req: any, res: any) {
   try {
-    const conn = await checkConnection();
-    const lots = await getLots();
+    const db = await import('./db.js');
+    const conn = await db.checkConnection();
+    const lots = await db.getLots();
     res.status(200).json({
       success: true,
       dbConnected: conn.ok,
@@ -11,6 +10,11 @@ export default async function handler(req: any, res: any) {
       lotsCount: lots ? lots.length : 0,
     });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+    res.status(200).json({
+      success: false,
+      errorMessage: err.message,
+      errorCode: err.code,
+      stack: err.stack,
+    });
   }
 }

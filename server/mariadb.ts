@@ -23,7 +23,7 @@ export function sanitizeHost(h: string): string {
  */
 export function resolveEffectiveHost(h: string): string {
   const clean = sanitizeHost(h);
-  if (clean === 'www.360siace.com' || clean === '360siace.com' || clean === 'misdelirios.360siace.com') {
+  if (clean === 'www.360siace.com' || clean === '360siace.com' || clean === 'misdelirios.360siace.com' || clean === 'misdeliriosranch.360siace.com') {
     return '45.79.40.132';
   }
   return clean;

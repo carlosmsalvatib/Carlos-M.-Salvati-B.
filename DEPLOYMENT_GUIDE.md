@@ -1,5 +1,5 @@
 # Guía Completa de Despliegue: Mis Delirios Ranch
-### Subdominio oficial: `misdelirios.360siace.com` | Base de Datos: MariaDB `siacecom_misdelirios`
+### Subdominio oficial: `misdeliriosranch.360siace.com` | Base de Datos: MariaDB `siacecom_misdelirios`
 
 ---
 
@@ -16,7 +16,7 @@ Tienes **dos formas principales** de desplegarla:
 | **Velocidad con MariaDB** | **Latencia Cero** (conexión local directa) | Depende del enlace Vercel -> Servidor |
 | **Archivos subidos (Videos/Fotos)** | **Permanentes en disco** en `data/uploads/` | Requiere que `/api/upload` apunte al servidor |
 | **Tiempo Real (SSE)** | Conexión directa persistente sin límites | Conexión a través del proxy del servidor |
-| **Dominio `misdelirios.360siace.com`** | Configurado en Nginx / Apache / cPanel del servidor | Configurado en panel de Vercel con CNAME DNS |
+| **Dominio `misdeliriosranch.360siace.com`** | Configurado en Nginx / Apache / cPanel del servidor | Configurado en panel de Vercel con CNAME DNS |
 
 ---
 
@@ -73,12 +73,12 @@ Esta es la opción más sencilla y robusta porque la base de datos MariaDB ya se
    pm2 startup
    ```
 
-4. **Configurar el subdominio `misdelirios.360siace.com` en Nginx o Apache**:
+4. **Configurar el subdominio `misdeliriosranch.360siace.com` en Nginx o Apache**:
    
    **Si usas Nginx**:
    ```nginx
    server {
-       server_name misdelirios.360siace.com;
+       server_name misdeliriosranch.360siace.com;
 
        location / {
            proxy_pass http://127.0.0.1:3000;
@@ -96,16 +96,16 @@ Esta es la opción más sencilla y robusta porque la base de datos MariaDB ya se
    ```
 
    **Si usas cPanel / Apache**:
-   - En cPanel ve a **Subdominios** y crea `misdelirios.360siace.com`.
+   - En cPanel ve a **Subdominios** y crea `misdeliriosranch.360siace.com`.
    - Agrega en el `.htaccess` o como Application Manager la redirección inversa al puerto `3000`.
 
 5. **Certificado SSL**:
-   - En Nginx: `certbot --nginx -d misdelirios.360siace.com`
+   - En Nginx: `certbot --nginx -d misdeliriosranch.360siace.com`
    - En cPanel: Activar AutoSSL gratuito.
 
 ---
 
-## 4. Opción B: Despliegue en Vercel con el subdominio `misdelirios.360siace.com`
+## 4. Opción B: Despliegue en Vercel con el subdominio `misdeliriosranch.360siace.com`
 
 Si prefieres usar la infraestructura global de Vercel para el Frontend:
 
@@ -118,9 +118,9 @@ Si prefieres usar la infraestructura global de Vercel para el Frontend:
    - Output Directory: `dist`.
    - Haz clic en **Deploy**.
 
-2. **Asignar el subdominio `misdelirios.360siace.com` en Vercel**:
+2. **Asignar el subdominio `misdeliriosranch.360siace.com` en Vercel**:
    - Ve a tu proyecto en Vercel > **Settings** > **Domains**.
-   - Escribe: `misdelirios.360siace.com` y pulsa **Add**.
+   - Escribe: `misdeliriosranch.360siace.com` y pulsa **Add**.
 
 3. **Configurar el DNS en el registrador/proveedor de `360siace.com`**:
    - Abre la zona DNS de tu dominio `360siace.com` (en cPanel, Cloudflare, Linode, etc.).
@@ -132,7 +132,7 @@ Si prefieres usar la infraestructura global de Vercel para el Frontend:
    - Vercel verificará el CNAME y generará automáticamente el certificado SSL (HTTPS).
 
 4. **Redirección de API y Base de Datos**:
-   - En `vercel.json`, las rutas `/api/*` están preparadas para redirigirse a tu servidor backend (`https://misdelirios.360siace.com/api/$1` o `http://45.79.40.132:3000/api/$1`), garantizando que la base de datos MariaDB y los videos subidos funcionen sin problemas.
+   - En `vercel.json`, las rutas `/api/*` están preparadas para redirigirse a tu servidor backend (`https://misdeliriosranch.360siace.com/api/$1` o `http://45.79.40.132:3000/api/$1`), garantizando que la base de datos MariaDB y los videos subidos funcionen sin problemas.
 
 ---
 

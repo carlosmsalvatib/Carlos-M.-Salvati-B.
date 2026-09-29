@@ -57,8 +57,8 @@ export const Navbar: React.FC<NavbarProps> = ({
       id="main-navbar"
       className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${
         isScrolled
-          ? 'bg-stone-900/98 backdrop-blur-md shadow-xl border-b border-stone-800/90 py-2.5'
-          : 'bg-gradient-to-b from-stone-950/90 via-stone-950/60 to-transparent py-3.5'
+          ? 'bg-paramo-basalto/98 backdrop-blur-md shadow-xl border-b border-paramo-verde/80 py-2.5'
+          : 'bg-gradient-to-b from-paramo-basalto/95 via-paramo-basalto/70 to-transparent py-3.5'
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -69,7 +69,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="flex items-center gap-3 group text-left focus:outline-none"
             id="nav-brand-link"
           >
-            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full overflow-hidden bg-emerald-800 border-2 border-amber-400/90 shadow-md flex items-center justify-center transition-transform group-hover:scale-105">
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full overflow-hidden bg-paramo-verde border-2 border-paramo-bambu shadow-md flex items-center justify-center transition-transform group-hover:scale-105">
               <img
                 src={content.site.logoUrl || '/api/images/logo'}
                 alt="Logo Mis Delirios Ranch"
@@ -78,10 +78,10 @@ export const Navbar: React.FC<NavbarProps> = ({
               />
             </div>
             <div className="flex flex-col">
-              <span className="font-serif font-bold text-white text-sm sm:text-base tracking-wide leading-tight group-hover:text-amber-400 transition-colors">
+              <span className="font-serif font-bold text-paramo-hueso text-sm sm:text-base tracking-wide leading-tight group-hover:text-paramo-bambu transition-colors">
                 MIS DELIRIOS RANCH
               </span>
-              <span className="text-[10px] sm:text-xs text-stone-300 tracking-wider uppercase font-medium">
+              <span className="text-[10px] sm:text-xs text-paramo-salvia tracking-wider uppercase font-medium">
                 Complejo Agroproductivo & Turístico
               </span>
             </div>
@@ -97,8 +97,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                   onClick={() => handlePageClick(p.id)}
                   className={`px-3 py-1.5 text-xs xl:text-sm font-medium rounded-lg transition-all ${
                     isActive
-                      ? 'bg-amber-500 text-stone-950 font-bold shadow-md shadow-amber-500/20'
-                      : 'text-stone-200 hover:text-amber-400 hover:bg-stone-800/60'
+                      ? 'bg-paramo-terracota text-paramo-hueso font-bold shadow-md shadow-paramo-terracota/30'
+                      : 'text-paramo-hueso/90 hover:text-paramo-bambu hover:bg-paramo-verde/70'
                   }`}
                   id={`nav-link-${p.id}`}
                 >
@@ -115,7 +115,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               href={whatsappUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-all hover:scale-105"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-paramo-salvia hover:bg-[#839077] text-paramo-basalto shadow-sm transition-all hover:scale-105"
               id="nav-whatsapp-btn"
               title="Chatear por WhatsApp con asesor oficial"
             >
@@ -126,7 +126,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Quick Cotizar CTA */}
             <button
               onClick={() => handlePageClick('contacto')}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-stone-950 shadow-md transition-all hover:scale-105"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-paramo-terracota hover:bg-[#8e4424] text-paramo-hueso shadow-md transition-all hover:scale-105"
               id="nav-reserve-cta"
             >
               <span>Cotizar Lote</span>
@@ -137,8 +137,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               onClick={onOpenCms}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                 currentUser
-                  ? 'bg-amber-500/20 text-amber-300 border-amber-400/50 hover:bg-amber-500/30'
-                  : 'bg-stone-800/90 text-stone-300 border-stone-700 hover:bg-stone-700 hover:text-white'
+                  ? 'bg-paramo-bambu/20 text-paramo-bambu border-paramo-bambu/50 hover:bg-paramo-bambu/30'
+                  : 'bg-paramo-basalto/90 text-paramo-hueso border-paramo-salvia/40 hover:bg-paramo-verde hover:text-paramo-bambu'
               }`}
               id="nav-cms-toggle-btn"
               title="Accesos CMS (requiere credenciales)"

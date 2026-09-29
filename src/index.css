@@ -3,10 +3,19 @@
 @theme {
   --font-serif: "Playfair Display", Georgia, serif;
   --font-sans: "Montserrat", -apple-system, BlinkMacSystemFont, sans-serif;
+
+  --color-paramo-verde: #263A2E;
+  --color-paramo-salvia: #94A188;
+  --color-paramo-bambu: #CDBB92;
+  --color-paramo-terracota: #A6522E;
+  --color-paramo-hueso: #F7F5F2;
+  --color-paramo-basalto: #24221E;
 }
 
 html {
   scroll-behavior: smooth;
+  background-color: #24221E;
+  color: #F7F5F2;
 }
 
 /* Custom scrollbars */
@@ -15,14 +24,14 @@ html {
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #f5f5f4;
+  background: #24221E;
 }
 ::-webkit-scrollbar-thumb {
-  background: #a8a29e;
+  background: #94A188;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #78716c;
+  background: #A6522E;
 }
 
 /* Custom scrollbar for horizontal CMS tabs navigation */
@@ -30,7 +39,7 @@ html {
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
-  scrollbar-color: #78716c #1c1917;
+  scrollbar-color: #94A188 #24221E;
 }
 
 .cms-tabs-scrollbar::-webkit-scrollbar {
@@ -38,18 +47,19 @@ html {
 }
 
 .cms-tabs-scrollbar::-webkit-scrollbar-track {
-  background: #1c1917;
+  background: #24221E;
   border-radius: 9999px;
   margin: 0 4px;
 }
 
 .cms-tabs-scrollbar::-webkit-scrollbar-thumb {
-  background: #57534e;
+  background: #94A188;
   border-radius: 9999px;
-  border: 1px solid #292524;
+  border: 1px solid #263A2E;
 }
 
 .cms-tabs-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #d97706;
+  background: #A6522E;
 }
+
 

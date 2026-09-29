@@ -100,22 +100,27 @@ export const FooterSection: React.FC<FooterSectionProps> = ({ content, onOpenCms
 
           {/* Credits and Authorship Column */}
           <div className="lg:col-span-4 space-y-3">
-            <h4 className="font-serif font-bold text-white text-base">Créditos Profesionales</h4>
-            <div className="space-y-2 text-xs sm:text-sm text-stone-300 bg-stone-900/60 p-4 rounded-xl border border-stone-800">
+            <h4 className="font-serif font-bold text-paramo-hueso text-base">Créditos Profesionales</h4>
+            <div className="space-y-2.5 text-xs sm:text-sm text-paramo-hueso/90 bg-paramo-verde/40 p-4 rounded-xl border border-paramo-salvia/30">
               <div>
-                <span className="text-stone-400 block text-[11px] uppercase tracking-wider">Promotor Principal:</span>
-                <strong className="text-white">{footer.credits.promoter}</strong>
-                <span className="block text-[11px] text-stone-400">{footer.credits.promoterCi}</span>
+                <span className="text-paramo-salvia block text-[11px] uppercase tracking-wider font-semibold">Promotor Principal:</span>
+                <strong className="text-paramo-hueso">{footer.credits.promoter}</strong>
+                <span className="block text-[11px] text-paramo-salvia">{footer.credits.promoterCi}</span>
               </div>
-              <div className="pt-2 border-t border-stone-800">
-                <span className="text-stone-400 block text-[11px] uppercase tracking-wider">Proyectista Arquitectónico:</span>
-                <strong className="text-white">{footer.credits.architect}</strong>
-                <span className="block text-[11px] text-stone-400">{footer.credits.architectCiv}</span>
+              <div className="pt-2 border-t border-paramo-salvia/20">
+                <span className="text-paramo-salvia block text-[11px] uppercase tracking-wider font-semibold">Proyectista Arquitectónico:</span>
+                <strong className="text-paramo-hueso">{footer.credits.architect}</strong>
+                <span className="block text-[11px] text-paramo-salvia">{footer.credits.architectCiv}</span>
+              </div>
+              <div className="pt-2 border-t border-paramo-salvia/20">
+                <span className="text-paramo-salvia block text-[11px] uppercase tracking-wider font-semibold">Director Comercial:</span>
+                <strong className="text-paramo-hueso">{footer.credits.commercialDirector || 'Lic. Audy Palacio'}</strong>
+                <span className="block text-[11px] text-paramo-salvia">Cel. {footer.credits.commercialDirectorPhone || '+58-414-7114245'}</span>
               </div>
             </div>
 
-            <div className="text-xs text-stone-400 flex items-center gap-2">
-              <MapPin className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+            <div className="text-xs text-paramo-salvia flex items-center gap-2">
+              <MapPin className="w-3.5 h-3.5 text-paramo-bambu flex-shrink-0" />
               <span>Aldea Sabana Larga y Sector Salomón · Cordero, Táchira</span>
             </div>
           </div>

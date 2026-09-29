@@ -333,6 +333,8 @@ export interface CmsContent {
     credits: {
       promoter: string;
       architect: string;
+      commercialDirector?: string;
+      commercialDirectorPhone?: string;
       promoterCi: string;
       architectCiv: string;
     };

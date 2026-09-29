@@ -490,6 +490,8 @@ export const initialCmsContent: CmsContent = {
     credits: {
       promoter: 'Dr. Néstor Eduardo Depablos Mora',
       architect: 'Arq. Indira Contreras',
+      commercialDirector: 'Lic. Audy Palacio',
+      commercialDirectorPhone: '+58-414-7114245',
       promoterCi: 'C.I. V-5.685.149 / V-9.226.372 / V-11.509.606 / V-12.813.704',
       architectCiv: 'C.I.V. 165.492',
     },

@@ -143,7 +143,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               id="nav-cms-toggle-btn"
               title="Accesos CMS (requiere credenciales)"
             >
-              <Settings className="w-3.5 h-3.5 text-amber-400" />
+              <Settings className="w-3.5 h-3.5 text-paramo-bambu" />
               <span className="hidden xl:inline">
                 {currentUser ? `CMS (${currentUser.name?.split(' ')[0]})` : 'Accesos CMS'}
               </span>
@@ -154,7 +154,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="flex items-center gap-2 sm:hidden">
             <button
               onClick={onOpenCms}
-              className="p-2 rounded-lg bg-stone-800 text-amber-400 border border-stone-700"
+              className="p-2 rounded-lg bg-paramo-verde text-paramo-bambu border border-paramo-bambu/40"
               title="Accesos CMS"
               id="nav-mobile-cms-btn"
             >
@@ -162,7 +162,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-lg bg-stone-800 text-stone-200 hover:text-white hover:bg-stone-700 focus:outline-none"
+              className="p-2 rounded-lg bg-paramo-verde text-paramo-hueso hover:text-paramo-bambu hover:bg-paramo-salvia/30 focus:outline-none"
               aria-label="Menú móvil"
               id="nav-mobile-toggle-btn"
             >
@@ -174,16 +174,16 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Mobile dropdown menu */}
       {mobileMenuOpen && (
-        <div className="sm:hidden bg-stone-900/98 border-b border-stone-800 px-4 pt-3 pb-6 space-y-2 shadow-2xl animate-fadeIn">
-          <div className="grid grid-cols-2 gap-2 pb-3 border-b border-stone-800">
+        <div className="sm:hidden bg-paramo-basalto border-b border-paramo-verde/80 px-4 pt-3 pb-6 space-y-2 shadow-2xl animate-fadeIn">
+          <div className="grid grid-cols-2 gap-2 pb-3 border-b border-paramo-verde/60">
             {pages.map((p) => (
               <button
                 key={p.id}
                 onClick={() => handlePageClick(p.id)}
                 className={`text-left px-3 py-2 text-xs font-semibold rounded-lg transition-colors ${
                   currentPage === p.id
-                    ? 'bg-amber-500 text-stone-950 font-bold'
-                    : 'text-stone-200 hover:text-amber-400 hover:bg-stone-800/60'
+                    ? 'bg-paramo-terracota text-paramo-hueso font-bold'
+                    : 'text-paramo-hueso hover:text-paramo-bambu hover:bg-paramo-verde/70'
                 }`}
               >
                 {p.label}
@@ -194,7 +194,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="pt-2 flex flex-col gap-2.5">
             <button
               onClick={() => handlePageClick('contacto')}
-              className="w-full text-center py-2.5 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-400 text-stone-950 transition-colors shadow-md"
+              className="w-full text-center py-2.5 rounded-lg text-xs font-bold bg-paramo-terracota hover:bg-[#8e4424] text-paramo-hueso transition-colors shadow-md"
             >
               Cotizar Preventa (Desde 10% Reserva)
             </button>
@@ -202,7 +202,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               href={whatsappUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors shadow-md"
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold bg-paramo-salvia hover:bg-[#839077] text-paramo-basalto transition-colors shadow-md"
             >
               <MessageCircle className="w-4 h-4 fill-current" />
               Chatear por WhatsApp (+58 414-7114245)

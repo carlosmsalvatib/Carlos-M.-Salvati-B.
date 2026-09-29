@@ -4,12 +4,96 @@
   --font-serif: "Playfair Display", Georgia, serif;
   --font-sans: "Montserrat", -apple-system, BlinkMacSystemFont, sans-serif;
 
+  /* Official Páramo Palette Hex Codes */
   --color-paramo-verde: #263A2E;
   --color-paramo-salvia: #94A188;
   --color-paramo-bambu: #CDBB92;
   --color-paramo-terracota: #A6522E;
   --color-paramo-hueso: #F7F5F2;
   --color-paramo-basalto: #24221E;
+
+  /* Universal mapping of default Tailwind color families to the 6 Páramo colors */
+  --color-emerald-50: #F7F5F2;
+  --color-emerald-100: #F7F5F2;
+  --color-emerald-200: #CDBB92;
+  --color-emerald-300: #94A188;
+  --color-emerald-400: #94A188;
+  --color-emerald-500: #94A188;
+  --color-emerald-600: #263A2E;
+  --color-emerald-700: #263A2E;
+  --color-emerald-800: #263A2E;
+  --color-emerald-900: #24221E;
+  --color-emerald-950: #24221E;
+
+  --color-stone-50: #F7F5F2;
+  --color-stone-100: #F7F5F2;
+  --color-stone-200: #F7F5F2;
+  --color-stone-300: #CDBB92;
+  --color-stone-400: #94A188;
+  --color-stone-500: #94A188;
+  --color-stone-600: #94A188;
+  --color-stone-700: #263A2E;
+  --color-stone-800: #263A2E;
+  --color-stone-900: #24221E;
+  --color-stone-950: #24221E;
+
+  --color-amber-50: #F7F5F2;
+  --color-amber-100: #F7F5F2;
+  --color-amber-200: #CDBB92;
+  --color-amber-300: #CDBB92;
+  --color-amber-400: #CDBB92;
+  --color-amber-500: #A6522E;
+  --color-amber-600: #A6522E;
+  --color-amber-700: #A6522E;
+  --color-amber-800: #A6522E;
+  --color-amber-900: #263A2E;
+  --color-amber-950: #24221E;
+
+  --color-slate-50: #F7F5F2;
+  --color-slate-100: #F7F5F2;
+  --color-slate-200: #CDBB92;
+  --color-slate-300: #94A188;
+  --color-slate-400: #94A188;
+  --color-slate-500: #94A188;
+  --color-slate-600: #263A2E;
+  --color-slate-700: #263A2E;
+  --color-slate-800: #24221E;
+  --color-slate-900: #24221E;
+  --color-slate-950: #24221E;
+
+  --color-gray-50: #F7F5F2;
+  --color-gray-100: #F7F5F2;
+  --color-gray-200: #CDBB92;
+  --color-gray-300: #94A188;
+  --color-gray-400: #94A188;
+  --color-gray-500: #94A188;
+  --color-gray-600: #263A2E;
+  --color-gray-700: #263A2E;
+  --color-gray-800: #24221E;
+  --color-gray-900: #24221E;
+  --color-gray-950: #24221E;
+
+  --color-zinc-50: #F7F5F2;
+  --color-zinc-100: #F7F5F2;
+  --color-zinc-200: #CDBB92;
+  --color-zinc-300: #94A188;
+  --color-zinc-400: #94A188;
+  --color-zinc-500: #94A188;
+  --color-zinc-600: #263A2E;
+  --color-zinc-700: #263A2E;
+  --color-zinc-800: #24221E;
+  --color-zinc-900: #24221E;
+  --color-zinc-950: #24221E;
+
+  --color-red-400: #A6522E;
+  --color-red-500: #A6522E;
+  --color-red-600: #A6522E;
+  --color-red-700: #A6522E;
+
+  --color-green-400: #94A188;
+  --color-green-500: #94A188;
+  --color-green-600: #263A2E;
+  --color-green-700: #263A2E;
 }
 
 html {
@@ -18,7 +102,7 @@ html {
   color: #F7F5F2;
 }
 
-/* Custom scrollbars */
+/* Custom scrollbars using Páramo palette */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;

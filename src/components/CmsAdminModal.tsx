@@ -3573,7 +3573,7 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-stone-300 mb-1 font-semibold">Precio Base USD/m²</label>
+                  <label className="block text-stone-300 mb-1 font-semibold">Precio Base Mts</label>
                   <input
                     type="number"
                     value={formData.salesFinancing.pricePerM2Usd}

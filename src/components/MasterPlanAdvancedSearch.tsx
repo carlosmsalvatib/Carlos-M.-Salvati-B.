@@ -48,6 +48,7 @@ export interface MasterPlanAdvancedSearchProps {
   onFilterChange: (newState: LotFilterState) => void;
   filteredCount: number;
   totalCount: number;
+  pricePerM2?: number;
 }
 
 export const MasterPlanAdvancedSearch: React.FC<MasterPlanAdvancedSearchProps> = ({
@@ -56,6 +57,7 @@ export const MasterPlanAdvancedSearch: React.FC<MasterPlanAdvancedSearchProps> =
   onFilterChange,
   filteredCount,
   totalCount,
+  pricePerM2 = 20,
 }) => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
@@ -579,7 +581,7 @@ export const MasterPlanAdvancedSearch: React.FC<MasterPlanAdvancedSearchProps> =
           <div className="pt-3 border-t border-stone-200 flex flex-col sm:flex-row items-center justify-between gap-2.5">
             <div className="text-xs text-stone-600">
               Criterio de cálculo de precio de lista:{' '}
-              <strong className="text-stone-900 font-mono">20 USD/m²</strong> de terreno rural urbanizado.
+              <strong className="text-stone-900 font-mono">{pricePerM2} USD/m²</strong> de terreno rural urbanizado.
             </div>
             <button
               type="button"

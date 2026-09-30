@@ -60,43 +60,47 @@ const VALID_PAGES = [
 
 type PageId = typeof VALID_PAGES[number];
 
-const PAGE_METADATA: Record<PageId, { title: string; subtitle: string }> = {
-  inicio: {
-    title: 'Inicio',
-    subtitle: 'Bienvenido a Mis Delirios Ranch · Complejo Agroproductivo y Turístico',
-  },
-  propuesta: {
-    title: 'Propuesta de Valor & Renders',
-    subtitle: 'Desarrollo sostenible, agroproducción orgánica y bioconstrucción andina',
-  },
-  'plan-maestro': {
-    title: 'Plan Maestro & Catálogo de Lotes',
-    subtitle: '57 parcelas en 2 sectores con planos arquitectónicos e inventario en tiempo real',
-  },
-  modelos: {
-    title: 'Modelos de Vivienda Ecológica',
-    subtitle: 'Arquitectura sismorresistente en bambú Guadua con terrazas y mirador',
-  },
-  ubicacion: {
-    title: 'Ubicación & Entorno Andino',
-    subtitle: 'Cordero, Sabana Larga y Aldea Salomón · Municipio Andrés Bello, Táchira',
-  },
-  perfiles: {
-    title: 'Perfiles de Cliente & Inversión',
-    subtitle: 'Familias, proyectos de retiro, producción ecológica y rentabilidad turística',
-  },
-  financiamiento: {
-    title: 'Planes de Venta & Financiamiento',
-    subtitle: 'Precio base de $20 USD/m² con reserva desde el 10% y simulador de cuotas',
-  },
-  sostenibilidad: {
-    title: 'Sostenibilidad & Bulevar de la Guadua',
-    subtitle: '+14.600 m² de áreas comunales cedidas y alineación con los ODS de la ONU',
-  },
-  contacto: {
-    title: 'Contacto & Cotización Oficial',
-    subtitle: 'Atención personalizada directa de los promotores y equipo técnico',
-  },
+const getPageMetadata = (pageId: PageId, content?: CmsContent): { title: string; subtitle: string } => {
+  const basePrice = content?.salesFinancing?.pricePerM2Usd || 20;
+  const metadata: Record<PageId, { title: string; subtitle: string }> = {
+    inicio: {
+      title: 'Inicio',
+      subtitle: 'Bienvenido a Mis Delirios Ranch · Complejo Agroproductivo y Turístico',
+    },
+    propuesta: {
+      title: 'Propuesta de Valor & Renders',
+      subtitle: 'Desarrollo sostenible, agroproducción orgánica y bioconstrucción andina',
+    },
+    'plan-maestro': {
+      title: 'Plan Maestro & Catálogo de Lotes',
+      subtitle: '57 parcelas en 2 sectores con planos arquitectónicos e inventario en tiempo real',
+    },
+    modelos: {
+      title: 'Modelos de Vivienda Ecológica',
+      subtitle: 'Arquitectura sismorresistente en bambú Guadua con terrazas y mirador',
+    },
+    ubicacion: {
+      title: 'Ubicación & Entorno Andino',
+      subtitle: 'Cordero, Sabana Larga y Aldea Salomón · Municipio Andrés Bello, Táchira',
+    },
+    perfiles: {
+      title: 'Perfiles de Cliente & Inversión',
+      subtitle: 'Familias, proyectos de retiro, producción ecológica y rentabilidad turística',
+    },
+    financiamiento: {
+      title: 'Planes de Venta & Financiamiento',
+      subtitle: `Precio base de $${basePrice} USD/m² con reserva desde el 10% y simulador de cuotas`,
+    },
+    sostenibilidad: {
+      title: 'Sostenibilidad & Bulevar de la Guadua',
+      subtitle: '+14.600 m² de áreas comunales cedidas y alineación con los ODS de la ONU',
+    },
+    contacto: {
+      title: 'Contacto & Cotización Oficial',
+      subtitle: 'Atención personalizada directa de los promotores y equipo técnico',
+    },
+  };
+  return metadata[pageId] || { title: pageId, subtitle: '' };
 };
 
 export function App() {
@@ -550,7 +554,7 @@ export function App() {
                   </button>
                   <ChevronRight className="w-3.5 h-3.5 text-stone-600" />
                   <span className="text-amber-400 font-bold capitalize">
-                    {PAGE_METADATA[currentPage]?.title || currentPage}
+                    {getPageMetadata(currentPage, content).title}
                   </span>
                 </div>
 
@@ -567,10 +571,10 @@ export function App() {
               {/* Sub-header title */}
               <div className="mt-4">
                 <h1 className="font-serif text-2xl sm:text-3xl font-bold text-white tracking-tight">
-                  {PAGE_METADATA[currentPage]?.title}
+                  {getPageMetadata(currentPage, content).title}
                 </h1>
                 <p className="text-xs sm:text-sm text-stone-400 mt-1 max-w-2xl">
-                  {PAGE_METADATA[currentPage]?.subtitle}
+                  {getPageMetadata(currentPage, content).subtitle}
                 </p>
               </div>
             </div>

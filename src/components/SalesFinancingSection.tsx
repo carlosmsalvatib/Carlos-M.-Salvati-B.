@@ -58,7 +58,7 @@ export const SalesFinancingSection: React.FC<SalesFinancingSectionProps> = ({ co
             <span>Condiciones Claras y Flexibles</span>
           </div>
           <h2 className="font-serif text-3xl sm:text-4xl font-bold text-stone-900 tracking-tight mb-4" id="financing-title">
-            {salesFinancing.title || 'Planes de Venta & Compromiso Sostenible – Valor por Metros Cuadrados USD 20,00'}
+            {salesFinancing.title || `Planes de Venta & Compromiso Sostenible – Valor por Metros Cuadrados USD ${pricePerM2}`}
           </h2>
           <p className="text-stone-600 text-base sm:text-lg leading-relaxed">
             Sin intermediarios ni comisiones ocultas. Diseñado para que adquieras tu mini-granja con total tranquilidad jurídica y financiera.
@@ -268,7 +268,7 @@ export const SalesFinancingSection: React.FC<SalesFinancingSectionProps> = ({ co
 
                 <div className="py-4 space-y-3 text-xs sm:text-sm">
                   <div className="flex justify-between">
-                    <span className="text-stone-500">Valor del Terreno ({lotArea} m² × $20):</span>
+                    <span className="text-stone-500">Valor del Terreno ({lotArea} m² × ${pricePerM2}):</span>
                     <span className="font-bold text-stone-900">${lotTotalPrice.toLocaleString('es-VE')} USD</span>
                   </div>
 

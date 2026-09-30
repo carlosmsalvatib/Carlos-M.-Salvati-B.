@@ -46,6 +46,7 @@ export const MasterPlanSection: React.FC<MasterPlanSectionProps> = ({
   onNavigate,
 }) => {
   const { masterPlan } = content;
+  const pricePerM2 = content.salesFinancing?.pricePerM2Usd || 20;
 
   const blueprints: MasterPlanBlueprint[] =
     masterPlan.blueprints && masterPlan.blueprints.length > 0
@@ -467,7 +468,7 @@ export const MasterPlanSection: React.FC<MasterPlanSectionProps> = ({
                 </span>
               </div>
               <p className="text-sm text-stone-600 mt-1">
-                Consulta en tiempo real la disponibilidad, dimensiones y precios calculados a $20 USD/m²
+                Consulta en tiempo real la disponibilidad, dimensiones y precios calculados a ${pricePerM2} USD/m²
               </p>
             </div>
 
@@ -495,6 +496,7 @@ export const MasterPlanSection: React.FC<MasterPlanSectionProps> = ({
             onFilterChange={setFilterState}
             filteredCount={filteredLots.length}
             totalCount={lots.length}
+            pricePerM2={pricePerM2}
           />
 
           {/* Lots Grid / Cards */}
@@ -642,7 +644,7 @@ export const MasterPlanSection: React.FC<MasterPlanSectionProps> = ({
                   </span>
                 </div>
                 <div>
-                  <span className="text-stone-500 block">Precio Lista ($20/m²):</span>
+                  <span className="text-stone-500 block">Precio Lista (${pricePerM2}/m²):</span>
                   <span className="font-serif font-bold text-emerald-800 text-sm">
                     ${selectedLotDetail.totalPriceUsd.toLocaleString('es-VE')} USD
                   </span>

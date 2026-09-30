@@ -15,6 +15,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ content, onNavigate })
 
   if (!hero.active) return null;
 
+  const basePriceM2 = content.salesFinancing?.pricePerM2Usd || 20;
+
   const rawVideoUrl = hero.backgroundVideoUrl || hero.videoUrl || '';
   const normalizedVideoUrl = rawVideoUrl ? normalizeVideoUrl(rawVideoUrl) : '';
   const isEmbedVideo =
@@ -83,7 +85,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ content, onNavigate })
             <Sparkles className="w-4 h-4 text-amber-400" />
             <span>{hero.badgeText || 'Preventa Exclusiva Primera Etapa'}</span>
             <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
-            <span className="text-amber-300 font-bold">{hero.priceBadge || '20 USD/m²'}</span>
+            <span className="text-amber-300 font-bold">{hero.priceBadge && hero.priceBadge !== '20,00 USD/m²' && hero.priceBadge !== '20 USD/m²' ? hero.priceBadge : `${basePriceM2} USD/m²`}</span>
           </div>
         )}
 
@@ -139,8 +141,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ content, onNavigate })
         {/* Key Real Estate Pillars (Bento Strip) */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 max-w-4xl mx-auto pt-6 border-t border-stone-800/80">
           <div className="bg-stone-900/60 border border-stone-800 rounded-xl p-3.5 backdrop-blur-sm text-left">
-            <span className="block text-amber-400 font-serif font-bold text-xl sm:text-2xl">20 USD/m²</span>
-            <span className="text-xs text-stone-300 font-medium">Precio Preventa Garantizado</span>
+            <span className="block text-amber-400 font-serif font-bold text-xl sm:text-2xl">{basePriceM2} USD/m²</span>
+            <span className="text-xs text-stone-300 font-medium">Precio de venta Garantizado</span>
           </div>
           <div className="bg-stone-900/60 border border-stone-800 rounded-xl p-3.5 backdrop-blur-sm text-left">
             <span className="block text-emerald-400 font-serif font-bold text-xl sm:text-2xl">Desde 600 m²</span>

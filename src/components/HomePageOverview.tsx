@@ -36,6 +36,7 @@ export const HomePageOverview: React.FC<HomePageOverviewProps> = ({
   onOpenImageViewer,
 }) => {
   const availableLotsCount = lots.filter((l) => l.status === 'disponible').length;
+  const basePrice = content.salesFinancing?.pricePerM2Usd || 20;
 
   const sectionCards = [
     {
@@ -87,7 +88,7 @@ export const HomePageOverview: React.FC<HomePageOverviewProps> = ({
       id: 'financiamiento',
       title: 'Planes de Venta & Simulador',
       badge: 'Desde 10% Reserva',
-      desc: 'Precio base de $20 USD/m². Simula en línea tu cuota inicial del 50% y plan de 6 mensualidades consecutivas.',
+      desc: `Precio base de $${basePrice} USD/m². Simula en línea tu cuota inicial del 50% y plan de 6 mensualidades consecutivas.`,
       icon: <DollarSign className="w-6 h-6 text-amber-600" />,
       accentColor: 'border-amber-200 hover:border-amber-500 bg-amber-50/40',
       actionText: 'Simular Cuotas de Financiamiento',
@@ -141,7 +142,7 @@ export const HomePageOverview: React.FC<HomePageOverviewProps> = ({
 
             <div className="p-3">
               <span className="block font-serif font-extrabold text-2xl sm:text-3xl text-white">
-                $20 USD/m²
+                ${basePrice} USD/m²
               </span>
               <span className="text-xs text-stone-400 uppercase tracking-wider font-semibold">
                 Precio Preventa Exclusivo
@@ -250,7 +251,7 @@ export const HomePageOverview: React.FC<HomePageOverviewProps> = ({
                 Asegura tu Parcela Agroproductiva con Solo 10% de Reserva
               </h3>
               <p className="text-sm text-stone-300 leading-relaxed">
-                Adquiere tu mini-granja en Sabana Larga a $20 USD/m² con financiamiento directo sin intermediarios bancarios, agua pura de manantial y clima templado constante.
+                Adquiere tu mini-granja en Sabana Larga a ${basePrice} USD/m² con financiamiento directo sin intermediarios bancarios, agua pura de manantial y clima templado constante.
               </p>
             </div>
 

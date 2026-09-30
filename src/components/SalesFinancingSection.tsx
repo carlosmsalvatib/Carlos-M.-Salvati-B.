@@ -24,7 +24,7 @@ export const SalesFinancingSection: React.FC<SalesFinancingSectionProps> = ({ co
 
   if (!salesFinancing.active) return null;
 
-  const pricePerM2 = salesFinancing.pricePerM2Usd || 20;
+  const pricePerM2 = salesFinancing.pricePerM2Usd || 25;
   const lotTotalPrice = Math.round(lotArea * pricePerM2);
 
   const activeHousingModels = (content.housingModels?.models || []).filter((m) => m.active !== false);

@@ -404,8 +404,8 @@ export const initialCmsContent: CmsContent = {
 
   salesFinancing: {
     title: 'Planes de Venta & Compromiso Sostenible',
-    subtitle: 'Valor por Metro Cuadrado: USD 20,00',
-    pricePerM2Usd: 20.0,
+    subtitle: 'Valor por Metro Cuadrado: USD 25,00',
+    pricePerM2Usd: 25.0,
     modalities: [
       {
         id: 'm1',

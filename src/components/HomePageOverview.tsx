@@ -36,7 +36,7 @@ export const HomePageOverview: React.FC<HomePageOverviewProps> = ({
   onOpenImageViewer,
 }) => {
   const availableLotsCount = lots.filter((l) => l.status === 'disponible').length;
-  const basePrice = content.salesFinancing?.pricePerM2Usd || 20;
+  const basePrice = content.salesFinancing?.pricePerM2Usd || 25;
 
   const sectionCards = [
     {

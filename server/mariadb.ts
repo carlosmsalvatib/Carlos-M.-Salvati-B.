@@ -1183,8 +1183,8 @@ export async function saveMariaDbSection(sectionKey: string, sectionData: any): 
         const sf = sectionData || {};
         const id = 'salesFinancing';
         const title = sf.title || '';
-        const subtitle = sf.subtitle || '';
-        const pricePerM2Usd = Number(sf.pricePerM2Usd) || 0;
+        const pricePerM2Usd = Number(sf.pricePerM2Usd) || 25;
+        const subtitle = sf.subtitle || `Valor por Metro Cuadrado: USD ${pricePerM2Usd.toFixed(2).replace('.', ',')}`;
         const specialPromo = sf.specialPromo || '';
         const legalNotice = sf.legalNotice || '';
         const active = sf.active !== false;
@@ -1205,6 +1205,24 @@ export async function saveMariaDbSection(sectionKey: string, sectionData: any): 
             updated_at = NOW();`,
           [id, title, subtitle, pricePerM2Usd, specialPromo, legalNotice, active, dataJson]
         );
+
+        if (pricePerM2Usd > 0) {
+          await pool.query(
+            `UPDATE lots l
+             CROSS JOIN cms_section_sales_financing sf
+             SET 
+                 l.price_usd_per_m2 = sf.price_per_m2_usd,
+                 l.total_price_usd = ROUND(l.area_m2 * sf.price_per_m2_usd),
+                 l.data_json = JSON_SET(
+                     l.data_json,
+                     '$.priceUsdPerM2', sf.price_per_m2_usd,
+                     '$.pricePerM2Usd', sf.price_per_m2_usd,
+                     '$.totalPriceUsd', ROUND(l.area_m2 * sf.price_per_m2_usd)
+                 ),
+                 l.updated_at = NOW()
+             WHERE sf.id = 'salesFinancing';`
+          ).catch((e: any) => console.warn('[MariaDB] Error actualizando lotes en salesFinancing:', e));
+        }
         return true;
       }
 

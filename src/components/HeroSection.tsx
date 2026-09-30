@@ -15,7 +15,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ content, onNavigate })
 
   if (!hero.active) return null;
 
-  const basePriceM2 = content.salesFinancing?.pricePerM2Usd || 20;
+  const basePriceM2 = content.salesFinancing?.pricePerM2Usd || 25;
 
   const rawVideoUrl = hero.backgroundVideoUrl || hero.videoUrl || '';
   const normalizedVideoUrl = rawVideoUrl ? normalizeVideoUrl(rawVideoUrl) : '';

@@ -401,10 +401,20 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
     setSaving(true);
     setSavingLots(true);
     try {
+      // Recalculate lot prices using the base price per m2 from CMS/Finanzas
+      const basePriceM2 = formData.salesFinancing?.pricePerM2Usd || 25;
+      const lotsWithUpdatedPrice = localLots.map((lot) => ({
+        ...lot,
+        priceUsdPerM2: basePriceM2,
+        pricePerM2Usd: basePriceM2,
+        totalPriceUsd: Math.round((lot.areaM2 || 0) * basePriceM2),
+      }));
+      setLocalLots(lotsWithUpdatedPrice);
+
       // Persist all CMS, housing models, and lots simultaneously with automatic image conversion
       const result = await saveAllCmsAndLots(
         formData,
-        localLots,
+        lotsWithUpdatedPrice,
         `Sincronización global CMS (${new Date().toLocaleTimeString('es-VE')})`
       );
       if (result && result.content) {
@@ -463,7 +473,7 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
   };
 
   const handleLocalLotAreaChange = (lotId: string, areaM2: number) => {
-    const pricePerM2 = formData.salesFinancing.pricePerM2Usd || 20;
+    const pricePerM2 = formData.salesFinancing.pricePerM2Usd || 25;
     setLocalLots((prev) =>
       prev.map((l) =>
         l.id === lotId
@@ -481,7 +491,7 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
     e.preventDefault();
     if (!newLotCode.trim()) return;
 
-    const pricePerM2 = formData.salesFinancing.pricePerM2Usd || 20;
+    const pricePerM2 = formData.salesFinancing.pricePerM2Usd || 25;
     try {
       const created = await createLot({
         code: newLotCode.trim().toUpperCase(),
@@ -3577,15 +3587,27 @@ export const CmsAdminModal: React.FC<CmsAdminModalProps> = ({
                   <input
                     type="number"
                     value={formData.salesFinancing.pricePerM2Usd}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const newPrice = Number(e.target.value);
                       setFormData({
                         ...formData,
                         salesFinancing: {
                           ...formData.salesFinancing,
-                          pricePerM2Usd: Number(e.target.value),
+                          pricePerM2Usd: newPrice,
+                          subtitle: `Valor por Metro Cuadrado: USD ${newPrice.toFixed(2).replace('.', ',')}`,
                         },
-                      })
-                    }
+                      });
+                      if (newPrice > 0) {
+                        setLocalLots((prev) =>
+                          prev.map((lot) => ({
+                            ...lot,
+                            priceUsdPerM2: newPrice,
+                            pricePerM2Usd: newPrice,
+                            totalPriceUsd: Math.round((lot.areaM2 || 0) * newPrice),
+                          }))
+                        );
+                      }
+                    }}
                     className="w-full px-3 py-2 rounded-lg bg-stone-800 border border-stone-700 text-white"
                   />
                 </div>

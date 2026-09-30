@@ -46,7 +46,7 @@ export const MasterPlanSection: React.FC<MasterPlanSectionProps> = ({
   onNavigate,
 }) => {
   const { masterPlan } = content;
-  const pricePerM2 = content.salesFinancing?.pricePerM2Usd || 20;
+  const pricePerM2 = content.salesFinancing?.pricePerM2Usd || 25;
 
   const blueprints: MasterPlanBlueprint[] =
     masterPlan.blueprints && masterPlan.blueprints.length > 0

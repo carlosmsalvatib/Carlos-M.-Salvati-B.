@@ -172,9 +172,10 @@ export const HousingModelsSection: React.FC<HousingModelsSectionProps> = ({
   };
 
   const handleOpenModelZoom = (model: HousingModel, startIndex: number) => {
-    if (onOpenImageViewer && model.images && model.images.length > 0) {
+    if (onOpenImageViewer) {
+      const modelImages = model.images && model.images.length > 0 ? model.images : ['/api/images/model-a-render'];
       onOpenImageViewer(
-        model.images,
+        modelImages,
         startIndex,
         `${model.name} (${model.areaM2} m²)`,
         `Bioconstrucción en Guadua angustifolia Kunth · 450 USD/m² · $${model.priceUsd.toLocaleString('es-VE')} USD`

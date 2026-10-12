@@ -25,7 +25,7 @@ interface HomePageOverviewProps {
   lots: LotItem[];
   onNavigate: (pageId: string) => void;
   onSelectModelForQuote?: (model: HousingModel) => void;
-  onOpenImageViewer?: (title: string, imageUrl: string, caption?: string) => void;
+  onOpenImageViewer?: (images: string[], index?: number, title?: string, subtitle?: string) => void;
 }
 
 export const HomePageOverview: React.FC<HomePageOverviewProps> = ({
@@ -173,11 +173,7 @@ export const HomePageOverview: React.FC<HomePageOverviewProps> = ({
       {/* 2.3 Propuesta de Valor Integral & Renders Audiovisuales */}
       <ValuePropSection
         content={content}
-        onOpenImageViewer={(images, idx, title, caption) => {
-          if (onOpenImageViewer && images && images.length > 0) {
-            onOpenImageViewer(title || 'Propuesta de Valor', images[idx || 0], caption);
-          }
-        }}
+        onOpenImageViewer={onOpenImageViewer}
         onNavigate={onNavigate}
       />
 

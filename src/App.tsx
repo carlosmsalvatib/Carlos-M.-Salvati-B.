@@ -694,7 +694,9 @@ export function App() {
         isOpen={imageViewerState.isOpen}
         onClose={() => setImageViewerState((prev) => ({ ...prev, isOpen: false }))}
         images={imageViewerState.images}
+        currentIndex={imageViewerState.currentIndex}
         initialIndex={imageViewerState.currentIndex}
+        onIndexChange={(index) => setImageViewerState((prev) => ({ ...prev, currentIndex: index }))}
         title={imageViewerState.title}
         subtitle={imageViewerState.subtitle}
       />
